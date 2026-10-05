@@ -1,0 +1,12 @@
+{
+  "name": "check-on-workspace",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run start:dev --workspace=api",
+    "build:api": "npm run build --workspace=api"
+  }
+}

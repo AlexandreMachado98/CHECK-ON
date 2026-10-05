@@ -1,0 +1,161 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------
+// TENANT MANAGEMENT
+// ---------------------------------------------------------
+
+model Tenant {
+  id          String   @id @default(uuid())
+  name        String
+  cnpj        String?  @unique
+  isActive    Boolean  @default(true)
+  plan        String   @default("STARTER") // STARTER, PRO, ENTERPRISE
+  storageUsed BigInt   @default(0) // in bytes
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
+  roles       Role[]
+  departments Department[]
+  units       Unit[]
+  fleets      Fleet[]
+  vehicles    Vehicle[]
+  checklists  Checklist[]
+}
+
+// ---------------------------------------------------------
+// USERS AND RBAC
+// ---------------------------------------------------------
+
+model Role {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  permissions String[] // e.g. ["checklist:create", "vehicle:read"]
+  isSystem    Boolean  @default(false) // Super admin roles can't be deleted
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
+
+  @@unique([tenantId, name])
+}
+
+model User {
+  id           String    @id @default(uuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  email        String    @unique
+  passwordHash String
+  name         String
+  isActive     Boolean   @default(true)
+  roleId       String
+  role         Role      @relation(fields: [roleId], references: [id])
+  employeeId   String?   @unique
+  employee     Employee? @relation(fields: [employeeId], references: [id])
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([tenantId])
+}
+
+model Employee {
+  id         String   @id @default(uuid())
+  tenantId   String
+  matricula  String?
+  name       String
+  jobTitle   String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user       User?
+}
+
+// ---------------------------------------------------------
+// ORGANIZATIONAL STRUCTURE
+// ---------------------------------------------------------
+
+model Unit {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  fleets    Fleet[]
+}
+
+model Department {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------
+// FLEET MANAGEMENT
+// ---------------------------------------------------------
+
+model Fleet {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  unitId    String
+  unit      Unit     @relation(fields: [unitId], references: [id])
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  vehicles  Vehicle[]
+}
+
+model Vehicle {
+  id           String   @id @default(uuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  fleetId      String
+  fleet        Fleet    @relation(fields: [fleetId], references: [id])
+  plate        String
+  prefix       String?
+  brand        String?
+  model        String?
+  year         Int?
+  status       String   @default("LIBERADO") // LIBERADO, ATENCAO, BLOQUEADO
+  mileage      Int      @default(0)
+  qrCode       String?  @unique
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([tenantId, plate])
+}
+
+// ---------------------------------------------------------
+// CHECKLISTS (Foundation models for now)
+// ---------------------------------------------------------
+
+model Checklist {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
