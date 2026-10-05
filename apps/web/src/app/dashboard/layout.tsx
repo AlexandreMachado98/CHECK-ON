@@ -7,11 +7,12 @@ import { Button } from '@/components/ui/button';
 import type { AuthUser } from '@/lib/types';
 
 const NAV_LINKS = [
-  { name: 'Visão Geral',  path: '/dashboard' },
-  { name: 'Frotas',       path: '/dashboard/fleets' },
-  { name: 'Veículos',     path: '/dashboard/vehicles' },
-  { name: 'Colaboradores', path: '/dashboard/employees' },
-  { name: 'Usuários',     path: '/dashboard/users' },
+  { name: 'Visão Geral',       path: '/dashboard' },
+  { name: 'Frotas',            path: '/dashboard/fleets' },
+  { name: 'Veículos',          path: '/dashboard/vehicles' },
+  { name: 'Colaboradores',     path: '/dashboard/employees' },
+  { name: 'Usuários',          path: '/dashboard/users' },
+  { name: 'Templates',         path: '/dashboard/templates' },
 ];
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {

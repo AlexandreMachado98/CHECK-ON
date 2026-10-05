@@ -51,3 +51,35 @@ export interface AuthUser {
   email: string;
   role?: Role;
 }
+
+// ─── Checklist Builder ────────────────────────────────────────────────────────
+
+export type ItemType = 'PASS_FAIL' | 'TEXT' | 'NUMBER' | 'PHOTO';
+
+export interface TemplateItem {
+  id: string;
+  text: string;
+  type: ItemType;
+  isRequired: boolean;
+  order: number;
+  categoryId: string;
+}
+
+export interface TemplateCategory {
+  id: string;
+  name: string;
+  order: number;
+  templateId: string;
+  items: TemplateItem[];
+}
+
+export interface Template {
+  id: string;
+  name: string;
+  description?: string;
+  isActive: boolean;
+  createdAt: string;
+  categories: TemplateCategory[];
+  _count?: { categories: number };
+}
+
