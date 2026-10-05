@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
+import { FolderOpen, Plus, Search, Edit2, Archive, Activity } from 'lucide-react';
 
 export default function FleetsPage() {
   const [fleets, setFleets] = useState<Fleet[]>([]);
@@ -27,107 +29,177 @@ export default function FleetsPage() {
   async function fetchFleets() {
     try {
       setLoading(true);
-      const res = await api.get('/fleets');
-      setFleets(res.data);
-    } catch (err) {
-      console.error(err);
+      const response = await api.get('/fleets');
+      setFleets(response.data);
+    } catch {
+      console.error('Failed to fetch fleets', error);
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
+    setSubmitting(true);
     try {
-      setSubmitting(true);
       await api.post('/fleets', { name, description });
       setIsDialogOpen(false);
       setName('');
       setDescription('');
       fetchFleets();
-    } catch (err) {
-      console.error('Erro ao criar frota', err);
+    } catch {
+      alert('Não foi possível cadastrar a frota.');
     } finally {
       setSubmitting(false);
     }
   }
 
+  async function handleToggleStatus(fleet: Fleet) {
+    try {
+      await api.patch(`/fleets/${fleet.id}`, { isActive: !fleet.isActive });
+      fetchFleets();
+    } catch {
+      alert('Erro ao alterar situação da frota.');
+    }
+  }
+
   return (
     <>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Frotas</h1>
-          <p className="text-muted-foreground mt-1">Gerencie as frotas da sua empresa</p>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Frotas</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Gerencie os agrupamentos, garagens ou centros de custo da sua operação.
+          </p>
         </div>
-        
+
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger >
-            <Button>Nova Frota</Button>
+          <DialogTrigger asChild>
+            <Button className="shrink-0 shadow-sm" size="default">
+              <Plus className="mr-2 h-4 w-4" />
+              Cadastrar Grupo de Frota
+            </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Criar Nova Frota</DialogTitle>
+              <DialogTitle>Nova Frota</DialogTitle>
               <DialogDescription>
-                Adicione uma nova frota para agrupar seus veículos.
+                Crie um novo agrupamento para organizar seus veículos (ex: Base Norte, Vans de Entrega).
               </DialogDescription>
             </DialogHeader>
-            
-            <form onSubmit={handleSubmit} className="space-y-4 py-4">
+            <form onSubmit={handleCreate} className="space-y-4 pt-2">
               <div className="space-y-2">
-                <Label htmlFor="name">Nome da Frota</Label>
-                <Input id="name" value={name} onChange={e => setName(e.target.value)} required placeholder="Ex: Frota Norte" />
+                <Label htmlFor="name">Nome da Frota *</Label>
+                <Input
+                  id="name"
+                  placeholder="Ex: Base Sul Operacional"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="description">Descrição</Label>
-                <Input id="description" value={description} onChange={e => setDescription(e.target.value)} placeholder="Opcional" />
+                <Label htmlFor="desc">Descrição / Observações</Label>
+                <Input
+                  id="desc"
+                  placeholder="Ex: Veículos leves destinados a operações expressas"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
               </div>
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
-                <Button type="submit" disabled={submitting}>{submitting ? 'Salvando...' : 'Salvar Frota'}</Button>
+              <DialogFooter className="mt-4">
+                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={submitting || !name}>
+                  {submitting ? 'Salvando...' : 'Salvar Frota'}
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>Listagem de Frotas</CardTitle>
+      <Card className="border-slate-200 shadow-sm">
+        <CardHeader className="pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
+          <CardTitle className="text-base font-semibold text-slate-700">Relação de Frotas</CardTitle>
+          <div className="relative w-64 hidden sm:block">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+            <Input type="text" placeholder="Buscar frota..." className="pl-9 h-9 text-sm" disabled />
+          </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           {loading ? (
-            <p className="text-sm text-muted-foreground">Carregando...</p>
+            <div className="p-8 text-center text-sm text-slate-500 flex flex-col items-center">
+              <Activity className="h-6 w-6 animate-pulse text-slate-300 mb-2" />
+              Carregando dados da frota...
+            </div>
+          ) : fleets.length === 0 ? (
+            <div className="py-16 px-6 text-center flex flex-col items-center">
+              <div className="h-16 w-16 bg-slate-50 rounded-full flex items-center justify-center mb-4 border border-slate-100">
+                <FolderOpen className="h-8 w-8 text-slate-400" />
+              </div>
+              <h3 className="text-lg font-medium text-slate-900 mb-1">Nenhuma frota cadastrada</h3>
+              <p className="text-sm text-slate-500 max-w-sm mb-4">
+                Organize seus veículos criando grupos. Cadastre sua primeira frota para continuar.
+              </p>
+              <Button variant="outline" onClick={() => setIsDialogOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" /> Cadastrar Frota
+              </Button>
+            </div>
           ) : (
             <Table>
-              <TableHeader>
+              <TableHeader className="bg-slate-50/50">
                 <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Descrição</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
+                  <TableHead className="w-[30%]">Nome do Grupo</TableHead>
+                  <TableHead className="hidden md:table-cell">Descrição</TableHead>
+                  <TableHead className="w-[15%]">Situação</TableHead>
+                  <TableHead className="text-right w-[15%]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {fleets.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground py-6">Nenhuma frota encontrada.</TableCell>
+                {fleets.map(fleet => (
+                  <TableRow key={fleet.id} className="hover:bg-slate-50/50 transition-colors">
+                    <TableCell className="font-medium text-slate-900">
+                      <div className="flex items-center">
+                        <FolderOpen className="h-4 w-4 text-slate-400 mr-2" />
+                        {fleet.name}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-slate-500 hidden md:table-cell">
+                      {fleet.description || <span className="text-slate-300">—</span>}
+                    </TableCell>
+                    <TableCell>
+                      <Badge 
+                        variant="secondary" 
+                        className={`font-medium ${
+                          fleet.isActive 
+                            ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200' 
+                            : 'bg-slate-100 text-slate-500 hover:bg-slate-200 border-slate-200'
+                        }`}
+                      >
+                        <span className={`mr-1.5 h-1.5 w-1.5 rounded-full inline-block ${fleet.isActive ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
+                        {fleet.isActive ? 'Em Operação' : 'Inativo'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-primary">
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className={`h-8 w-8 ${fleet.isActive ? 'text-slate-400 hover:text-amber-600 hover:bg-amber-50' : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'}`}
+                          onClick={() => handleToggleStatus(fleet)}
+                          title={fleet.isActive ? "Arquivar/Inativar" : "Reativar"}
+                        >
+                          <Archive className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
                   </TableRow>
-                ) : (
-                  fleets.map(fleet => (
-                    <TableRow key={fleet.id}>
-                      <TableCell className="font-medium">{fleet.name}</TableCell>
-                      <TableCell>{fleet.description || '-'}</TableCell>
-                      <TableCell>
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${fleet.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                          {fleet.isActive ? 'Ativo' : 'Inativo'}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="sm">Editar</Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
+                ))}
               </TableBody>
             </Table>
           )}
