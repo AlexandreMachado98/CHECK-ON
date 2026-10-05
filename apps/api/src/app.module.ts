@@ -5,6 +5,11 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { TenantAdminModule } from './tenant-admin/tenant-admin.module';
 import { UserModule } from './user/user.module';
+import { UnitModule } from './unit/unit.module';
+import { DepartmentModule } from './department/department.module';
+import { EmployeeModule } from './employee/employee.module';
+import { FleetModule } from './fleet/fleet.module';
+import { VehicleModule } from './vehicle/vehicle.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TenantInterceptor } from './tenant/tenant.interceptor';
@@ -19,6 +24,11 @@ import { TenantInterceptor } from './tenant/tenant.interceptor';
     AuthModule,
     TenantAdminModule,
     UserModule,
+    UnitModule,
+    DepartmentModule,
+    EmployeeModule,
+    FleetModule,
+    VehicleModule,
   ],
   controllers: [AppController],
   providers: [
