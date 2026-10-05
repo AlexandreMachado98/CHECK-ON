@@ -8,16 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table';
-import {
-  Dialog, DialogContent, DialogDescription, DialogFooter,
-  DialogHeader, DialogTitle, DialogTrigger,
-} from '@/components/ui/dialog';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Users, Plus, Search, Edit2, ShieldOff, CheckCircle2, Activity, HardHat, ShieldAlert, Wrench, User } from 'lucide-react';
 
 const EMPLOYEE_ROLES = [
   { value: 'MOTORISTA',  label: 'Motorista' },
@@ -26,16 +20,23 @@ const EMPLOYEE_ROLES = [
   { value: 'SUPERVISOR', label: 'Supervisor' },
 ];
 
-const ROLE_COLOR: Record<string, string> = {
-  MOTORISTA:  'bg-blue-100 text-blue-700',
-  TECNICO:    'bg-purple-100 text-purple-700',
-  OPERADOR:   'bg-yellow-100 text-yellow-700',
-  SUPERVISOR: 'bg-orange-100 text-orange-700',
+const getRoleIcon = (role: string) => {
+  switch (role) {
+    case 'MOTORISTA': return <User className="mr-1.5 h-3 w-3" />;
+    case 'TECNICO': return <Wrench className="mr-1.5 h-3 w-3" />;
+    case 'OPERADOR': return <HardHat className="mr-1.5 h-3 w-3" />;
+    case 'SUPERVISOR': return <ShieldAlert className="mr-1.5 h-3 w-3" />;
+    default: return <User className="mr-1.5 h-3 w-3" />;
+  }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Employee Form
-// ─────────────────────────────────────────────────────────────────────────────
+const ROLE_COLOR: Record<string, string> = {
+  MOTORISTA:  'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100',
+  TECNICO:    'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200',
+  OPERADOR:   'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100',
+  SUPERVISOR: 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100',
+};
+
 interface EmployeeFormData {
   name: string;
   email: string;
@@ -48,15 +49,7 @@ const EMPTY_FORM: EmployeeFormData = {
   name: '', email: '', phone: '', cpf: '', role: '',
 };
 
-interface EmployeeFormProps {
-  initial?: EmployeeFormData;
-  onSubmit: (data: EmployeeFormData) => Promise<void>;
-  onCancel: () => void;
-  submitting: boolean;
-  mode: 'create' | 'edit';
-}
-
-function EmployeeForm({ initial = EMPTY_FORM, onSubmit, onCancel, submitting, mode }: EmployeeFormProps) {
+function EmployeeForm({ initial = EMPTY_FORM, onSubmit, onCancel, submitting, mode }: { initial?: EmployeeFormData; onSubmit: (data: EmployeeFormData) => Promise<void>; onCancel: () => void; submitting: boolean; mode: 'create' | 'edit'; }) {
   const [form, setForm] = useState<EmployeeFormData>(initial);
 
   function set(field: keyof EmployeeFormData) {
@@ -65,13 +58,10 @@ function EmployeeForm({ initial = EMPTY_FORM, onSubmit, onCancel, submitting, mo
   }
 
   return (
-    <form
-      onSubmit={async (e) => { e.preventDefault(); await onSubmit(form); }}
-      className="space-y-4 py-4"
-    >
+    <form onSubmit={async (e) => { e.preventDefault(); await onSubmit(form); }} className="space-y-4 pt-2">
       <div className="space-y-2">
         <Label htmlFor="emp-name">Nome Completo *</Label>
-        <Input id="emp-name" value={form.name} onChange={set('name')} required placeholder="Ex: João Silva" />
+        <Input id="emp-name" value={form.name} onChange={set('name')} required placeholder="Ex: João da Silva" />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -87,18 +77,14 @@ function EmployeeForm({ initial = EMPTY_FORM, onSubmit, onCancel, submitting, mo
 
       <div className="space-y-2">
         <Label htmlFor="emp-email">E-mail</Label>
-        <Input id="emp-email" type="email" value={form.email} onChange={set('email')} placeholder="colaborador@empresa.com" />
+        <Input id="emp-email" type="email" value={form.email} onChange={set('email')} placeholder="colaborador@empresa.com.br" />
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="emp-role">Cargo *</Label>
-        <Select
-          value={form.role}
-          onValueChange={(val) => setForm(prev => ({ ...prev, role: val || '' }))}
-          required
-        >
+        <Label htmlFor="emp-role">Cargo / Função *</Label>
+        <Select value={form.role} onValueChange={(val) => setForm(prev => ({ ...prev, role: val || '' }))} required>
           <SelectTrigger id="emp-role">
-            <SelectValue placeholder="Selecione o cargo" />
+            <SelectValue placeholder="Selecione o cargo na operação" />
           </SelectTrigger>
           <SelectContent>
             {EMPLOYEE_ROLES.map(r => (
@@ -108,42 +94,35 @@ function EmployeeForm({ initial = EMPTY_FORM, onSubmit, onCancel, submitting, mo
         </Select>
       </div>
 
-      <DialogFooter>
+      <DialogFooter className="mt-6">
         <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
         <Button type="submit" disabled={submitting || !form.name || !form.role}>
-          {submitting ? 'Salvando...' : mode === 'create' ? 'Cadastrar Colaborador' : 'Salvar Alterações'}
+          {submitting ? 'Processando...' : mode === 'create' ? 'Cadastrar Colaborador' : 'Salvar Alterações'}
         </Button>
       </DialogFooter>
     </form>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Main page
-// ─────────────────────────────────────────────────────────────────────────────
 export default function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState('');
+  const [loading, setLoading] = useState(true);
 
-  // Create dialog
-  const [createOpen, setCreateOpen]     = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [createSubmitting, setCreateSub] = useState(false);
 
-  // Edit dialog
-  const [editTarget, setEditTarget]     = useState<Employee | null>(null);
-  const [editSubmitting, setEditSub]    = useState(false);
+  const [editTarget, setEditTarget] = useState<Employee | null>(null);
+  const [editSubmitting, setEditSub] = useState(false);
 
   useEffect(() => { fetchEmployees(); }, []);
 
   async function fetchEmployees() {
     try {
       setLoading(true);
-      setError('');
       const res = await api.get<Employee[]>('/employees');
       setEmployees(res.data);
     } catch {
-      setError('Não foi possível carregar os colaboradores. Verifique a conexão com a API.');
+      console.error('Falha ao carregar colaboradores');
     } finally {
       setLoading(false);
     }
@@ -181,7 +160,7 @@ export default function EmployeesPage() {
       await api.patch(`/employees/${emp.id}`, { isActive: !emp.isActive });
       fetchEmployees();
     } catch {
-      alert('Erro ao alterar status.');
+      alert('Erro ao alterar situação do colaborador.');
     }
   }
 
@@ -189,24 +168,26 @@ export default function EmployeesPage() {
 
   return (
     <>
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Colaboradores</h1>
-          <p className="text-muted-foreground mt-1">
-            Gerencie motoristas, técnicos e operadores da empresa
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Colaboradores</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Gerencie motoristas, técnicos e operadores da operação.
           </p>
         </div>
 
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogTrigger>
-            <Button>Novo Colaborador</Button>
+          <DialogTrigger asChild>
+            <Button className="shrink-0 shadow-sm" size="default">
+              <Plus className="mr-2 h-4 w-4" />
+              Cadastrar Colaborador
+            </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Cadastrar Colaborador</DialogTitle>
+              <DialogTitle>Novo Colaborador</DialogTitle>
               <DialogDescription>
-                Preencha os dados do novo colaborador. Campos com * são obrigatórios.
+                Insira os dados do profissional que atuará em campo ou nos checklists.
               </DialogDescription>
             </DialogHeader>
             <EmployeeForm
@@ -219,96 +200,107 @@ export default function EmployeesPage() {
         </Dialog>
       </div>
 
-      {/* Table */}
-      <Card className="mt-2">
-        <CardHeader>
-          <CardTitle>Listagem de Colaboradores</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {error && (
-            <div className="text-sm text-destructive mb-4 p-3 bg-destructive/10 rounded-md">
-              {error}
+      <Card className="border-slate-200 shadow-sm">
+        <CardHeader className="pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
+          <CardTitle className="text-base font-semibold text-slate-700">Relação de Colaboradores</CardTitle>
+          <div className="flex gap-2">
+            <div className="relative w-48 sm:w-64">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+              <Input type="text" placeholder="Buscar por nome ou CPF..." className="pl-9 h-9 text-sm bg-slate-50" disabled />
             </div>
-          )}
-
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
           {loading ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">Carregando...</p>
+            <div className="p-10 text-center text-sm text-slate-500 flex flex-col items-center">
+              <Activity className="h-6 w-6 animate-pulse text-slate-300 mb-2" />
+              Buscando colaboradores...
+            </div>
+          ) : employees.length === 0 ? (
+            <div className="py-20 px-6 text-center flex flex-col items-center bg-slate-50/30">
+              <div className="h-16 w-16 bg-white rounded-full flex items-center justify-center mb-4 border border-slate-200 shadow-sm">
+                <Users className="h-8 w-8 text-slate-400" />
+              </div>
+              <h3 className="text-lg font-medium text-slate-900 mb-1">Nenhum colaborador encontrado</h3>
+              <p className="text-sm text-slate-500 max-w-sm mb-5">
+                Não há profissionais registrados. Comece cadastrando os motoristas para que possam acessar o aplicativo.
+              </p>
+              <Button onClick={() => setCreateOpen(true)} className="shadow-sm">
+                <Plus className="mr-2 h-4 w-4" /> Cadastrar colaborador
+              </Button>
+            </div>
           ) : (
             <Table>
-              <TableHeader>
+              <TableHeader className="bg-slate-50/50">
                 <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Cargo</TableHead>
-                  <TableHead>E-mail</TableHead>
-                  <TableHead>Telefone</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
+                  <TableHead className="w-[30%]">Nome</TableHead>
+                  <TableHead className="w-[20%]">Cargo</TableHead>
+                  <TableHead className="w-[20%] hidden md:table-cell">Contato</TableHead>
+                  <TableHead className="w-[15%]">Status</TableHead>
+                  <TableHead className="text-right w-[15%]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {employees.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground py-10">
-                      Nenhum colaborador cadastrado. Clique em &quot;Novo Colaborador&quot; para começar.
+                {employees.map((emp) => (
+                  <TableRow key={emp.id} className="hover:bg-slate-50/50 transition-colors">
+                    <TableCell>
+                      <div className="font-medium text-slate-900">{emp.name}</div>
+                      {emp.cpf && <div className="text-xs text-slate-500 mt-0.5">{emp.cpf}</div>}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={`font-medium shadow-sm ${ROLE_COLOR[emp.role] ?? 'bg-slate-50 text-slate-600 border-slate-200'}`}>
+                        {getRoleIcon(emp.role)}
+                        {roleLabelMap[emp.role] ?? emp.role}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      <div className="text-sm text-slate-600">{emp.email || 'Sem e-mail'}</div>
+                      <div className="text-xs text-slate-500 mt-0.5">{emp.phone || 'Sem telefone'}</div>
+                    </TableCell>
+                    <TableCell>
+                      {emp.isActive ? (
+                        <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200 font-medium">
+                          <CheckCircle2 className="mr-1 h-3 w-3 text-emerald-500" />
+                          Regular
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="bg-slate-100 text-slate-500 hover:bg-slate-200 border-slate-200 font-medium">
+                          <ShieldOff className="mr-1 h-3 w-3 text-slate-400" />
+                          Inativo
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-primary" onClick={() => setEditTarget(emp)}>
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className={`h-8 w-8 ${emp.isActive ? 'text-slate-400 hover:text-amber-600 hover:bg-amber-50' : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'}`}
+                          onClick={() => handleToggleActive(emp)}
+                          title={emp.isActive ? "Inativar" : "Reativar"}
+                        >
+                          <ShieldOff className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
-                ) : (
-                  employees.map((emp) => (
-                    <TableRow key={emp.id}>
-                      <TableCell className="font-medium">{emp.name}</TableCell>
-                      <TableCell>
-                        <Badge className={ROLE_COLOR[emp.role] ?? 'bg-gray-100 text-gray-700'}>
-                          {roleLabelMap[emp.role] ?? emp.role}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">{emp.email ?? '—'}</TableCell>
-                      <TableCell className="text-muted-foreground">{emp.phone ?? '—'}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={emp.isActive ? 'default' : 'secondary'}
-                          className={emp.isActive
-                            ? 'bg-green-100 text-green-700 hover:bg-green-100'
-                            : 'bg-red-100 text-red-700 hover:bg-red-100'}
-                        >
-                          {emp.isActive ? 'Ativo' : 'Inativo'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right space-x-2">
-                        {/* Edit */}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setEditTarget(emp)}
-                        >
-                          Editar
-                        </Button>
-                        {/* Toggle active */}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className={emp.isActive ? 'text-destructive hover:text-destructive' : 'text-green-600 hover:text-green-600'}
-                          onClick={() => handleToggleActive(emp)}
-                        >
-                          {emp.isActive ? 'Desativar' : 'Ativar'}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
+                ))}
               </TableBody>
             </Table>
           )}
         </CardContent>
       </Card>
 
-      {/* Edit Dialog (controlled externally) */}
       {editTarget && (
         <Dialog open={!!editTarget} onOpenChange={(open) => !open && setEditTarget(null)}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Editar Colaborador</DialogTitle>
               <DialogDescription>
-                Atualize os dados de <strong>{editTarget.name}</strong>.
+                Atualize as informações de <strong>{editTarget.name}</strong>.
               </DialogDescription>
             </DialogHeader>
             <EmployeeForm
