@@ -16,7 +16,8 @@ import {
   LogOut,
   Settings,
   AlertTriangle,
-  FolderOpen
+  FolderOpen,
+  BarChart3
 } from 'lucide-react';
 
 const MENU_GROUPS = [
@@ -41,6 +42,13 @@ const MENU_GROUPS = [
     items: [
       { name: 'Colaboradores', path: '/dashboard/employees', icon: Users },
       { name: 'Usuários', path: '/dashboard/users', icon: ShieldCheck },
+    ]
+  },
+  {
+    title: 'ANÁLISE & SISTEMA',
+    items: [
+      { name: 'Relatórios', path: '/dashboard/reports', icon: BarChart3 },
+      { name: 'Configurações', path: '/dashboard/settings', icon: Settings },
     ]
   }
 ];
