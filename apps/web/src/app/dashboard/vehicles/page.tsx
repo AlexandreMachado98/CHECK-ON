@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import api from '@/lib/api';
+import type { Fleet, Vehicle } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -11,8 +12,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function VehiclesPage() {
-  const [vehicles, setVehicles] = useState<{ id: string, plate: string, brand: string, model: string, year: number, isActive: boolean }[]>([]);
-  const [fleets, setFleets] = useState<{ id: string, name: string }[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [fleets, setFleets] = useState<Fleet[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   
