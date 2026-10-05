@@ -9,33 +9,28 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table';
-import {
-  Dialog, DialogContent, DialogDescription, DialogFooter,
-  DialogHeader, DialogTitle, DialogTrigger,
-} from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { ClipboardCheck, Plus, Search, Edit2, Archive, Activity, LayoutList } from 'lucide-react';
 
 export default function TemplatesPage() {
   const [templates, setTemplates] = useState<Template[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState('');
+  const [loading, setLoading] = useState(true);
 
   const [createOpen, setCreateOpen] = useState(false);
-  const [name, setName]             = useState('');
+  const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [saving, setSaving]         = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => { fetchTemplates(); }, []);
 
   async function fetchTemplates() {
     try {
-      setLoading(true); setError('');
+      setLoading(true);
       const res = await api.get<Template[]>('/templates');
       setTemplates(res.data);
     } catch {
-      setError('Não foi possível carregar os templates.');
+      console.error('Falha ao carregar templates');
     } finally {
       setLoading(false);
     }
@@ -47,7 +42,8 @@ export default function TemplatesPage() {
       setSaving(true);
       await api.post('/templates', { name, description });
       setCreateOpen(false);
-      setName(''); setDescription('');
+      setName(''); 
+      setDescription('');
       fetchTemplates();
     } catch {
       alert('Erro ao criar template.');
@@ -67,49 +63,52 @@ export default function TemplatesPage() {
 
   return (
     <>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Templates de Checklist</h1>
-          <p className="text-muted-foreground mt-1">
-            Crie modelos reutilizáveis para inspeções e checklists operacionais
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Modelos de Checklist</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Configure os formulários e inspeções que serão respondidos em campo.
           </p>
         </div>
 
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger>
-            <Button>Novo Template</Button>
+            <Button className="shrink-0 shadow-sm" size="default">
+              <Plus className="mr-2 h-4 w-4" />
+              Criar Modelo
+            </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Criar Template</DialogTitle>
+              <DialogTitle>Novo Modelo de Checklist</DialogTitle>
               <DialogDescription>
-                Defina o nome e a descrição. Depois, você poderá adicionar categorias e itens.
+                Defina o objetivo principal desta inspeção antes de adicionar as perguntas.
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleCreate} className="space-y-4 py-4">
+            <form onSubmit={handleCreate} className="space-y-4 pt-2">
               <div className="space-y-2">
-                <Label htmlFor="tpl-name">Nome do Template *</Label>
+                <Label htmlFor="tpl-name">Nome do Modelo *</Label>
                 <Input
                   id="tpl-name"
                   value={name}
                   onChange={e => setName(e.target.value)}
                   required
-                  placeholder="Ex: Inspeção Diária de Veículo"
+                  placeholder="Ex: Inspeção Diária de Frota (Check-list)"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="tpl-desc">Descrição</Label>
+                <Label htmlFor="tpl-desc">Descrição / Instruções</Label>
                 <Input
                   id="tpl-desc"
                   value={description}
                   onChange={e => setDescription(e.target.value)}
-                  placeholder="Descreva quando este checklist deve ser usado"
+                  placeholder="Ex: Obrigatório antes de iniciar a rota..."
                 />
               </div>
-              <DialogFooter>
+              <DialogFooter className="mt-6">
                 <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
                 <Button type="submit" disabled={saving || !name}>
-                  {saving ? 'Criando...' : 'Criar e Configurar'}
+                  {saving ? 'Criando...' : 'Iniciar Construção'}
                 </Button>
               </DialogFooter>
             </form>
@@ -117,68 +116,91 @@ export default function TemplatesPage() {
         </Dialog>
       </div>
 
-      <Card className="mt-2">
-        <CardHeader><CardTitle>Templates Disponíveis</CardTitle></CardHeader>
-        <CardContent>
-          {error && (
-            <div className="text-sm text-destructive mb-4 p-3 bg-destructive/10 rounded-md">{error}</div>
-          )}
+      <Card className="border-slate-200 shadow-sm">
+        <CardHeader className="pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
+          <CardTitle className="text-base font-semibold text-slate-700">Modelos Cadastrados</CardTitle>
+          <div className="flex gap-2">
+            <div className="relative w-48 sm:w-64">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+              <Input type="text" placeholder="Buscar modelo..." className="pl-9 h-9 text-sm bg-slate-50" disabled />
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
           {loading ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">Carregando...</p>
+            <div className="p-10 text-center text-sm text-slate-500 flex flex-col items-center">
+              <Activity className="h-6 w-6 animate-pulse text-slate-300 mb-2" />
+              Buscando modelos...
+            </div>
+          ) : templates.length === 0 ? (
+            <div className="py-20 px-6 text-center flex flex-col items-center bg-slate-50/30">
+              <div className="h-16 w-16 bg-white rounded-full flex items-center justify-center mb-4 border border-slate-200 shadow-sm">
+                <ClipboardCheck className="h-8 w-8 text-slate-400" />
+              </div>
+              <h3 className="text-lg font-medium text-slate-900 mb-1">Nenhum modelo criado</h3>
+              <p className="text-sm text-slate-500 max-w-sm mb-5">
+                Você ainda não possui checklists configurados. Crie seu primeiro modelo de inspeção.
+              </p>
+              <Button onClick={() => setCreateOpen(true)} className="shadow-sm">
+                <Plus className="mr-2 h-4 w-4" /> Criar modelo
+              </Button>
+            </div>
           ) : (
             <Table>
-              <TableHeader>
+              <TableHeader className="bg-slate-50/50">
                 <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Descrição</TableHead>
-                  <TableHead>Categorias</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
+                  <TableHead className="w-[35%]">Título do Modelo</TableHead>
+                  <TableHead className="w-[30%] hidden sm:table-cell">Descrição</TableHead>
+                  <TableHead className="w-[15%]">Situação</TableHead>
+                  <TableHead className="text-right w-[20%]">Configuração</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {templates.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-10">
-                      Nenhum template criado. Clique em &quot;Novo Template&quot; para começar.
+                {templates.map((tpl) => (
+                  <TableRow key={tpl.id} className="hover:bg-slate-50/50 transition-colors">
+                    <TableCell>
+                      <div className="font-semibold text-slate-900 flex items-center">
+                        <LayoutList className="h-4 w-4 text-slate-400 mr-2" />
+                        {tpl.name}
+                      </div>
+                      {/* {tpl.categories?.length > 0 && <div className="text-xs text-slate-500 mt-1">{tpl.categories.length} sessões configuradas</div>} */}
                     </TableCell>
-                  </TableRow>
-                ) : (
-                  templates.map(tpl => (
-                    <TableRow key={tpl.id}>
-                      <TableCell className="font-medium">{tpl.name}</TableCell>
-                      <TableCell className="text-muted-foreground max-w-xs truncate">
-                        {tpl.description ?? '—'}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {tpl._count?.categories ?? tpl.categories?.length ?? 0} categoria(s)
+                    <TableCell className="text-slate-500 text-sm hidden sm:table-cell">
+                      {tpl.description || '—'}
+                    </TableCell>
+                    <TableCell>
+                      {tpl.isActive ? (
+                        <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200 font-medium shadow-sm">
+                          <span className="mr-1.5 h-1.5 w-1.5 rounded-full inline-block bg-emerald-500"></span>
+                          Operacional
                         </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={tpl.isActive
-                          ? 'bg-green-100 text-green-700 hover:bg-green-100'
-                          : 'bg-red-100 text-red-700 hover:bg-red-100'}>
-                          {tpl.isActive ? 'Ativo' : 'Inativo'}
+                      ) : (
+                        <Badge variant="secondary" className="bg-slate-100 text-slate-500 hover:bg-slate-200 border-slate-200 font-medium shadow-sm">
+                          Rascunho
                         </Badge>
-                      </TableCell>
-                      <TableCell className="text-right space-x-2">
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
                         <Link href={`/dashboard/templates/${tpl.id}`}>
-                          <Button variant="outline" size="sm">Editar Estrutura</Button>
+                          <Button variant="outline" size="sm" className="h-8 text-xs font-medium text-slate-700 bg-white">
+                            <Edit2 className="h-3.5 w-3.5 mr-2 text-primary" />
+                            Construtor
+                          </Button>
                         </Link>
                         <Button
-                          variant="ghost" size="sm"
-                          className={tpl.isActive
-                            ? 'text-destructive hover:text-destructive'
-                            : 'text-green-600 hover:text-green-600'}
+                          variant="ghost"
+                          size="icon"
+                          className={`h-8 w-8 ${tpl.isActive ? 'text-slate-400 hover:text-amber-600 hover:bg-amber-50' : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'}`}
                           onClick={() => handleToggle(tpl)}
+                          title={tpl.isActive ? "Arquivar modelo" : "Ativar modelo"}
                         >
-                          {tpl.isActive ? 'Desativar' : 'Ativar'}
+                          <Archive className="h-4 w-4" />
                         </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           )}

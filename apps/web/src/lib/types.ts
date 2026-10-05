@@ -10,6 +10,7 @@ export interface Fleet {
 export interface Vehicle {
   id: string;
   plate: string;
+  prefix?: string;
   brand: string;
   model: string;
   year: number;

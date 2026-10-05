@@ -112,7 +112,7 @@ export default function UsersPage() {
 
   async function fetchRoles() {
     try {
-      const res = await api.get('/admin/tenants');
+      await api.get('/admin/tenants');
       // For now we simulate roles until backend is ready for it
       setRoles([
         { id: '1', name: 'SUPER_ADMIN', permissions: [] },
@@ -172,7 +172,7 @@ export default function UsersPage() {
         </div>
 
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogTrigger asChild>
+          <DialogTrigger>
             <Button className="shrink-0 shadow-sm" size="default">
               <Plus className="mr-2 h-4 w-4" />
               Conceder Acesso

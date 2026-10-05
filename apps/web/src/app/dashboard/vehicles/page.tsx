@@ -19,7 +19,7 @@ export default function VehiclesPage() {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   
-  const [licensePlate, setLicensePlate] = useState('');
+  const [plate, setLicensePlate] = useState('');
   const [model, setModel] = useState('');
   const [prefix, setPrefix] = useState('');
   const [fleetId, setFleetId] = useState('');
@@ -35,8 +35,8 @@ export default function VehiclesPage() {
       setLoading(true);
       const response = await api.get('/vehicles');
       setVehicles(response.data);
-    } catch (error) {
-      console.error('Failed to fetch vehicles', error);
+    } catch {
+      console.error('Failed to fetch vehicles');
     } finally {
       setLoading(false);
     }
@@ -46,8 +46,8 @@ export default function VehiclesPage() {
     try {
       const response = await api.get('/fleets');
       setFleets(response.data.filter((f: Fleet) => f.isActive));
-    } catch (error) {
-      console.error('Failed to fetch fleets', error);
+    } catch {
+      console.error('Failed to fetch fleets');
     }
   }
 
@@ -56,7 +56,7 @@ export default function VehiclesPage() {
     setSubmitting(true);
     try {
       await api.post('/vehicles', { 
-        licensePlate: licensePlate.toUpperCase(), 
+        plate: plate.toUpperCase(), 
         model, 
         prefix: prefix.toUpperCase() || undefined,
         fleetId 
@@ -97,7 +97,7 @@ export default function VehiclesPage() {
         </div>
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
+          <DialogTrigger>
             <Button className="shrink-0 shadow-sm" size="default">
               <Plus className="mr-2 h-4 w-4" />
               Cadastrar Veículo
@@ -117,7 +117,7 @@ export default function VehiclesPage() {
                   <Input
                     id="plate"
                     placeholder="ABC-1234"
-                    value={licensePlate}
+                    value={plate}
                     onChange={(e) => setLicensePlate(e.target.value)}
                     className="uppercase"
                     required
@@ -164,7 +164,7 @@ export default function VehiclesPage() {
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={submitting || !licensePlate || !model || !fleetId}>
+                <Button type="submit" disabled={submitting || !plate || !model || !fleetId}>
                   {submitting ? 'Salvando...' : 'Confirmar Cadastro'}
                 </Button>
               </DialogFooter>
@@ -220,7 +220,7 @@ export default function VehiclesPage() {
                 {vehicles.map(vehicle => (
                   <TableRow key={vehicle.id} className="hover:bg-slate-50/50 transition-colors">
                     <TableCell>
-                      <div className="font-semibold text-slate-900">{vehicle.licensePlate}</div>
+                      <div className="font-semibold text-slate-900">{vehicle.plate}</div>
                       {vehicle.prefix && <div className="text-xs text-slate-500 mt-0.5">{vehicle.prefix}</div>}
                     </TableCell>
                     <TableCell className="text-slate-600 hidden sm:table-cell">

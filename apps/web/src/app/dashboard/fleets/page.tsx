@@ -32,7 +32,7 @@ export default function FleetsPage() {
       const response = await api.get('/fleets');
       setFleets(response.data);
     } catch {
-      console.error('Failed to fetch fleets', error);
+      console.error('Failed to fetch fleets');
     } finally {
       setLoading(false);
     }
@@ -74,7 +74,7 @@ export default function FleetsPage() {
         </div>
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
+          <DialogTrigger>
             <Button className="shrink-0 shadow-sm" size="default">
               <Plus className="mr-2 h-4 w-4" />
               Cadastrar Grupo de Frota
