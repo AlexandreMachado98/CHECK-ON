@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [user, setUser] = useState<unknown>(null);
+  const [user, setUser] = useState<{ name: string, role?: { name: string } } | null>(null);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');

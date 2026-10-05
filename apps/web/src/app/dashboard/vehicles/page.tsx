@@ -11,8 +11,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function VehiclesPage() {
-  const [vehicles, setVehicles] = useState<unknown[]>([]);
-  const [fleets, setFleets] = useState<unknown[]>([]);
+  const [vehicles, setVehicles] = useState<{ id: string, plate: string, brand: string, model: string, year: number, isActive: boolean }[]>([]);
+  const [fleets, setFleets] = useState<{ id: string, name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   
