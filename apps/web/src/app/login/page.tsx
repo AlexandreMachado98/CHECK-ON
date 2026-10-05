@@ -4,10 +4,11 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { ClipboardCheck } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -31,19 +32,28 @@ export default function LoginPage() {
       
       router.push('/dashboard');
     } catch (err: unknown) {
-      setError((err as { response?: { data?: { message?: string } } }).response?.data?.message || 'Erro ao realizar login');
+      setError((err as { response?: { data?: { message?: string } } }).response?.data?.message || 'E-mail ou senha incorretos.');
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md shadow-lg">
-        <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-2xl font-bold tracking-tight">CHECK-ON</CardTitle>
+    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4">
+      
+      <div className="mb-8 flex flex-col items-center">
+        <div className="h-12 w-12 bg-primary rounded-xl flex items-center justify-center mb-4 shadow-lg shadow-primary/20">
+          <ClipboardCheck className="h-7 w-7 text-white" />
+        </div>
+        <h1 className="text-3xl font-bold tracking-tight text-white">CHECK-ON</h1>
+        <p className="text-slate-400 mt-1">Plataforma Operacional</p>
+      </div>
+
+      <Card className="w-full max-w-sm shadow-2xl border-slate-800 bg-white">
+        <CardHeader className="space-y-1 pb-4">
+          <CardTitle className="text-xl font-semibold">Acesse sua operação</CardTitle>
           <CardDescription>
-            Insira suas credenciais para acessar a plataforma
+            Entre para gerenciar checklists, veículos e não conformidades.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -53,40 +63,44 @@ export default function LoginPage() {
               <Input 
                 id="email" 
                 type="email" 
-                placeholder="admin@checkon.com" 
+                placeholder="ex: gestor@transportadora.com.br" 
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                className="h-11"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Senha</Label>
+              </div>
               <Input 
                 id="password" 
                 type="password" 
-                placeholder="******" 
+                placeholder="••••••••" 
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                className="h-11"
               />
             </div>
             
             {error && (
-              <div className="text-sm font-medium text-destructive mt-2 text-center">
+              <div className="text-sm font-medium text-destructive bg-destructive/10 p-3 rounded-md">
                 {error}
               </div>
             )}
 
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Entrando...' : 'Entrar'}
+            <Button type="submit" className="w-full h-11 text-base font-medium" disabled={loading}>
+              {loading ? 'Acessando...' : 'Entrar na Plataforma'}
             </Button>
           </form>
         </CardContent>
-        <CardFooter className="flex flex-col text-sm text-muted-foreground text-center">
-          <p>Plataforma SaaS Multi-Tenant</p>
-          <p className="text-xs mt-1">Gestão de Frota & Checklists Digitais</p>
-        </CardFooter>
       </Card>
+
+      <p className="mt-8 text-xs text-slate-500">
+        © {new Date().getFullYear()} CHECK-ON. Sistema B2B SaaS.
+      </p>
     </div>
   );
 }

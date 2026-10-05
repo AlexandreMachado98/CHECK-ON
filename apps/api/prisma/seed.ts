@@ -29,7 +29,7 @@ async function main() {
     create: {
       tenantId: masterTenant.id,
       name: 'SUPER_ADMIN',
-      permissions: ['*'],
+      permissions: '["*"]',
       isSystem: true,
     },
   });
@@ -73,7 +73,7 @@ async function main() {
     create: {
       tenantId: empA.id,
       name: 'GESTOR',
-      permissions: ['users:read', 'users:write', 'vehicles:read', 'vehicles:write'],
+      permissions: '["users:read", "users:write", "vehicles:read", "vehicles:write"]',
       isSystem: true,
     },
   });
