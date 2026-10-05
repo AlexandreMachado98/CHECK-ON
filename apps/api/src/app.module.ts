@@ -13,6 +13,7 @@ import { VehicleModule } from './vehicle/vehicle.module';
 import { TemplateModule } from './template/template.module';
 import { ChecklistModule } from './checklist/checklist.module';
 import { NcModule } from './nc/nc.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { StorageModule } from './storage/storage.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -35,7 +36,7 @@ import { TenantInterceptor } from './tenant/tenant.interceptor';
     VehicleModule,
     TemplateModule,
     ChecklistModule,
-    NcModule,
+    NcModule, DashboardModule,
     StorageModule,
   ],
   controllers: [AppController],
