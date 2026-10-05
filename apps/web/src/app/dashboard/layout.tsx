@@ -7,7 +7,9 @@ import { Button } from '@/components/ui/button';
 import type { AuthUser } from '@/lib/types';
 import { 
   LayoutDashboard, 
-  ClipboardCheck, 
+  ClipboardCheck,
+  ClipboardList,
+  AlertOctagon,
   Truck, 
   Users, 
   ShieldCheck, 
@@ -22,7 +24,9 @@ const MENU_GROUPS = [
     title: 'OPERAÇÃO',
     items: [
       { name: 'Visão Geral', path: '/dashboard', icon: LayoutDashboard },
-      { name: 'Templates', path: '/dashboard/templates', icon: ClipboardCheck },
+      { name: 'Modelos', path: '/dashboard/templates', icon: ClipboardCheck },
+      { name: 'Inspeções', path: '/dashboard/executions', icon: ClipboardList },
+      { name: 'Não Conformidades', path: '/dashboard/ncs', icon: AlertOctagon },
     ]
   },
   {

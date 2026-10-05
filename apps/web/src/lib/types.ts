@@ -84,3 +84,26 @@ export interface Template {
   _count?: { categories: number };
 }
 
+export interface Checklist {
+  id: string;
+  status: string;
+  startedAt: string;
+  completedAt?: string;
+  vehicleId: string;
+  driverId: string;
+  templateId: string;
+  vehicle?: Vehicle;
+  driver?: Employee;
+  template?: Template;
+}
+
+export interface NC {
+  id: string;
+  status: string;
+  severity: string;
+  notes?: string;
+  createdAt: string;
+  resolvedAt?: string;
+  answerId: string;
+}
+
