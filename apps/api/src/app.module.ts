@@ -10,6 +10,10 @@ import { DepartmentModule } from './department/department.module';
 import { EmployeeModule } from './employee/employee.module';
 import { FleetModule } from './fleet/fleet.module';
 import { VehicleModule } from './vehicle/vehicle.module';
+import { TemplateModule } from './template/template.module';
+import { ChecklistModule } from './checklist/checklist.module';
+import { NcModule } from './nc/nc.module';
+import { StorageModule } from './storage/storage.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TenantInterceptor } from './tenant/tenant.interceptor';
@@ -29,6 +33,10 @@ import { TenantInterceptor } from './tenant/tenant.interceptor';
     EmployeeModule,
     FleetModule,
     VehicleModule,
+    TemplateModule,
+    ChecklistModule,
+    NcModule,
+    StorageModule,
   ],
   controllers: [AppController],
   providers: [

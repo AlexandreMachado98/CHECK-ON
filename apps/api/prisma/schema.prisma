@@ -27,7 +27,9 @@ model Tenant {
   units       Unit[]
   fleets      Fleet[]
   vehicles    Vehicle[]
-  checklists  Checklist[]
+  checklists  Checklist[]     @relation("TenantToChecklist")
+  templates   Template[]
+  ncs         NonConformity[] @relation("TenantToNC")
 }
 
 // ---------------------------------------------------------
@@ -44,7 +46,7 @@ model Role {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  users       User[]
+  users User[]
 
   @@unique([tenantId, name])
 }
@@ -68,16 +70,17 @@ model User {
 }
 
 model Employee {
-  id         String   @id @default(uuid())
-  tenantId   String
-  matricula  String?
-  name       String
-  jobTitle   String?
-  isActive   Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id        String   @id @default(uuid())
+  tenantId  String
+  matricula String?
+  name      String
+  jobTitle  String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  user       User?
+  user      User?
+  Checklist Checklist[]
 }
 
 // ---------------------------------------------------------
@@ -93,7 +96,7 @@ model Unit {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  fleets    Fleet[]
+  fleets Fleet[]
 }
 
 model Department {
@@ -121,35 +124,36 @@ model Fleet {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  vehicles  Vehicle[]
+  vehicles Vehicle[]
 }
 
 model Vehicle {
-  id           String   @id @default(uuid())
-  tenantId     String
-  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  fleetId      String
-  fleet        Fleet    @relation(fields: [fleetId], references: [id])
-  plate        String
-  prefix       String?
-  brand        String?
-  model        String?
-  year         Int?
-  status       String   @default("LIBERADO") // LIBERADO, ATENCAO, BLOQUEADO
-  mileage      Int      @default(0)
-  qrCode       String?  @unique
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id        String      @id @default(uuid())
+  tenantId  String
+  tenant    Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  fleetId   String
+  fleet     Fleet       @relation(fields: [fleetId], references: [id])
+  plate     String
+  prefix    String?
+  brand     String?
+  model     String?
+  year      Int?
+  status    String      @default("LIBERADO") // LIBERADO, ATENCAO, BLOQUEADO
+  mileage   Int         @default(0)
+  qrCode    String?     @unique
+  isActive  Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  Checklist Checklist[]
 
   @@unique([tenantId, plate])
 }
 
 // ---------------------------------------------------------
-// CHECKLISTS (Foundation models for now)
+// DYNAMIC CHECKLISTS & INSPECTIONS
 // ---------------------------------------------------------
 
-model Checklist {
+model Template {
   id          String   @id @default(uuid())
   tenantId    String
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -158,4 +162,91 @@ model Checklist {
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  categories TemplateCategory[]
+  checklists Checklist[]
+}
+
+model TemplateCategory {
+  id         String   @id @default(uuid())
+  tenantId   String
+  templateId String
+  template   Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  name       String
+  order      Int      @default(0)
+
+  items TemplateItem[]
+}
+
+model TemplateItem {
+  id         String           @id @default(uuid())
+  tenantId   String
+  categoryId String
+  category   TemplateCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  text       String
+  type       String           @default("PASS_FAIL") // PASS_FAIL, TEXT, NUMBER, PHOTO
+  isCritical Boolean          @default(false)
+  order      Int              @default(0)
+
+  answers ChecklistAnswer[]
+}
+
+// A Execução de um Checklist (A inspeção em si preenchida pelo motorista)
+model Checklist {
+  id         String   @id @default(uuid())
+  tenantId   String
+  tenant     Tenant   @relation("TenantToChecklist", fields: [tenantId], references: [id], onDelete: Cascade)
+  templateId String
+  template   Template @relation(fields: [templateId], references: [id])
+  vehicleId  String
+  vehicle    Vehicle  @relation(fields: [vehicleId], references: [id])
+  driverId   String
+  driver     Employee @relation(fields: [driverId], references: [id])
+
+  status      String    @default("IN_PROGRESS") // IN_PROGRESS, COMPLETED, SYNCED
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+  latitude    Float?
+  longitude   Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  answers ChecklistAnswer[]
+}
+
+model ChecklistAnswer {
+  id          String       @id @default(uuid())
+  tenantId    String
+  checklistId String
+  checklist   Checklist    @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  itemId      String
+  item        TemplateItem @relation(fields: [itemId], references: [id])
+
+  isCompliant  Boolean // true = Conforme, false = Não Conforme
+  textValue    String?
+  numberValue  Float?
+  photoUrl     String?
+  observations String?
+
+  nonConformity NonConformity?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model NonConformity {
+  id       String          @id @default(uuid())
+  tenantId String
+  tenant   Tenant          @relation("TenantToNC", fields: [tenantId], references: [id], onDelete: Cascade)
+  answerId String          @unique
+  answer   ChecklistAnswer @relation(fields: [answerId], references: [id], onDelete: Cascade)
+
+  status     String    @default("OPEN") // OPEN, IN_PROGRESS, RESOLVED, CLOSED
+  severity   String    @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  notes      String?
+  resolvedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

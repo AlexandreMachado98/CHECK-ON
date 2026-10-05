@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { ClsServiceManager } from 'nestjs-cls';
 
 // Modelos que possuem tenantId obrigatório
-const MODELS_WITH_TENANT = ['Role', 'User', 'Employee', 'Unit', 'Department', 'Fleet', 'Vehicle', 'Checklist'];
+const MODELS_WITH_TENANT = ['Role', 'User', 'Employee', 'Unit', 'Department', 'Fleet', 'Vehicle', 'Checklist', 'Template', 'TemplateCategory', 'TemplateItem', 'ChecklistAnswer', 'NonConformity'];
 
 export function createTenantPrismaClient() {
   const prisma = new PrismaClient();
