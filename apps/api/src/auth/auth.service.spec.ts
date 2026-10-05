@@ -12,12 +12,12 @@ describe('AuthService', () => {
 
   const mockPrisma = {
     user: {
-      findUnique: jest.fn(),
+      findUnique: vi.fn(),
     },
   };
 
   const mockJwt = {
-    signAsync: jest.fn(),
+    signAsync: vi.fn(),
   };
 
   beforeEach(async () => {
@@ -77,7 +77,7 @@ describe('AuthService', () => {
       role: { name: 'Admin', permissions: [] }
     });
     
-    jest.spyOn(bcrypt, 'compare').mockImplementation(async () => false);
+    vi.spyOn(bcrypt, 'compare').mockImplementation(async () => false);
 
     await expect(authService.login({ email: 'x@x.com', password: 'wrong' }))
       .rejects.toThrow(new UnauthorizedException('Credenciais inválidas'));
@@ -95,7 +95,7 @@ describe('AuthService', () => {
       role: { name: 'Motorista', permissions: ['vehicle:read'] }
     });
 
-    jest.spyOn(bcrypt, 'compare').mockImplementation(async () => true);
+    vi.spyOn(bcrypt, 'compare').mockImplementation(async () => true);
     mockJwt.signAsync.mockResolvedValue('jwt_token');
 
     const result = await authService.login({ email: 'x@x.com', password: 'correct' });
