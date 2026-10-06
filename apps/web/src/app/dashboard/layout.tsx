@@ -17,7 +17,9 @@ import {
   Settings,
   AlertTriangle,
   FolderOpen,
-  BarChart3
+  BarChart3,
+  Menu,
+  X
 } from 'lucide-react';
 
 const MENU_GROUPS = [
@@ -57,6 +59,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem('user');
@@ -67,6 +70,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     }
   }, [router]);
 
+  // Close mobile drawer on route change
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
+
   function handleLogout() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -75,93 +83,147 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   if (!user) return null;
 
-  return (
-    <div className="flex min-h-screen w-full bg-slate-50">
-      
-      {/* Sidebar - Dark B2B Theme */}
-      <aside className="w-64 flex flex-col bg-slate-950 text-slate-300 border-r border-slate-900 shrink-0">
-        
-        {/* Brand */}
-        <div className="h-16 flex items-center px-6 border-b border-slate-800 bg-slate-950/50">
-          <ClipboardCheck className="h-6 w-6 text-primary mr-3" />
+  const currentItem = MENU_GROUPS.flatMap(g => g.items).find(i => i.path === pathname);
+
+  const sidebarContent = (
+    <div className="flex flex-col h-full bg-slate-950 text-slate-300">
+      {/* Brand */}
+      <div className="h-16 flex items-center justify-between px-6 border-b border-slate-800 bg-slate-950/50 shrink-0">
+        <div className="flex items-center">
+          <div className="h-8 w-8 rounded-lg bg-emerald-600 flex items-center justify-center mr-3 shadow-md shadow-emerald-600/30">
+            <ClipboardCheck className="h-5 w-5 text-white" />
+          </div>
           <span className="font-bold text-lg tracking-tight text-white">CHECK-ON</span>
         </div>
-        
-        {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto py-6 custom-scrollbar">
-          {MENU_GROUPS.map((group, idx) => (
-            <div key={idx} className="mb-6 px-3">
-              <p className="px-4 text-xs font-semibold text-slate-500 tracking-wider mb-2">
-                {group.title}
-              </p>
-              <div className="space-y-1">
-                {group.items.map((link) => {
-                  const Icon = link.icon;
-                  const isActive = pathname === link.path || pathname.startsWith(`${link.path}/`);
-                  return (
-                    <Link key={link.path} href={link.path}>
-                      <Button
-                        variant="ghost"
-                        className={`w-full justify-start h-10 px-4 text-sm font-medium transition-colors ${
-                          isActive 
-                            ? 'bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary' 
-                            : 'text-slate-400 hover:text-white hover:bg-slate-900'
-                        }`}
-                      >
-                        <Icon className={`mr-3 h-4 w-4 ${isActive ? 'text-primary' : 'text-slate-500'}`} />
-                        {link.name}
-                      </Button>
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </nav>
-
-        {/* User Profile Footer */}
-        <div className="p-4 border-t border-slate-800 bg-slate-950/50">
-          <div className="flex items-center gap-3 px-2 mb-4">
-            <div className="h-9 w-9 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 font-bold text-sm shrink-0">
-              {user.name.charAt(0).toUpperCase()}
-            </div>
-            <div className="overflow-hidden">
-              <p className="text-sm font-medium text-white truncate">{user.name}</p>
-              <p className="text-xs text-slate-500 truncate">{user.role?.name ?? 'Sem perfil'}</p>
+        {/* Mobile Close Button */}
+        <button 
+          onClick={() => setMobileMenuOpen(false)}
+          className="md:hidden p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-850"
+          aria-label="Fechar menu"
+        >
+          <X className="h-5 w-5" />
+        </button>
+      </div>
+      
+      {/* Navigation */}
+      <nav className="flex-1 overflow-y-auto py-6 custom-scrollbar px-3">
+        {MENU_GROUPS.map((group, idx) => (
+          <div key={idx} className="mb-6">
+            <p className="px-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2">
+              {group.title}
+            </p>
+            <div className="space-y-1">
+              {group.items.map((link) => {
+                const Icon = link.icon;
+                const isActive = pathname === link.path || (link.path !== '/dashboard' && pathname.startsWith(`${link.path}/`));
+                return (
+                  <Link key={link.path} href={link.path}>
+                    <Button
+                      variant="ghost"
+                      className={`w-full justify-start h-10 px-4 text-sm font-medium transition-colors ${
+                        isActive 
+                          ? 'bg-emerald-600/15 text-emerald-400 hover:bg-emerald-600/25 hover:text-emerald-300' 
+                          : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                      }`}
+                    >
+                      <Icon className={`mr-3 h-4 w-4 ${isActive ? 'text-emerald-400' : 'text-slate-500'}`} />
+                      {link.name}
+                    </Button>
+                  </Link>
+                );
+              })}
             </div>
           </div>
-          <Button 
-            variant="ghost" 
-            className="w-full justify-start text-slate-400 hover:text-white hover:bg-slate-900 h-9" 
-            onClick={handleLogout}
-          >
-            <LogOut className="mr-3 h-4 w-4" />
-            Sair da plataforma
-          </Button>
+        ))}
+      </nav>
+
+      {/* User Profile Footer */}
+      <div className="p-4 border-t border-slate-800 bg-slate-950/50 shrink-0">
+        <div className="flex items-center gap-3 px-2 mb-3">
+          <div className="h-9 w-9 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-200 font-bold text-sm shrink-0">
+            {user.name.charAt(0).toUpperCase()}
+          </div>
+          <div className="overflow-hidden">
+            <p className="text-sm font-medium text-white truncate">{user.name}</p>
+            <p className="text-xs text-slate-400 truncate">{user.role?.name ?? 'Gestor'}</p>
+          </div>
         </div>
+        <Button 
+          variant="ghost" 
+          className="w-full justify-start text-slate-400 hover:text-rose-400 hover:bg-rose-950/20 h-9 text-xs" 
+          onClick={handleLogout}
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          Sair da plataforma
+        </Button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="flex min-h-screen w-full bg-slate-50 overflow-x-hidden">
+      
+      {/* Desktop Sidebar (Fixed) */}
+      <aside className="hidden md:flex w-64 flex-col border-r border-slate-900 shrink-0">
+        {sidebarContent}
       </aside>
+
+      {/* Mobile Drawer (Backdrop + Slide-in) */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 flex md:hidden">
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+          {/* Drawer Body */}
+          <div className="relative flex flex-col w-72 max-w-[85vw] h-full z-10 shadow-2xl">
+            {sidebarContent}
+          </div>
+        </div>
+      )}
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         
         {/* Topbar */}
-        <header className="h-16 flex items-center justify-between px-8 border-b bg-white shrink-0">
-          <div className="flex items-center text-sm text-muted-foreground">
-            {/* Breadcrumb placeholder or contextual info */}
-            <span>Plataforma Administrativa</span>
+        <header className="h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8 border-b bg-white shrink-0 shadow-xs">
+          <div className="flex items-center gap-3">
+            {/* Hamburger Button (Mobile only) */}
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="md:hidden text-slate-600 hover:text-slate-900"
+              onClick={() => setMobileMenuOpen(true)}
+              aria-label="Abrir menu"
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+            
+            {/* Context Breadcrumb / Section Name */}
+            <div className="flex items-center text-sm font-medium text-slate-700">
+              <span className="text-slate-400 hidden sm:inline">CHECK-ON /</span>
+              <span className="sm:ml-1.5 font-semibold text-slate-900">{currentItem?.name || 'Operação'}</span>
+            </div>
           </div>
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" className="text-slate-400 hover:text-slate-600">
-              <AlertTriangle className="h-5 w-5" />
-            </Button>
-            <Button variant="ghost" size="icon" className="text-slate-400 hover:text-slate-600">
-              <Settings className="h-5 w-5" />
-            </Button>
+
+          {/* Quick Actions */}
+          <div className="flex items-center gap-2">
+            <Link href="/dashboard/ncs">
+              <Button variant="ghost" size="icon" className="text-slate-400 hover:text-amber-600 hover:bg-amber-50" title="Ver Não Conformidades">
+                <AlertTriangle className="h-5 w-5" />
+              </Button>
+            </Link>
+            <Link href="/dashboard/settings">
+              <Button variant="ghost" size="icon" className="text-slate-400 hover:text-slate-700 hover:bg-slate-100" title="Configurações">
+                <Settings className="h-5 w-5" />
+              </Button>
+            </Link>
           </div>
         </header>
 
-        {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-8">
+        {/* Page Content with responsive padding */}
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
           <div className="max-w-6xl mx-auto">
             {children}
           </div>
