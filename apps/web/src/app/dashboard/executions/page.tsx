@@ -12,6 +12,7 @@ import { ClipboardList, Search, Activity, Calendar, Car, User, Clock, ArrowRight
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function ExecutionsPage() {
@@ -19,6 +20,7 @@ export default function ExecutionsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [selectedChecklist, setSelectedChecklist] = useState<Checklist | null>(null);
 
   useEffect(() => {
     fetchChecklists();
@@ -168,7 +170,12 @@ export default function ExecutionsPage() {
                       {getStatusBadge(c.status)}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" className="text-primary hover:text-primary hover:bg-primary/10">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-primary hover:text-primary hover:bg-primary/10"
+                        onClick={() => setSelectedChecklist(c)}
+                      >
                         Ver Detalhes
                         <ArrowRight className="h-4 w-4 ml-1" />
                       </Button>
@@ -180,6 +187,78 @@ export default function ExecutionsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Checklist Details Dialog */}
+      <Dialog open={!!selectedChecklist} onOpenChange={(open) => !open && setSelectedChecklist(null)}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto custom-scrollbar">
+          <DialogHeader>
+            <DialogTitle>Detalhes da Inspeção</DialogTitle>
+            <DialogDescription>
+              {selectedChecklist?.template?.name || 'Inspeção Operacional'} realizada em {selectedChecklist?.startedAt ? format(new Date(selectedChecklist.startedAt), "dd/MM/yyyy 'às' HH:mm") : '—'}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedChecklist && (
+            <div className="space-y-4 pt-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3 bg-slate-50 rounded-lg border text-sm">
+                <div>
+                  <span className="text-xs text-slate-500 block">Veículo</span>
+                  <span className="font-semibold text-slate-800">{selectedChecklist.vehicle?.plate || '—'}</span>
+                  {selectedChecklist.vehicle?.model && (
+                    <span className="text-xs text-slate-500 block">{selectedChecklist.vehicle.model}</span>
+                  )}
+                </div>
+                <div>
+                  <span className="text-xs text-slate-500 block">Condutor / Inspetor</span>
+                  <span className="font-semibold text-slate-800">{selectedChecklist.driver?.name || '—'}</span>
+                  {selectedChecklist.driver?.role && (
+                    <span className="text-xs text-slate-500 block">{selectedChecklist.driver.role}</span>
+                  )}
+                </div>
+                <div>
+                  <span className="text-xs text-slate-500 block">Situação</span>
+                  <div className="mt-1">{getStatusBadge(selectedChecklist.status)}</div>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-semibold text-slate-800 mb-2">Itens Inspecionados</h4>
+                {!selectedChecklist.answers || selectedChecklist.answers.length === 0 ? (
+                  <p className="text-xs text-slate-500 italic p-4 bg-slate-50/50 rounded text-center">
+                    Nenhuma resposta registrada nesta execução.
+                  </p>
+                ) : (
+                  <div className="divide-y border rounded-lg overflow-hidden">
+                    {selectedChecklist.answers.map((ans) => (
+                      <div key={ans.id} className="p-3 flex items-start justify-between gap-4 text-sm bg-white hover:bg-slate-50/50">
+                        <div className="flex-1">
+                          <p className="font-medium text-slate-800">{ans.item?.text || 'Regra de inspeção'}</p>
+                          {ans.nonConformity && (
+                            <span className="inline-block mt-1 text-xs text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded font-medium">
+                              Não Conformidade Registrada: {ans.nonConformity.severity}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className={`inline-flex px-2 py-1 rounded text-xs font-semibold ${
+                            ans.value === 'CONFORME' || ans.value === 'OK' || ans.value === 'PASS' 
+                              ? 'bg-emerald-100 text-emerald-800' 
+                              : ans.value === 'NAO_CONFORME' || ans.value === 'NC' || ans.value === 'FAIL'
+                              ? 'bg-rose-100 text-rose-800'
+                              : 'bg-slate-100 text-slate-700'
+                          }`}>
+                            {ans.value}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

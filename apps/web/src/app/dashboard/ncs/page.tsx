@@ -11,6 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { AlertOctagon, Search, Activity, Calendar, AlertTriangle, MessageSquare, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function NCsPage() {
@@ -18,6 +20,12 @@ export default function NCsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [severityFilter, setSeverityFilter] = useState('ALL');
+
+  // Treatment state
+  const [editTarget, setEditTarget] = useState<NC | null>(null);
+  const [editStatus, setEditStatus] = useState('IN_PROGRESS');
+  const [editNotes, setEditNotes] = useState('');
+  const [editSubmitting, setEditSubmitting] = useState(false);
 
   useEffect(() => {
     fetchNCs();
@@ -32,6 +40,30 @@ export default function NCsPage() {
       console.error('Falha ao buscar NCs');
     } finally {
       setLoading(false);
+    }
+  }
+
+  function startTreatment(nc: NC) {
+    setEditTarget(nc);
+    setEditStatus(nc.status === 'OPEN' ? 'IN_PROGRESS' : nc.status);
+    setEditNotes(nc.notes || '');
+  }
+
+  async function handleSaveTreatment(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editTarget) return;
+    try {
+      setEditSubmitting(true);
+      await api.patch(`/ncs/${editTarget.id}`, {
+        status: editStatus,
+        notes: editNotes
+      });
+      setEditTarget(null);
+      fetchNCs();
+    } catch {
+      alert('Não foi possível atualizar a não conformidade.');
+    } finally {
+      setEditSubmitting(false);
     }
   }
 
@@ -175,7 +207,12 @@ export default function NCsPage() {
                       {getStatusBadge(nc.status)}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="outline" size="sm" className="h-8 text-xs font-medium text-slate-700 bg-white">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="h-8 text-xs font-medium text-slate-700 bg-white"
+                        onClick={() => startTreatment(nc)}
+                      >
                         <ExternalLink className="h-3.5 w-3.5 mr-1.5 text-primary" />
                         Tratar NC
                       </Button>
@@ -187,6 +224,75 @@ export default function NCsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* NC Treatment Dialog */}
+      <Dialog open={!!editTarget} onOpenChange={(open) => !open && setEditTarget(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Tratativa de Não Conformidade</DialogTitle>
+            <DialogDescription>
+              Atualize o andamento ou encerre a tratativa da NC #{editTarget?.id.substring(0, 6).toUpperCase()}.
+            </DialogDescription>
+          </DialogHeader>
+
+          {editTarget && (
+            <form onSubmit={handleSaveTreatment} className="space-y-4 pt-2">
+              <div className="p-3 bg-slate-50 border rounded-md text-xs space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Gravidade:</span>
+                  <span>{getSeverityBadge(editTarget.severity)}</span>
+                </div>
+                {editTarget.answer?.item && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Item:</span>
+                    <span className="font-semibold text-slate-800">{editTarget.answer.item.text}</span>
+                  </div>
+                )}
+                {editTarget.answer?.checklist?.vehicle && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Veículo:</span>
+                    <span className="font-semibold text-slate-800">{editTarget.answer.checklist.vehicle.plate}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="nc-status">Status da Tratativa *</Label>
+                <Select value={editStatus} onValueChange={(v) => setEditStatus(v || 'IN_PROGRESS')}>
+                  <SelectTrigger id="nc-status">
+                    <SelectValue placeholder="Selecione o status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="OPEN">Aberta (Sem ação)</SelectItem>
+                    <SelectItem value="IN_PROGRESS">Em Tratativa / Manutenção</SelectItem>
+                    <SelectItem value="RESOLVED">Resolvido / Corrigido</SelectItem>
+                    <SelectItem value="CLOSED">Encerrado e Validado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="nc-notes">Observações / Parecer Técnico</Label>
+                <Input
+                  id="nc-notes"
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
+                  placeholder="Ex: Pneu trocado e calibrado na borracharia parceira em 06/10"
+                />
+              </div>
+
+              <DialogFooter className="mt-4">
+                <Button type="button" variant="outline" onClick={() => setEditTarget(null)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={editSubmitting}>
+                  {editSubmitting ? 'Salvando...' : 'Salvar Tratativa'}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

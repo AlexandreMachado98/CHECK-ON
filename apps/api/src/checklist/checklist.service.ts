@@ -12,11 +12,27 @@ export class ChecklistService {
   }
 
   async findAll() {
-    return this.prisma.checklist.findMany({ orderBy: { createdAt: 'desc' } });
+    return this.prisma.checklist.findMany({
+      include: {
+        template: true,
+        vehicle: true,
+        driver: true,
+        answers: { include: { item: true, nonConformity: true } }
+      },
+      orderBy: { startedAt: 'desc' }
+    });
   }
 
   async findOne(id: string) {
-    const record = await this.prisma.checklist.findUnique({ where: { id } });
+    const record = await this.prisma.checklist.findUnique({
+      where: { id },
+      include: {
+        template: true,
+        vehicle: true,
+        driver: true,
+        answers: { include: { item: true, nonConformity: true } }
+      }
+    });
     if (!record) throw new NotFoundException('Registro não encontrado');
     return record;
   }

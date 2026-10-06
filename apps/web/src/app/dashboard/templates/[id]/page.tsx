@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Save, Trash2, Plus, GripVertical, CheckCircle2, Type, Hash, Camera, LayoutList, Settings2, Edit2, Activity } from 'lucide-react';
+import { ArrowLeft, Trash2, Plus, GripVertical, CheckCircle2, Type, Hash, Camera, LayoutList, Settings2, Edit2, Activity } from 'lucide-react';
 
 const ITEM_TYPES: { value: ItemType; label: string; description: string; icon: React.ElementType }[] = [
   { value: 'PASS_FAIL', label: 'Conformidade (OK / NC)', description: 'O inspetor avalia a condição do item.', icon: CheckCircle2 },
@@ -296,10 +296,19 @@ export default function TemplateBuilderPage() {
           </div>
           <p className="text-xs text-slate-500 mt-1">{template.description || 'Sem descrição'}</p>
         </div>
-        <Button size="sm" className="shadow-sm">
-          <Save className="h-4 w-4 mr-2" />
-          Salvar Modelo
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="shadow-sm text-xs"
+            onClick={async () => {
+              await api.patch(`/templates/${template.id}`, { isActive: !template.isActive });
+              fetchTemplate();
+            }}
+          >
+            {template.isActive ? 'Desativar Modelo' : 'Ativar Modelo'}
+          </Button>
+        </div>
       </div>
 
       {/* Builder 2-Column Area */}

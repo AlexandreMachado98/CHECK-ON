@@ -84,6 +84,14 @@ export interface Template {
   _count?: { categories: number };
 }
 
+export interface ChecklistAnswer {
+  id: string;
+  value: string;
+  photoUrl?: string;
+  item?: TemplateItem;
+  nonConformity?: NC;
+}
+
 export interface Checklist {
   id: string;
   status: string;
@@ -95,6 +103,7 @@ export interface Checklist {
   vehicle?: Vehicle;
   driver?: Employee;
   template?: Template;
+  answers?: ChecklistAnswer[];
 }
 
 export interface NC {
@@ -105,5 +114,9 @@ export interface NC {
   createdAt: string;
   resolvedAt?: string;
   answerId: string;
+  answer?: ChecklistAnswer & {
+    checklist?: Checklist;
+    item?: TemplateItem;
+  };
 }
 

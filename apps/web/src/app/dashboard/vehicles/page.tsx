@@ -27,6 +27,14 @@ export default function VehiclesPage() {
   const [search, setSearch] = useState('');
   const [selectedFleetFilter, setSelectedFleetFilter] = useState('ALL');
 
+  // Edit state
+  const [editTarget, setEditTarget] = useState<Vehicle | null>(null);
+  const [editPlate, setEditPlate] = useState('');
+  const [editModel, setEditModel] = useState('');
+  const [editPrefix, setEditPrefix] = useState('');
+  const [editFleetId, setEditFleetId] = useState('');
+  const [editSubmitting, setEditSubmitting] = useState(false);
+
   useEffect(() => {
     fetchVehicles();
     fetchFleets();
@@ -77,6 +85,34 @@ export default function VehiclesPage() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function handleEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editTarget) return;
+    setEditSubmitting(true);
+    try {
+      await api.patch(`/vehicles/${editTarget.id}`, {
+        plate: editPlate.toUpperCase(),
+        model: editModel,
+        prefix: editPrefix.toUpperCase() || null,
+        fleetId: editFleetId
+      });
+      setEditTarget(null);
+      fetchVehicles();
+    } catch {
+      alert('Erro ao atualizar dados do veículo.');
+    } finally {
+      setEditSubmitting(false);
+    }
+  }
+
+  function startEdit(v: Vehicle) {
+    setEditTarget(v);
+    setEditPlate(v.plate);
+    setEditModel(v.model || '');
+    setEditPrefix(v.prefix || '');
+    setEditFleetId(v.fleetId);
   }
 
   async function handleToggleStatus(vehicle: Vehicle) {
@@ -278,7 +314,13 @@ export default function VehiclesPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-primary">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 text-slate-400 hover:text-primary"
+                          onClick={() => startEdit(vehicle)}
+                          title="Editar veículo"
+                        >
                           <Edit2 className="h-4 w-4" />
                         </Button>
                         <Button 
@@ -299,6 +341,71 @@ export default function VehiclesPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Vehicle Dialog */}
+      <Dialog open={!!editTarget} onOpenChange={(open) => !open && setEditTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Veículo</DialogTitle>
+            <DialogDescription>
+              Atualize as informações operacionais deste veículo.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleEdit} className="space-y-4 pt-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-plate">Placa *</Label>
+                <Input
+                  id="edit-plate"
+                  value={editPlate}
+                  onChange={(e) => setEditPlate(e.target.value)}
+                  className="uppercase"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-prefix">Prefixo / Frota</Label>
+                <Input
+                  id="edit-prefix"
+                  value={editPrefix}
+                  onChange={(e) => setEditPrefix(e.target.value)}
+                  className="uppercase"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-model">Modelo / Marca *</Label>
+              <Input
+                id="edit-model"
+                value={editModel}
+                onChange={(e) => setEditModel(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-fleetId">Grupo de Frota *</Label>
+              <Select value={editFleetId} onValueChange={(val) => setEditFleetId(val || '')} required>
+                <SelectTrigger id="edit-fleetId">
+                  <SelectValue placeholder="Selecione o grupo..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {fleets.map(fleet => (
+                    <SelectItem key={fleet.id} value={fleet.id}>{fleet.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter className="mt-4">
+              <Button type="button" variant="outline" onClick={() => setEditTarget(null)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={editSubmitting || !editPlate || !editModel || !editFleetId}>
+                {editSubmitting ? 'Salvando...' : 'Salvar Alterações'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

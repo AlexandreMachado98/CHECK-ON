@@ -23,6 +23,12 @@ export default function FleetsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState('');
 
+  // Edit state
+  const [editTarget, setEditTarget] = useState<Fleet | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+  const [editSubmitting, setEditSubmitting] = useState(false);
+
   useEffect(() => {
     fetchFleets();
   }, []);
@@ -53,6 +59,27 @@ export default function FleetsPage() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function handleEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editTarget) return;
+    setEditSubmitting(true);
+    try {
+      await api.patch(`/fleets/${editTarget.id}`, { name: editName, description: editDesc });
+      setEditTarget(null);
+      fetchFleets();
+    } catch {
+      alert('Erro ao atualizar dados da frota.');
+    } finally {
+      setEditSubmitting(false);
+    }
+  }
+
+  function startEdit(fleet: Fleet) {
+    setEditTarget(fleet);
+    setEditName(fleet.name);
+    setEditDesc(fleet.description || '');
   }
 
   async function handleToggleStatus(fleet: Fleet) {
@@ -200,7 +227,13 @@ export default function FleetsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-primary">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 text-slate-400 hover:text-primary"
+                          onClick={() => startEdit(fleet)}
+                          title="Editar frota"
+                        >
                           <Edit2 className="h-4 w-4" />
                         </Button>
                         <Button 
@@ -221,6 +254,45 @@ export default function FleetsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Fleet Dialog */}
+      <Dialog open={!!editTarget} onOpenChange={(open) => !open && setEditTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Grupo de Frota</DialogTitle>
+            <DialogDescription>
+              Atualize o nome e as observações desta frota operacional.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleEdit} className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Nome da Frota *</Label>
+              <Input
+                id="edit-name"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-desc">Descrição / Observações</Label>
+              <Input
+                id="edit-desc"
+                value={editDesc}
+                onChange={(e) => setEditDesc(e.target.value)}
+              />
+            </div>
+            <DialogFooter className="mt-4">
+              <Button type="button" variant="outline" onClick={() => setEditTarget(null)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={editSubmitting || !editName.trim()}>
+                {editSubmitting ? 'Salvando...' : 'Salvar Alterações'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
