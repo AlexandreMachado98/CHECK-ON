@@ -12,11 +12,23 @@ export class FleetService {
   }
 
   async findAll() {
-    return this.prisma.fleet.findMany({ orderBy: { createdAt: 'desc' } });
+    return this.prisma.fleet.findMany({
+      include: {
+        vehicles: true,
+        _count: { select: { vehicles: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
   async findOne(id: string) {
-    const record = await this.prisma.fleet.findUnique({ where: { id } });
+    const record = await this.prisma.fleet.findUnique({
+      where: { id },
+      include: {
+        vehicles: true,
+        _count: { select: { vehicles: true } },
+      },
+    });
     if (!record) throw new NotFoundException('Registro não encontrado');
     return record;
   }

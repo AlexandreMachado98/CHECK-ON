@@ -16,7 +16,6 @@ import {
   LogOut,
   Settings,
   AlertTriangle,
-  FolderOpen,
   BarChart3,
   Menu,
   X
@@ -35,8 +34,7 @@ const MENU_GROUPS = [
   {
     title: 'FROTA',
     items: [
-      { name: 'Veículos', path: '/dashboard/vehicles', icon: Truck },
-      { name: 'Frotas', path: '/dashboard/fleets', icon: FolderOpen },
+      { name: 'Frotas & Veículos', path: '/dashboard/fleets', icon: Truck },
     ]
   },
   {
@@ -81,7 +79,16 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     router.push('/login');
   }
 
-  if (!user) return null;
+  if (!user) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-slate-900 text-white">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
+          <p className="text-sm text-slate-400">Carregando painel...</p>
+        </div>
+      </div>
+    );
+  }
 
   const currentItem = MENU_GROUPS.flatMap(g => g.items).find(i => i.path === pathname);
 

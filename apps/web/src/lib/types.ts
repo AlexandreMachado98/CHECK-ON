@@ -5,6 +5,8 @@ export interface Fleet {
   name: string;
   description?: string;
   isActive: boolean;
+  vehicles?: Vehicle[];
+  _count?: { vehicles: number };
 }
 
 export interface Vehicle {
@@ -37,10 +39,12 @@ export interface User {
 export interface Employee {
   id: string;
   name: string;
+  matricula?: string;
+  jobTitle?: string;
+  role?: string;
   email?: string;
   phone?: string;
   cpf?: string;
-  role: string; // e.g. 'MOTORISTA', 'TECNICO', 'OPERADOR'
   isActive: boolean;
   userId?: string;
   user?: User;

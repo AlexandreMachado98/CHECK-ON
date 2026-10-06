@@ -1,141 +1,219 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { BarChart3, TrendingUp, AlertOctagon, ClipboardCheck, ArrowUpRight, Download, Filter } from 'lucide-react';
+import { BarChart3, AlertOctagon, ClipboardCheck, Activity, Truck, ArrowRight, ShieldCheck } from 'lucide-react';
+import api from '@/lib/api';
+import type { Checklist, NC } from '@/lib/types';
 
 export default function ReportsPage() {
+  const [checklists, setChecklists] = useState<Checklist[]>([]);
+  const [ncs, setNcs] = useState<NC[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchReportsData() {
+      try {
+        setLoading(true);
+        const [chkRes, ncRes] = await Promise.allSettled([
+          api.get<Checklist[]>('/checklists'),
+          api.get<NC[]>('/ncs'),
+        ]);
+
+        if (chkRes.status === 'fulfilled') setChecklists(chkRes.value.data);
+        if (ncRes.status === 'fulfilled') setNcs(ncRes.value.data);
+      } catch (err) {
+        console.error('Erro ao buscar dados dos relatórios:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchReportsData();
+  }, []);
+
+  // Compute stats
+  const totalInspections = checklists.length;
+  const totalNcs = ncs.length;
+  const completedInspections = checklists.filter(c => c.status === 'COMPLETED' || c.status === 'SYNCED').length;
+  const complianceRate = totalInspections > 0 
+    ? Math.round((completedInspections / totalInspections) * 100) 
+    : 100;
+
+  // Inspections by Vehicle
+  const vehicleCountMap = checklists.reduce((acc, c) => {
+    if (c.vehicle?.plate) {
+      acc[c.vehicle.plate] = (acc[c.vehicle.plate] || 0) + 1;
+    }
+    return acc;
+  }, {} as Record<string, number>);
+
+  const topVehicles = Object.entries(vehicleCountMap)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([plate, count]) => ({
+      plate,
+      count,
+      pct: totalInspections > 0 ? Math.round((count / totalInspections) * 100) : 0,
+    }));
+
+  // NCs by Severity
+  const severityCount = ncs.reduce((acc, nc) => {
+    acc[nc.severity] = (acc[nc.severity] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
   return (
     <>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">Relatórios Gerenciais</h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Métricas de desempenho, uso da frota e conformidade de inspeções.
+            Métricas de desempenho, uso da frota e conformidade de inspeções da base real.
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" className="shadow-sm">
-            <Filter className="h-4 w-4 mr-2 text-slate-500" />
-            Filtrar Período
-          </Button>
-          <Button className="shadow-sm">
-            <Download className="h-4 w-4 mr-2" />
-            Exportar PDF
-          </Button>
+      </div>
+
+      {loading ? (
+        <div className="p-16 text-center text-sm text-slate-500 flex flex-col items-center">
+          <Activity className="h-8 w-8 animate-pulse text-emerald-600 mb-2" />
+          Consolidando métricas operacionais...
         </div>
-      </div>
+      ) : (
+        <>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">
+            <Card className="border-slate-200 shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-slate-600">Total de Inspeções</CardTitle>
+                <ClipboardCheck className="h-4 w-4 text-emerald-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-slate-900">{totalInspections}</div>
+                <p className="text-xs text-slate-500 mt-1">
+                  {completedInspections} finalizadas com sucesso
+                </p>
+              </CardContent>
+            </Card>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
-        <Card className="border-slate-200 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600">Total de Inspeções</CardTitle>
-            <ClipboardCheck className="h-4 w-4 text-emerald-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-slate-900">1,248</div>
-            <p className="text-xs text-emerald-600 flex items-center mt-1 font-medium">
-              <TrendingUp className="h-3 w-3 mr-1" />
-              +12.5% este mês
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="border-slate-200 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600">NCs Reportadas</CardTitle>
-            <AlertOctagon className="h-4 w-4 text-amber-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-slate-900">84</div>
-            <p className="text-xs text-rose-600 flex items-center mt-1 font-medium">
-              <ArrowUpRight className="h-3 w-3 mr-1" />
-              +4.2% em relação a média
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="border-slate-200 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600">Taxa de Conformidade</CardTitle>
-            <BarChart3 className="h-4 w-4 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-slate-900">93.2%</div>
-            <p className="text-xs text-slate-500 flex items-center mt-1">
-              Dentro da meta aceitável (&gt; 90%)
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="border-slate-200 shadow-sm bg-slate-900 text-white border-none">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-slate-300">Tempo Médio Resolução</CardTitle>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" className="h-4 w-4 text-slate-400">
-              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-            </svg>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">14h 30m</div>
-            <p className="text-xs text-emerald-400 flex items-center mt-1">
-              -2h 15m mais rápido que o esperado
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+            <Card className="border-slate-200 shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-slate-600">Não Conformidades</CardTitle>
+                <AlertOctagon className="h-4 w-4 text-amber-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-slate-900">{totalNcs}</div>
+                <p className="text-xs text-slate-500 mt-1">
+                  Falhas apontadas em checklists
+                </p>
+              </CardContent>
+            </Card>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card className="border-slate-200 shadow-sm">
-          <CardHeader className="border-b border-slate-100">
-            <CardTitle className="text-base font-semibold text-slate-700">Inspeções por Veículo (Top 5)</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="space-y-4">
-              {[
-                { plate: 'ABC-1234', count: 145, pct: 100 },
-                { plate: 'XYZ-9876', count: 132, pct: 91 },
-                { plate: 'DEF-5678', count: 110, pct: 75 },
-                { plate: 'GHI-9012', count: 89, pct: 61 },
-                { plate: 'JKL-3456', count: 72, pct: 49 },
-              ].map((v, i) => (
-                <div key={i} className="flex items-center">
-                  <div className="w-20 text-sm font-medium text-slate-700">{v.plate}</div>
-                  <div className="flex-1 ml-4">
-                    <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-primary rounded-full" style={{ width: `${v.pct}%` }}></div>
+            <Card className="border-slate-200 shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-slate-600">Taxa de Conformidade</CardTitle>
+                <BarChart3 className="h-4 w-4 text-blue-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-slate-900">{complianceRate}%</div>
+                <p className="text-xs text-slate-500 mt-1">
+                  {complianceRate >= 90 ? 'Excelente índice de conformidade' : 'Atenção aos itens reprovados'}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {totalInspections === 0 ? (
+            <Card className="border-slate-200 shadow-sm">
+              <CardContent className="py-16 text-center flex flex-col items-center">
+                <div className="h-16 w-16 bg-emerald-50 rounded-full flex items-center justify-center mb-4 border border-emerald-100">
+                  <ShieldCheck className="h-8 w-8 text-emerald-600" />
+                </div>
+                <h3 className="text-lg font-medium text-slate-900 mb-1">Aguardando Execuções</h3>
+                <p className="text-sm text-slate-500 max-w-sm mb-5">
+                  Os gráficos analíticos de veículos mais inspecionados e falhas recorrentes serão gerados à medida que os checklists forem concluídos em campo.
+                </p>
+                <Link href="/dashboard/templates">
+                  <Button variant="outline">
+                    Ver Modelos de Checklist
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-6 md:grid-cols-2">
+              <Card className="border-slate-200 shadow-sm">
+                <CardHeader className="border-b border-slate-100">
+                  <CardTitle className="text-base font-semibold text-slate-700 flex items-center gap-2">
+                    <Truck className="h-4 w-4 text-slate-400" />
+                    Inspeções por Veículo
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-6">
+                  {topVehicles.length === 0 ? (
+                    <p className="text-xs text-slate-500 text-center py-4">Nenhum veículo vinculado às inspeções.</p>
+                  ) : (
+                    <div className="space-y-4">
+                      {topVehicles.map((v, i) => (
+                        <div key={i} className="flex items-center">
+                          <div className="w-24 text-sm font-medium text-slate-800">{v.plate}</div>
+                          <div className="flex-1 ml-2">
+                            <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                              <div className="h-full bg-emerald-600 rounded-full" style={{ width: `${Math.max(v.pct, 5)}%` }}></div>
+                            </div>
+                          </div>
+                          <div className="w-16 text-right text-xs text-slate-500 font-medium ml-4">
+                            {v.count} vistoria{v.count > 1 ? 's' : ''}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  </div>
-                  <div className="w-12 text-right text-sm text-slate-500 font-medium ml-4">{v.count}</div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                  )}
+                </CardContent>
+              </Card>
 
-        <Card className="border-slate-200 shadow-sm">
-          <CardHeader className="border-b border-slate-100">
-            <CardTitle className="text-base font-semibold text-slate-700">Principais Não Conformidades</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="space-y-4">
-              {[
-                { item: 'Pneu Descalibrado', count: 32, pct: 38, color: 'bg-rose-500' },
-                { item: 'Óleo abaixo do nível', count: 24, pct: 28, color: 'bg-amber-500' },
-                { item: 'Farol Queimado', count: 15, pct: 17, color: 'bg-blue-500' },
-                { item: 'Documentação Atrasada', count: 8, pct: 9, color: 'bg-orange-500' },
-                { item: 'Extintor Vencido', count: 5, pct: 6, color: 'bg-purple-500' },
-              ].map((v, i) => (
-                <div key={i} className="flex flex-col gap-1">
-                  <div className="flex justify-between text-sm">
-                    <span className="font-medium text-slate-700">{v.item}</span>
-                    <span className="text-slate-500 font-medium">{v.count} ocorrências</span>
-                  </div>
-                  <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                    <div className={`h-full rounded-full ${v.color}`} style={{ width: `${v.pct}%` }}></div>
-                  </div>
-                </div>
-              ))}
+              <Card className="border-slate-200 shadow-sm">
+                <CardHeader className="border-b border-slate-100">
+                  <CardTitle className="text-base font-semibold text-slate-700 flex items-center gap-2">
+                    <AlertOctagon className="h-4 w-4 text-amber-500" />
+                    Ocorrências por Gravidade
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-6">
+                  {totalNcs === 0 ? (
+                    <p className="text-xs text-emerald-600 text-center py-6 font-medium">
+                      Nenhuma não conformidade registrada até o momento!
+                    </p>
+                  ) : (
+                    <div className="space-y-4">
+                      {[
+                        { label: 'Crítico', count: severityCount['CRITICAL'] || 0, color: 'bg-rose-500' },
+                        { label: 'Alto', count: severityCount['HIGH'] || 0, color: 'bg-orange-500' },
+                        { label: 'Médio', count: severityCount['MEDIUM'] || 0, color: 'bg-amber-500' },
+                        { label: 'Baixo', count: severityCount['LOW'] || 0, color: 'bg-blue-500' },
+                      ].map((s, i) => {
+                        const pct = totalNcs > 0 ? Math.round((s.count / totalNcs) * 100) : 0;
+                        return (
+                          <div key={i} className="flex flex-col gap-1">
+                            <div className="flex justify-between text-xs">
+                              <span className="font-semibold text-slate-700">{s.label}</span>
+                              <span className="text-slate-500">{s.count} ({pct}%)</span>
+                            </div>
+                            <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                              <div className={`h-full rounded-full ${s.color}`} style={{ width: `${pct}%` }}></div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          )}
+        </>
+      )}
     </>
   );
 }

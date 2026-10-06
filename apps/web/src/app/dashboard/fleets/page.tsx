@@ -2,32 +2,46 @@
 
 import { useEffect, useState } from 'react';
 import api from '@/lib/api';
-import type { Fleet } from '@/lib/types';
+import type { Fleet, Vehicle } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { FolderOpen, Plus, Search, Edit2, Archive, Activity } from 'lucide-react';
+import { FolderOpen, Plus, Search, Edit2, Archive, Activity, Truck } from 'lucide-react';
 
 export default function FleetsPage() {
   const [fleets, setFleets] = useState<Fleet[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   
-  // Form state
+  // Form state for Fleet
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState('');
 
-  // Edit state
+  // Edit Fleet state
   const [editTarget, setEditTarget] = useState<Fleet | null>(null);
   const [editName, setEditName] = useState('');
   const [editDesc, setEditDesc] = useState('');
   const [editSubmitting, setEditSubmitting] = useState(false);
+
+  // Add Vehicle directly to Fleet state
+  const [addVehicleFleet, setAddVehicleFleet] = useState<Fleet | null>(null);
+  const [vehicleForm, setVehicleForm] = useState({
+    plate: '',
+    prefix: '',
+    brand: '',
+    model: '',
+    year: new Date().getFullYear(),
+  });
+  const [vehicleSubmitting, setVehicleSubmitting] = useState(false);
+
+  // View Fleet Vehicles Modal
+  const [viewVehiclesFleet, setViewVehiclesFleet] = useState<Fleet | null>(null);
 
   useEffect(() => {
     fetchFleets();
@@ -91,6 +105,37 @@ export default function FleetsPage() {
     }
   }
 
+  // Handle registering a vehicle directly into this fleet
+  async function handleAddVehicleToFleet(e: React.FormEvent) {
+    e.preventDefault();
+    if (!addVehicleFleet) return;
+    setVehicleSubmitting(true);
+    try {
+      await api.post('/vehicles', {
+        plate: vehicleForm.plate.trim().toUpperCase(),
+        prefix: vehicleForm.prefix.trim() || undefined,
+        brand: vehicleForm.brand.trim() || undefined,
+        model: vehicleForm.model.trim() || undefined,
+        year: Number(vehicleForm.year) || undefined,
+        fleetId: addVehicleFleet.id,
+      });
+      alert(`Veículo ${vehicleForm.plate.toUpperCase()} cadastrado com sucesso na frota "${addVehicleFleet.name}"!`);
+      setAddVehicleFleet(null);
+      setVehicleForm({
+        plate: '',
+        prefix: '',
+        brand: '',
+        model: '',
+        year: new Date().getFullYear(),
+      });
+      fetchFleets();
+    } catch {
+      alert('Erro ao cadastrar veículo na frota. Verifique se a placa já existe.');
+    } finally {
+      setVehicleSubmitting(false);
+    }
+  }
+
   const filteredFleets = fleets.filter(f => 
     f.name.toLowerCase().includes(search.toLowerCase()) ||
     (f.description && f.description.toLowerCase().includes(search.toLowerCase()))
@@ -100,24 +145,44 @@ export default function FleetsPage() {
     <>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Frotas</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Frotas & Veículos</h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Gerencie os agrupamentos, garagens ou centros de custo da sua operação.
+            Gerencie os agrupamentos da sua operação e cadastre os veículos vinculados a cada frota.
           </p>
         </div>
 
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            className="shrink-0 shadow-xs" 
+            onClick={() => setIsDialogOpen(true)}
+          >
+            <FolderOpen className="mr-2 h-4 w-4 text-slate-500" />
+            Nova Frota
+          </Button>
+
+          <Button 
+            className="shrink-0 shadow-sm bg-emerald-600 hover:bg-emerald-700 text-white" 
+            onClick={() => {
+              if (fleets.length === 0) {
+                alert('Cadastre uma frota primeiro para associar seu veículo.');
+                setIsDialogOpen(true);
+              } else {
+                setAddVehicleFleet(fleets[0]);
+              }
+            }}
+          >
+            <Truck className="mr-2 h-4 w-4" />
+            Cadastrar Veículo
+          </Button>
+        </div>
+
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger>
-            <Button className="shrink-0 shadow-sm" size="default">
-              <Plus className="mr-2 h-4 w-4" />
-              Cadastrar Grupo de Frota
-            </Button>
-          </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Nova Frota</DialogTitle>
               <DialogDescription>
-                Crie um novo agrupamento para organizar seus veículos (ex: Base Norte, Vans de Entrega).
+                Crie um novo grupo para organizar seus veículos (ex: Base Norte, Vans de Entrega, Carretas).
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleCreate} className="space-y-4 pt-2">
@@ -135,7 +200,7 @@ export default function FleetsPage() {
                 <Label htmlFor="desc">Descrição / Observações</Label>
                 <Input
                   id="desc"
-                  placeholder="Ex: Veículos leves destinados a operações expressas"
+                  placeholder="Ex: Veículos pesados de transferência interestadual"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                 />
@@ -155,7 +220,7 @@ export default function FleetsPage() {
 
       <Card className="border-slate-200 shadow-sm">
         <CardHeader className="pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
-          <CardTitle className="text-base font-semibold text-slate-700">Relação de Frotas</CardTitle>
+          <CardTitle className="text-base font-semibold text-slate-700">Relação de Frotas & Veículos</CardTitle>
           <div className="relative w-64 hidden sm:block">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
             <Input 
@@ -194,66 +259,262 @@ export default function FleetsPage() {
             <Table>
               <TableHeader className="bg-slate-50/50">
                 <TableRow>
-                  <TableHead className="w-[30%]">Nome do Grupo</TableHead>
+                  <TableHead className="w-[28%]">Nome do Grupo</TableHead>
+                  <TableHead className="w-[20%]">Veículos Vinculados</TableHead>
                   <TableHead className="hidden md:table-cell">Descrição</TableHead>
-                  <TableHead className="w-[15%]">Situação</TableHead>
-                  <TableHead className="text-right w-[15%]">Ações</TableHead>
+                  <TableHead className="w-[12%]">Situação</TableHead>
+                  <TableHead className="text-right w-[20%]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredFleets.map(fleet => (
-                  <TableRow key={fleet.id} className="hover:bg-slate-50/50 transition-colors">
-                    <TableCell className="font-medium text-slate-900">
-                      <div className="flex items-center">
-                        <FolderOpen className="h-4 w-4 text-slate-400 mr-2" />
-                        {fleet.name}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-slate-500 hidden md:table-cell">
-                      {fleet.description || <span className="text-slate-300">—</span>}
-                    </TableCell>
-                    <TableCell>
-                      <Badge 
-                        variant="secondary" 
-                        className={`font-medium ${
-                          fleet.isActive 
-                            ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200' 
-                            : 'bg-slate-100 text-slate-500 hover:bg-slate-200 border-slate-200'
-                        }`}
-                      >
-                        <span className={`mr-1.5 h-1.5 w-1.5 rounded-full inline-block ${fleet.isActive ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
-                        {fleet.isActive ? 'Em Operação' : 'Inativo'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 text-slate-400 hover:text-primary"
-                          onClick={() => startEdit(fleet)}
-                          title="Editar frota"
+                {filteredFleets.map(fleet => {
+                  const vCount = fleet.vehicles?.length ?? fleet._count?.vehicles ?? 0;
+                  return (
+                    <TableRow key={fleet.id} className="hover:bg-slate-50/50 transition-colors">
+                      <TableCell className="font-medium text-slate-900">
+                        <div className="flex items-center">
+                          <FolderOpen className="h-4 w-4 text-slate-400 mr-2 shrink-0" />
+                          {fleet.name}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Badge 
+                            variant="outline" 
+                            className="font-medium bg-blue-50/50 text-blue-700 border-blue-200 cursor-pointer hover:bg-blue-100 transition-colors"
+                            onClick={() => setViewVehiclesFleet(fleet)}
+                            title="Clique para ver os veículos desta frota"
+                          >
+                            <Truck className="h-3 w-3 mr-1" />
+                            {vCount} {vCount === 1 ? 'veículo' : 'veículos'}
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs text-primary hover:bg-primary/10 px-2 font-medium"
+                            onClick={() => setAddVehicleFleet(fleet)}
+                            title={`Cadastrar veículo diretamente em ${fleet.name}`}
+                          >
+                            <Plus className="h-3 w-3 mr-1" />
+                            Novo Veículo
+                          </Button>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-slate-500 hidden md:table-cell">
+                        {fleet.description || <span className="text-slate-300">—</span>}
+                      </TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant="secondary" 
+                          className={`font-medium ${
+                            fleet.isActive 
+                              ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200' 
+                              : 'bg-slate-100 text-slate-500 hover:bg-slate-200 border-slate-200'
+                          }`}
                         >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className={`h-8 w-8 ${fleet.isActive ? 'text-slate-400 hover:text-amber-600 hover:bg-amber-50' : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'}`}
-                          onClick={() => handleToggleStatus(fleet)}
-                          title={fleet.isActive ? "Arquivar/Inativar" : "Reativar"}
-                        >
-                          <Archive className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                          <span className={`mr-1.5 h-1.5 w-1.5 rounded-full inline-block ${fleet.isActive ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
+                          {fleet.isActive ? 'Em Operação' : 'Inativo'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1.5">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-slate-400 hover:text-primary"
+                            onClick={() => startEdit(fleet)}
+                            title="Editar frota"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className={`h-8 w-8 ${fleet.isActive ? 'text-slate-400 hover:text-amber-600 hover:bg-amber-50' : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'}`}
+                            onClick={() => handleToggleStatus(fleet)}
+                            title={fleet.isActive ? "Arquivar/Inativar" : "Reativar"}
+                          >
+                            <Archive className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}
         </CardContent>
       </Card>
+
+      {/* Dialog: Cadastrar Veículo Dentro da Frota */}
+      <Dialog open={!!addVehicleFleet} onOpenChange={(open) => !open && setAddVehicleFleet(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Truck className="h-5 w-5 text-primary" />
+              Cadastrar Veículo na Frota
+            </DialogTitle>
+            <DialogDescription>
+              Adicionando novo veículo ao grupo <strong>{addVehicleFleet?.name}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleAddVehicleToFleet} className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label htmlFor="v-fleet">Frota de Destino *</Label>
+              <select
+                id="v-fleet"
+                className="w-full h-10 px-3 rounded-md border border-slate-200 bg-slate-50 text-slate-800 text-sm focus:bg-white"
+                value={addVehicleFleet?.id || ''}
+                onChange={(e) => {
+                  const found = fleets.find(f => f.id === e.target.value);
+                  if (found) setAddVehicleFleet(found);
+                }}
+              >
+                {fleets.map(f => (
+                  <option key={f.id} value={f.id}>{f.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="v-plate">Placa do Veículo *</Label>
+                <Input
+                  id="v-plate"
+                  placeholder="ABC-1234 / ABC1D23"
+                  value={vehicleForm.plate}
+                  onChange={(e) => setVehicleForm({ ...vehicleForm, plate: e.target.value.toUpperCase() })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="v-prefix">Prefixo / Código</Label>
+                <Input
+                  id="v-prefix"
+                  placeholder="Ex: V-101"
+                  value={vehicleForm.prefix}
+                  onChange={(e) => setVehicleForm({ ...vehicleForm, prefix: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="v-brand">Marca</Label>
+                <Input
+                  id="v-brand"
+                  placeholder="Ex: Volvo, Scania, Iveco"
+                  value={vehicleForm.brand}
+                  onChange={(e) => setVehicleForm({ ...vehicleForm, brand: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="v-model">Modelo</Label>
+                <Input
+                  id="v-model"
+                  placeholder="Ex: FH 540, Daily 35S14"
+                  value={vehicleForm.model}
+                  onChange={(e) => setVehicleForm({ ...vehicleForm, model: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="v-year">Ano de Fabricação</Label>
+              <Input
+                id="v-year"
+                type="number"
+                value={vehicleForm.year}
+                onChange={(e) => setVehicleForm({ ...vehicleForm, year: Number(e.target.value) })}
+              />
+            </div>
+
+            <DialogFooter className="mt-6">
+              <Button type="button" variant="outline" onClick={() => setAddVehicleFleet(null)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={vehicleSubmitting || !vehicleForm.plate.trim()}>
+                {vehicleSubmitting ? 'Cadastrando...' : 'Cadastrar Veículo na Frota'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Ver Veículos da Frota */}
+      <Dialog open={!!viewVehiclesFleet} onOpenChange={(open) => !open && setViewVehiclesFleet(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Truck className="h-5 w-5 text-primary" />
+              Veículos da Frota: {viewVehiclesFleet?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Lista de veículos atualmente vinculados a este grupo operacional.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            {!viewVehiclesFleet?.vehicles || viewVehiclesFleet.vehicles.length === 0 ? (
+              <div className="text-center py-8 text-slate-500 text-sm">
+                <p>Nenhum veículo cadastrado nesta frota ainda.</p>
+                <Button 
+                  size="sm" 
+                  className="mt-3"
+                  onClick={() => {
+                    const currentFleet = viewVehiclesFleet;
+                    setViewVehiclesFleet(null);
+                    setAddVehicleFleet(currentFleet);
+                  }}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Cadastrar Primeiro Veículo
+                </Button>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100 max-h-80 overflow-y-auto pr-1">
+                {viewVehiclesFleet.vehicles.map((v: Vehicle) => (
+                  <div key={v.id} className="py-3 flex items-center justify-between">
+                    <div>
+                      <div className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                        {v.plate}
+                        {v.prefix && (
+                          <Badge variant="outline" className="text-xs font-normal">
+                            Prefixo: {v.prefix}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="text-xs text-slate-500 mt-0.5">
+                        {v.brand || ''} {v.model || ''} {v.year ? `(${v.year})` : ''}
+                      </div>
+                    </div>
+                    <Badge className={v.isActive ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-slate-100 text-slate-500"}>
+                      {v.isActive ? 'Ativo' : 'Inativo'}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <DialogFooter className="border-t border-slate-100 pt-3">
+            <Button
+              type="button"
+              variant="default"
+              onClick={() => {
+                const currentFleet = viewVehiclesFleet;
+                setViewVehiclesFleet(null);
+                setAddVehicleFleet(currentFleet);
+              }}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Adicionar Mais Veículos
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setViewVehiclesFleet(null)}>
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Fleet Dialog */}
       <Dialog open={!!editTarget} onOpenChange={(open) => !open && setEditTarget(null)}>
@@ -296,3 +557,4 @@ export default function FleetsPage() {
     </>
   );
 }
+
