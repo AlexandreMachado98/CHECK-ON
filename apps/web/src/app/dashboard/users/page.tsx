@@ -92,6 +92,7 @@ export default function UsersPage() {
 
   const [editTarget, setEditTarget] = useState<User | null>(null);
   const [editSub, setEditSub] = useState(false);
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     fetchUsers();
@@ -161,6 +162,11 @@ export default function UsersPage() {
     }
   }
 
+  const filteredUsers = users.filter(u => 
+    u.name.toLowerCase().includes(search.toLowerCase()) ||
+    u.email.toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
     <>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -202,7 +208,13 @@ export default function UsersPage() {
           <div className="flex gap-2">
             <div className="relative w-48 sm:w-64">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
-              <Input type="text" placeholder="Pesquisar por nome ou e-mail..." className="pl-9 h-9 text-sm bg-slate-50" disabled />
+              <Input 
+                type="text" 
+                placeholder="Pesquisar por nome ou e-mail..." 
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 h-9 text-sm bg-slate-50" 
+              />
             </div>
           </div>
         </CardHeader>
@@ -225,6 +237,10 @@ export default function UsersPage() {
                 <Plus className="mr-2 h-4 w-4" /> Cadastrar acesso
               </Button>
             </div>
+          ) : filteredUsers.length === 0 ? (
+            <div className="py-12 px-6 text-center text-slate-500 text-sm">
+              Nenhum usuário encontrado para a busca &quot;{search}&quot;.
+            </div>
           ) : (
             <Table>
               <TableHeader className="bg-slate-50/50">
@@ -237,7 +253,7 @@ export default function UsersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users.map((u) => (
+                {filteredUsers.map((u) => (
                   <TableRow key={u.id} className="hover:bg-slate-50/50 transition-colors">
                     <TableCell className="font-medium text-slate-900">{u.name}</TableCell>
                     <TableCell className="text-slate-600 hidden sm:table-cell">{u.email}</TableCell>

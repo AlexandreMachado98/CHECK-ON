@@ -24,6 +24,8 @@ export default function VehiclesPage() {
   const [prefix, setPrefix] = useState('');
   const [fleetId, setFleetId] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [search, setSearch] = useState('');
+  const [selectedFleetFilter, setSelectedFleetFilter] = useState('ALL');
 
   useEffect(() => {
     fetchVehicles();
@@ -85,6 +87,15 @@ export default function VehiclesPage() {
       alert('Erro ao alterar situação do veículo.');
     }
   }
+
+  const filteredVehicles = vehicles.filter(v => {
+    const matchesSearch = 
+      v.plate.toLowerCase().includes(search.toLowerCase()) ||
+      (v.prefix && v.prefix.toLowerCase().includes(search.toLowerCase())) ||
+      (v.model && v.model.toLowerCase().includes(search.toLowerCase()));
+    const matchesFleet = selectedFleetFilter === 'ALL' || v.fleetId === selectedFleetFilter;
+    return matchesSearch && matchesFleet;
+  });
 
   return (
     <>
@@ -174,16 +185,32 @@ export default function VehiclesPage() {
       </div>
 
       <Card className="border-slate-200 shadow-sm">
-        <CardHeader className="pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
+        <CardHeader className="pb-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <CardTitle className="text-base font-semibold text-slate-700">Relação de Veículos</CardTitle>
-          <div className="flex gap-2">
-            <div className="relative w-48 sm:w-64">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative w-48 sm:w-60">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
-              <Input type="text" placeholder="Placa ou prefixo..." className="pl-9 h-9 text-sm bg-slate-50" disabled />
+              <Input 
+                type="text" 
+                placeholder="Buscar placa, prefixo ou modelo..." 
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 h-9 text-sm bg-slate-50" 
+              />
             </div>
-            <Button variant="outline" size="sm" className="hidden sm:flex h-9 text-slate-600 bg-slate-50">
-              Filtros
-            </Button>
+            {fleets.length > 0 && (
+              <Select value={selectedFleetFilter} onValueChange={(val) => setSelectedFleetFilter(val || 'ALL')}>
+                <SelectTrigger className="h-9 w-40 text-xs bg-slate-50">
+                  <SelectValue placeholder="Todas as frotas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Todas as frotas</SelectItem>
+                  {fleets.map(f => (
+                    <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -205,6 +232,10 @@ export default function VehiclesPage() {
                 <Plus className="mr-2 h-4 w-4" /> Cadastrar primeiro veículo
               </Button>
             </div>
+          ) : filteredVehicles.length === 0 ? (
+            <div className="py-12 px-6 text-center text-slate-500 text-sm">
+              Nenhum veículo encontrado para os filtros selecionados.
+            </div>
           ) : (
             <Table>
               <TableHeader className="bg-slate-50/50">
@@ -217,7 +248,7 @@ export default function VehiclesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {vehicles.map(vehicle => (
+                {filteredVehicles.map(vehicle => (
                   <TableRow key={vehicle.id} className="hover:bg-slate-50/50 transition-colors">
                     <TableCell>
                       <div className="font-semibold text-slate-900">{vehicle.plate}</div>

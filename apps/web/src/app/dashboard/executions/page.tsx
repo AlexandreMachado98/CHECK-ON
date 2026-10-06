@@ -12,9 +12,13 @@ import { ClipboardList, Search, Activity, Calendar, Car, User, Clock, ArrowRight
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 export default function ExecutionsPage() {
   const [checklists, setChecklists] = useState<Checklist[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
 
   useEffect(() => {
     fetchChecklists();
@@ -44,6 +48,15 @@ export default function ExecutionsPage() {
     }
   }
 
+  const filteredChecklists = checklists.filter(c => {
+    const matchesSearch = 
+      (c.vehicle?.plate && c.vehicle.plate.toLowerCase().includes(search.toLowerCase())) ||
+      (c.driver?.name && c.driver.name.toLowerCase().includes(search.toLowerCase())) ||
+      (c.template?.name && c.template.name.toLowerCase().includes(search.toLowerCase()));
+    const matchesStatus = statusFilter === 'ALL' || c.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
   return (
     <>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -56,13 +69,29 @@ export default function ExecutionsPage() {
       </div>
 
       <Card className="border-slate-200 shadow-sm">
-        <CardHeader className="pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
+        <CardHeader className="pb-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <CardTitle className="text-base font-semibold text-slate-700">Histórico de Execuções</CardTitle>
-          <div className="flex gap-2">
-            <div className="relative w-48 sm:w-64">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative w-48 sm:w-60">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
-              <Input type="text" placeholder="Buscar placa ou motorista..." className="pl-9 h-9 text-sm bg-slate-50" disabled />
+              <Input 
+                type="text" 
+                placeholder="Buscar placa, motorista ou modelo..." 
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 h-9 text-sm bg-slate-50" 
+              />
             </div>
+            <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val || 'ALL')}>
+              <SelectTrigger className="h-9 w-36 text-xs bg-slate-50">
+                <SelectValue placeholder="Todos os status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Todos os status</SelectItem>
+                <SelectItem value="IN_PROGRESS">Em Andamento</SelectItem>
+                <SelectItem value="COMPLETED">Finalizado</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -81,6 +110,10 @@ export default function ExecutionsPage() {
                 As inspeções realizadas pelos motoristas no aplicativo aparecerão aqui.
               </p>
             </div>
+          ) : filteredChecklists.length === 0 ? (
+            <div className="py-12 px-6 text-center text-slate-500 text-sm">
+              Nenhuma inspeção encontrada para os filtros selecionados.
+            </div>
           ) : (
             <Table>
               <TableHeader className="bg-slate-50/50">
@@ -94,7 +127,7 @@ export default function ExecutionsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {checklists.map((c) => (
+                {filteredChecklists.map((c) => (
                   <TableRow key={c.id} className="hover:bg-slate-50/50 transition-colors">
                     <TableCell>
                       <div className="flex flex-col">

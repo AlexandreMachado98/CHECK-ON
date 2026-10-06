@@ -21,6 +21,7 @@ export default function FleetsPage() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     fetchFleets();
@@ -62,6 +63,11 @@ export default function FleetsPage() {
       alert('Erro ao alterar situação da frota.');
     }
   }
+
+  const filteredFleets = fleets.filter(f => 
+    f.name.toLowerCase().includes(search.toLowerCase()) ||
+    (f.description && f.description.toLowerCase().includes(search.toLowerCase()))
+  );
 
   return (
     <>
@@ -125,7 +131,13 @@ export default function FleetsPage() {
           <CardTitle className="text-base font-semibold text-slate-700">Relação de Frotas</CardTitle>
           <div className="relative w-64 hidden sm:block">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
-            <Input type="text" placeholder="Buscar frota..." className="pl-9 h-9 text-sm" disabled />
+            <Input 
+              type="text" 
+              placeholder="Buscar frota..." 
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 h-9 text-sm" 
+            />
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -147,6 +159,10 @@ export default function FleetsPage() {
                 <Plus className="mr-2 h-4 w-4" /> Cadastrar Frota
               </Button>
             </div>
+          ) : filteredFleets.length === 0 ? (
+            <div className="py-12 px-6 text-center text-slate-500 text-sm">
+              Nenhuma frota encontrada para a busca &quot;{search}&quot;.
+            </div>
           ) : (
             <Table>
               <TableHeader className="bg-slate-50/50">
@@ -158,7 +174,7 @@ export default function FleetsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {fleets.map(fleet => (
+                {filteredFleets.map(fleet => (
                   <TableRow key={fleet.id} className="hover:bg-slate-50/50 transition-colors">
                     <TableCell className="font-medium text-slate-900">
                       <div className="flex items-center">

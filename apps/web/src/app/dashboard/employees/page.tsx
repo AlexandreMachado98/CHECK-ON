@@ -113,6 +113,8 @@ export default function EmployeesPage() {
 
   const [editTarget, setEditTarget] = useState<Employee | null>(null);
   const [editSubmitting, setEditSub] = useState(false);
+  const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState('ALL');
 
   useEffect(() => { fetchEmployees(); }, []);
 
@@ -166,6 +168,15 @@ export default function EmployeesPage() {
 
   const roleLabelMap = Object.fromEntries(EMPLOYEE_ROLES.map(r => [r.value, r.label]));
 
+  const filteredEmployees = employees.filter(emp => {
+    const matchesSearch = 
+      emp.name.toLowerCase().includes(search.toLowerCase()) ||
+      (emp.cpf && emp.cpf.includes(search)) ||
+      (emp.email && emp.email.toLowerCase().includes(search.toLowerCase()));
+    const matchesRole = roleFilter === 'ALL' || emp.role === roleFilter;
+    return matchesSearch && matchesRole;
+  });
+
   return (
     <>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -201,13 +212,30 @@ export default function EmployeesPage() {
       </div>
 
       <Card className="border-slate-200 shadow-sm">
-        <CardHeader className="pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
+        <CardHeader className="pb-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <CardTitle className="text-base font-semibold text-slate-700">Relação de Colaboradores</CardTitle>
-          <div className="flex gap-2">
-            <div className="relative w-48 sm:w-64">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative w-48 sm:w-60">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
-              <Input type="text" placeholder="Buscar por nome ou CPF..." className="pl-9 h-9 text-sm bg-slate-50" disabled />
+              <Input 
+                type="text" 
+                placeholder="Buscar por nome ou CPF..." 
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 h-9 text-sm bg-slate-50" 
+              />
             </div>
+            <Select value={roleFilter} onValueChange={(val) => setRoleFilter(val || 'ALL')}>
+              <SelectTrigger className="h-9 w-36 text-xs bg-slate-50">
+                <SelectValue placeholder="Todos os cargos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Todos os cargos</SelectItem>
+                {EMPLOYEE_ROLES.map(r => (
+                  <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -229,6 +257,10 @@ export default function EmployeesPage() {
                 <Plus className="mr-2 h-4 w-4" /> Cadastrar colaborador
               </Button>
             </div>
+          ) : filteredEmployees.length === 0 ? (
+            <div className="py-12 px-6 text-center text-slate-500 text-sm">
+              Nenhum colaborador encontrado para os filtros selecionados.
+            </div>
           ) : (
             <Table>
               <TableHeader className="bg-slate-50/50">
@@ -241,7 +273,7 @@ export default function EmployeesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {employees.map((emp) => (
+                {filteredEmployees.map((emp) => (
                   <TableRow key={emp.id} className="hover:bg-slate-50/50 transition-colors">
                     <TableCell>
                       <div className="font-medium text-slate-900">{emp.name}</div>

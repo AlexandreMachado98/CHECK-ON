@@ -11,9 +11,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { AlertOctagon, Search, Activity, Calendar, AlertTriangle, MessageSquare, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 export default function NCsPage() {
   const [ncs, setNcs] = useState<NC[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [severityFilter, setSeverityFilter] = useState('ALL');
 
   useEffect(() => {
     fetchNCs();
@@ -61,6 +65,14 @@ export default function NCsPage() {
     }
   }
 
+  const filteredNCs = ncs.filter(nc => {
+    const matchesSearch = 
+      nc.id.toLowerCase().includes(search.toLowerCase()) ||
+      (nc.notes && nc.notes.toLowerCase().includes(search.toLowerCase()));
+    const matchesSeverity = severityFilter === 'ALL' || nc.severity === severityFilter;
+    return matchesSearch && matchesSeverity;
+  });
+
   return (
     <>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -73,13 +85,31 @@ export default function NCsPage() {
       </div>
 
       <Card className="border-slate-200 shadow-sm">
-        <CardHeader className="pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
+        <CardHeader className="pb-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <CardTitle className="text-base font-semibold text-slate-700">Painel de Tratativas</CardTitle>
-          <div className="flex gap-2">
-            <div className="relative w-48 sm:w-64">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative w-48 sm:w-60">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
-              <Input type="text" placeholder="Buscar por ID ou nota..." className="pl-9 h-9 text-sm bg-slate-50" disabled />
+              <Input 
+                type="text" 
+                placeholder="Buscar por código ou nota..." 
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 h-9 text-sm bg-slate-50" 
+              />
             </div>
+            <Select value={severityFilter} onValueChange={(val) => setSeverityFilter(val || 'ALL')}>
+              <SelectTrigger className="h-9 w-36 text-xs bg-slate-50">
+                <SelectValue placeholder="Todas as gravidades" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Todas as gravidades</SelectItem>
+                <SelectItem value="CRITICAL">Crítico</SelectItem>
+                <SelectItem value="HIGH">Alto</SelectItem>
+                <SelectItem value="MEDIUM">Médio</SelectItem>
+                <SelectItem value="LOW">Baixo</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -98,6 +128,10 @@ export default function NCsPage() {
                 Nenhuma não conformidade pendente de resolução no momento.
               </p>
             </div>
+          ) : filteredNCs.length === 0 ? (
+            <div className="py-12 px-6 text-center text-slate-500 text-sm">
+              Nenhuma não conformidade encontrada para os filtros selecionados.
+            </div>
           ) : (
             <Table>
               <TableHeader className="bg-slate-50/50">
@@ -111,7 +145,7 @@ export default function NCsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {ncs.map((nc) => (
+                {filteredNCs.map((nc) => (
                   <TableRow key={nc.id} className="hover:bg-slate-50/50 transition-colors">
                     <TableCell>
                       <div className="flex items-center text-slate-900 font-medium">

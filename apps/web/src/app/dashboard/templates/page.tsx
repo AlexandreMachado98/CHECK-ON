@@ -21,6 +21,7 @@ export default function TemplatesPage() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState('');
 
   useEffect(() => { fetchTemplates(); }, []);
 
@@ -60,6 +61,11 @@ export default function TemplatesPage() {
       alert('Erro ao alterar status.');
     }
   }
+
+  const filteredTemplates = templates.filter(t => 
+    t.name.toLowerCase().includes(search.toLowerCase()) ||
+    (t.description && t.description.toLowerCase().includes(search.toLowerCase()))
+  );
 
   return (
     <>
@@ -122,7 +128,13 @@ export default function TemplatesPage() {
           <div className="flex gap-2">
             <div className="relative w-48 sm:w-64">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
-              <Input type="text" placeholder="Buscar modelo..." className="pl-9 h-9 text-sm bg-slate-50" disabled />
+              <Input 
+                type="text" 
+                placeholder="Buscar modelo..." 
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 h-9 text-sm bg-slate-50" 
+              />
             </div>
           </div>
         </CardHeader>
@@ -145,6 +157,10 @@ export default function TemplatesPage() {
                 <Plus className="mr-2 h-4 w-4" /> Criar modelo
               </Button>
             </div>
+          ) : filteredTemplates.length === 0 ? (
+            <div className="py-12 px-6 text-center text-slate-500 text-sm">
+              Nenhum modelo encontrado para a busca &quot;{search}&quot;.
+            </div>
           ) : (
             <Table>
               <TableHeader className="bg-slate-50/50">
@@ -156,7 +172,7 @@ export default function TemplatesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {templates.map((tpl) => (
+                {filteredTemplates.map((tpl) => (
                   <TableRow key={tpl.id} className="hover:bg-slate-50/50 transition-colors">
                     <TableCell>
                       <div className="font-semibold text-slate-900 flex items-center">
