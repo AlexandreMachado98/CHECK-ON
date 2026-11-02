@@ -1,6 +1,6 @@
 // ─── Template (Checklist Builder) ─────────────────────────────────────────────
 
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -35,11 +35,17 @@ export class TemplateService {
   }
 
   async create(data: { name: string; description?: string }) {
-    return this.prisma.template.create({ data: data as any });
+    return this.prisma.template.create({ data: { ...data, isActive: false } as any });
   }
 
   async update(id: string, data: { name?: string; description?: string; isActive?: boolean }) {
-    await this.findOne(id);
+    const template = await this.findOne(id);
+    if (data.isActive === true) {
+      const hasIncompleteCategory = template.categories.length === 0 || template.categories.some((category) => category.items.length === 0);
+      if (hasIncompleteCategory) {
+        throw new BadRequestException('Adicione pelo menos uma seção e uma regra em cada seção antes de ativar o modelo.');
+      }
+    }
     return this.prisma.template.update({ where: { id }, data: data as any });
   }
 

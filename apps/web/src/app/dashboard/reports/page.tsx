@@ -82,41 +82,41 @@ export default function ReportsPage() {
         </div>
       ) : (
         <>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">
-            <Card className="border-slate-200 shadow-sm">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-slate-600">Total de Inspeções</CardTitle>
+          <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 xl:gap-5">
+            <Card className="min-h-32 border-slate-200 shadow-sm">
+              <CardHeader className="flex min-w-0 flex-row items-start justify-between gap-3 space-y-0 pb-2">
+                <CardTitle className="min-w-0 break-words text-sm font-medium leading-5 text-slate-600">Total de Inspeções</CardTitle>
                 <ClipboardCheck className="h-4 w-4 text-emerald-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-slate-900">{totalInspections}</div>
-                <p className="text-xs text-slate-500 mt-1">
+                <div className="text-2xl font-bold text-slate-900 sm:text-3xl">{totalInspections}</div>
+                <p className="mt-1 break-words text-xs leading-5 text-slate-500">
                   {completedInspections} finalizadas com sucesso
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="border-slate-200 shadow-sm">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-slate-600">Não Conformidades</CardTitle>
+            <Card className="min-h-32 border-slate-200 shadow-sm">
+              <CardHeader className="flex min-w-0 flex-row items-start justify-between gap-3 space-y-0 pb-2">
+                <CardTitle className="min-w-0 break-words text-sm font-medium leading-5 text-slate-600">Não Conformidades</CardTitle>
                 <AlertOctagon className="h-4 w-4 text-amber-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-slate-900">{totalNcs}</div>
-                <p className="text-xs text-slate-500 mt-1">
+                <div className="text-2xl font-bold text-slate-900 sm:text-3xl">{totalNcs}</div>
+                <p className="mt-1 break-words text-xs leading-5 text-slate-500">
                   Falhas apontadas em checklists
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="border-slate-200 shadow-sm">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-slate-600">Taxa de Conformidade</CardTitle>
+            <Card className="min-h-32 border-slate-200 shadow-sm">
+              <CardHeader className="flex min-w-0 flex-row items-start justify-between gap-3 space-y-0 pb-2">
+                <CardTitle className="min-w-0 break-words text-sm font-medium leading-5 text-slate-600">Taxa de Conformidade</CardTitle>
                 <BarChart3 className="h-4 w-4 text-blue-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-slate-900">{complianceRate}%</div>
-                <p className="text-xs text-slate-500 mt-1">
+                <div className="text-2xl font-bold text-slate-900 sm:text-3xl">{complianceRate}%</div>
+                <p className="mt-1 break-words text-xs leading-5 text-slate-500">
                   {complianceRate >= 90 ? 'Excelente índice de conformidade' : 'Atenção aos itens reprovados'}
                 </p>
               </CardContent>
@@ -217,3 +217,4 @@ export default function ReportsPage() {
     </>
   );
 }
+

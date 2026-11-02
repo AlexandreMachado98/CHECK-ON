@@ -22,6 +22,7 @@ model Tenant {
   updatedAt   DateTime @updatedAt
 
   users       User[]
+  employees   Employee[]
   roles       Role[]
   departments Department[]
   units       Unit[]
@@ -70,17 +71,47 @@ model User {
 }
 
 model Employee {
-  id        String   @id @default(uuid())
-  tenantId  String
-  matricula String?
-  name      String
-  jobTitle  String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                         String   @id @default(uuid())
+  tenantId                   String
+  tenant                     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  matricula                  String?
+  name                       String
+  jobTitle                   String?
+  admissionDate              DateTime?
+  departmentName             String?
+  supervisorId               String?
+  supervisor                 Employee? @relation("EmployeeSupervisor", fields: [supervisorId], references: [id], onDelete: SetNull)
+  directReports              Employee[] @relation("EmployeeSupervisor")
+  photoUrl                   String?
+  badgeToken                 String?  @unique
+  companyIntegrationDate     DateTime?
+  companyIntegrationExpiresAt DateTime?
+  clientIntegrationDate      DateTime?
+  clientIntegrationExpiresAt DateTime?
+  isActive                   Boolean  @default(true)
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
 
   user      User?
   Checklist Checklist[]
+  trainings EmployeeTraining[]
+
+  @@index([tenantId, isActive])
+  @@index([tenantId, matricula])
+  @@index([supervisorId])
+}
+
+model EmployeeTraining {
+  id          String   @id @default(uuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  name        String
+  completedAt DateTime
+  expiresAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([employeeId, expiresAt])
 }
 
 // ---------------------------------------------------------
@@ -185,6 +216,7 @@ model TemplateItem {
   category   TemplateCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   text       String
   type       String           @default("PASS_FAIL") // PASS_FAIL, TEXT, NUMBER, PHOTO
+  isRequired Boolean          @default(true)
   isCritical Boolean          @default(false)
   order      Int              @default(0)
 

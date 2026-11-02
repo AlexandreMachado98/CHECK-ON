@@ -62,9 +62,15 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   useEffect(() => {
     const stored = localStorage.getItem('user');
     if (!stored) {
-      router.push('/login');
+      router.replace('/login');
     } else {
-      setUser(JSON.parse(stored));
+      try {
+        setUser(JSON.parse(stored));
+      } catch {
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+        router.replace('/login');
+      }
     }
   }, [router]);
 
@@ -124,18 +130,20 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 const Icon = link.icon;
                 const isActive = pathname === link.path || (link.path !== '/dashboard' && pathname.startsWith(`${link.path}/`));
                 return (
-                  <Link key={link.path} href={link.path}>
-                    <Button
-                      variant="ghost"
-                      className={`w-full justify-start h-10 px-4 text-sm font-medium transition-colors ${
-                        isActive 
-                          ? 'bg-emerald-600/15 text-emerald-400 hover:bg-emerald-600/25 hover:text-emerald-300' 
-                          : 'text-slate-400 hover:text-white hover:bg-slate-900'
-                      }`}
-                    >
-                      <Icon className={`mr-3 h-4 w-4 ${isActive ? 'text-emerald-400' : 'text-slate-500'}`} />
-                      {link.name}
-                    </Button>
+                  <Link
+                    key={link.path}
+                    href={link.path}
+                    prefetch
+                    aria-current={isActive ? 'page' : undefined}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`flex h-11 w-full items-center rounded-md px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${
+                      isActive
+                        ? 'bg-emerald-600/15 text-emerald-400 hover:bg-emerald-600/25 hover:text-emerald-300'
+                        : 'text-slate-400 hover:bg-slate-900 hover:text-white'
+                    }`}
+                  >
+                    <Icon aria-hidden="true" className={`mr-3 h-4 w-4 shrink-0 ${isActive ? 'text-emerald-400' : 'text-slate-500'}`} />
+                    <span className="truncate">{link.name}</span>
                   </Link>
                 );
               })}
@@ -184,7 +192,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             onClick={() => setMobileMenuOpen(false)}
           />
           {/* Drawer Body */}
-          <div className="relative flex flex-col w-72 max-w-[85vw] h-full z-10 shadow-2xl">
+          <div role="dialog" aria-modal="true" aria-label="Menu principal" className="relative z-10 flex h-full w-72 max-w-[85vw] flex-col shadow-2xl">
             {sidebarContent}
           </div>
         </div>
@@ -194,7 +202,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <div className="flex-1 flex flex-col min-w-0">
         
         {/* Topbar */}
-        <header className="h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8 border-b bg-white shrink-0 shadow-xs">
+        <header className="h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8 border-b bg-white shrink-0 shadow-sm">
           <div className="flex items-center gap-3">
             {/* Hamburger Button (Mobile only) */}
             <Button 
@@ -210,7 +218,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             {/* Context Breadcrumb / Section Name */}
             <div className="flex items-center text-sm font-medium text-slate-700">
               <span className="text-slate-400 hidden sm:inline">CHECK-ON /</span>
-              <span className="sm:ml-1.5 font-semibold text-slate-900">{currentItem?.name || 'Operação'}</span>
+              <span className="max-w-[48vw] truncate font-semibold text-slate-900 sm:ml-1.5">{currentItem?.name || 'Operação'}</span>
             </div>
           </div>
 
@@ -231,7 +239,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
         {/* Page Content with responsive padding */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-          <div className="max-w-6xl mx-auto">
+          <div className="mx-auto w-full max-w-7xl">
             {children}
           </div>
         </main>
@@ -240,3 +248,4 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+

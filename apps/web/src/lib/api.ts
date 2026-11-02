@@ -1,8 +1,8 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000',
-  timeout: 10000,
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333',
+  timeout: 6000,
 });
 
 api.interceptors.request.use((config) => {
@@ -16,3 +16,4 @@ api.interceptors.request.use((config) => {
 });
 
 export default api;
+

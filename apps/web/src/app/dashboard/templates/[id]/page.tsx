@@ -11,13 +11,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Trash2, Plus, GripVertical, CheckCircle2, Type, Hash, Camera, LayoutList, Settings2, Edit2, Activity } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Trash2, Plus, CheckCircle2, Type, Hash, Camera, LayoutList, Settings2, Edit2, Activity } from 'lucide-react';
 
 const ITEM_TYPES: { value: ItemType; label: string; description: string; icon: React.ElementType }[] = [
   { value: 'PASS_FAIL', label: 'Conformidade (OK / NC)', description: 'O inspetor avalia a condição do item.', icon: CheckCircle2 },
   { value: 'TEXT',      label: 'Texto Livre',             description: 'Campo aberto para anotações.', icon: Type },
   { value: 'NUMBER',    label: 'Valor Numérico',          description: 'Registro de quilometragem, pressão, etc.', icon: Hash },
-  { value: 'PHOTO',     label: 'Foto Obrigatória',        description: 'Exige o envio de uma evidência visual.', icon: Camera },
+  { value: 'PHOTO',     label: 'Evidência fotográfica',   description: 'Permite anexar uma evidência visual.', icon: Camera },
 ];
 
 interface ItemDialogProps {
@@ -110,14 +110,18 @@ function ItemDialog({ open, onClose, onSave, initial, title }: ItemDialogProps) 
 
 interface CategoryBlockProps {
   category: TemplateCategory;
+  categoryIndex: number;
+  categoryCount: number;
   onAddItem: (catId: string, data: { text: string; type: ItemType; isRequired: boolean }) => Promise<void>;
   onUpdateItem: (itemId: string, data: { text: string; type: ItemType; isRequired: boolean }) => Promise<void>;
+  onMoveCategory: (categoryId: string, direction: -1 | 1) => Promise<void>;
+  onMoveItem: (categoryId: string, itemId: string, direction: -1 | 1) => Promise<void>;
   onDeleteItem: (itemId: string) => void;
   onRenameCategory: (catId: string, newName: string) => void;
   onDeleteCategory: (catId: string) => void;
 }
 
-function CategoryBlock({ category, onAddItem, onUpdateItem, onDeleteItem, onRenameCategory, onDeleteCategory }: CategoryBlockProps) {
+function CategoryBlock({ category, categoryIndex, categoryCount, onAddItem, onUpdateItem, onMoveCategory, onMoveItem, onDeleteItem, onRenameCategory, onDeleteCategory }: CategoryBlockProps) {
   const [isEditingCat, setIsEditingCat] = useState(false);
   const [catName, setCatName] = useState(category.name);
 
@@ -134,8 +138,8 @@ function CategoryBlock({ category, onAddItem, onUpdateItem, onDeleteItem, onRena
   return (
     <Card className="border-slate-200 shadow-sm overflow-hidden" id={`cat-${category.id}`}>
       <div className="bg-slate-50/80 px-4 py-3 border-b border-slate-200 flex items-center justify-between group">
-        <div className="flex-1 flex items-center gap-2">
-          <GripVertical className="h-4 w-4 text-slate-300 cursor-grab active:cursor-grabbing" />
+        <div className="flex-1 flex items-center gap-2 min-w-0">
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-xs font-semibold text-slate-500 ring-1 ring-slate-200">{categoryIndex + 1}</span>
           {isEditingCat ? (
             <div className="flex items-center gap-2 max-w-sm w-full">
               <Input autoFocus value={catName} onChange={e => setCatName(e.target.value)} onBlur={handleSaveCatName} onKeyDown={e => e.key === 'Enter' && handleSaveCatName()} className="h-8 text-sm font-semibold" />
@@ -144,11 +148,17 @@ function CategoryBlock({ category, onAddItem, onUpdateItem, onDeleteItem, onRena
             <h3 className="font-semibold text-slate-800 text-sm">{category.name}</h3>
           )}
         </div>
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-slate-700" onClick={() => setIsEditingCat(true)}>
+        <div className="flex shrink-0 items-center gap-1">
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-500 hover:text-slate-900" aria-label={`Mover seção ${category.name} para cima`} title="Mover seção para cima" disabled={categoryIndex === 0} onClick={() => onMoveCategory(category.id, -1)}>
+            <ArrowUp className="h-3.5 w-3.5" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-500 hover:text-slate-900" aria-label={`Mover seção ${category.name} para baixo`} title="Mover seção para baixo" disabled={categoryIndex === categoryCount - 1} onClick={() => onMoveCategory(category.id, 1)}>
+            <ArrowDown className="h-3.5 w-3.5" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-slate-700" aria-label={`Renomear seção ${category.name}`} onClick={() => setIsEditingCat(true)}>
             <Edit2 className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-rose-600" onClick={() => onDeleteCategory(category.id)}>
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-rose-600" aria-label={`Excluir seção ${category.name}`} onClick={() => onDeleteCategory(category.id)}>
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -161,27 +171,32 @@ function CategoryBlock({ category, onAddItem, onUpdateItem, onDeleteItem, onRena
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
-            {category.items.map(item => {
+            {category.items.map((item, itemIndex) => {
               const typeConfig = ITEM_TYPES.find(t => t.value === item.type);
               const Icon = typeConfig?.icon || LayoutList;
               return (
                 <div key={item.id} className="flex items-center p-3 hover:bg-slate-50/50 transition-colors group">
-                  <GripVertical className="h-4 w-4 text-slate-300 mr-2 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100" />
-                  <div className="flex-1">
+                  <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-slate-800 flex items-center">
                       {item.isRequired && <span className="text-rose-500 mr-1" title="Obrigatório">*</span>}
-                      {item.text}
+                      <span className="break-words">{item.text}</span>
                     </p>
                     <div className="flex items-center mt-1">
                       <Icon className="h-3 w-3 text-slate-400 mr-1" />
                       <span className="text-xs text-slate-500">{typeConfig?.label}</span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-primary" onClick={() => setEditItem(item)}>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-500 hover:text-slate-900" aria-label={`Mover regra ${item.text} para cima`} title="Mover regra para cima" disabled={itemIndex === 0} onClick={() => onMoveItem(category.id, item.id, -1)}>
+                      <ArrowUp className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-500 hover:text-slate-900" aria-label={`Mover regra ${item.text} para baixo`} title="Mover regra para baixo" disabled={itemIndex === category.items.length - 1} onClick={() => onMoveItem(category.id, item.id, 1)}>
+                      <ArrowDown className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-primary" aria-label={`Editar regra ${item.text}`} onClick={() => setEditItem(item)}>
                       <Settings2 className="h-3.5 w-3.5" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-rose-600" onClick={() => onDeleteItem(item.id)}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-rose-600" aria-label={`Excluir regra ${item.text}`} onClick={() => onDeleteItem(item.id)}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
@@ -251,6 +266,41 @@ export default function TemplateBuilderPage() {
     fetchTemplate();
   }
 
+  async function handleMoveCategory(categoryId: string, direction: -1 | 1) {
+    if (!template) return;
+    const index = template.categories.findIndex((category) => category.id === categoryId);
+    const current = template.categories[index];
+    const neighbor = template.categories[index + direction];
+    if (!current || !neighbor) return;
+    try {
+      await Promise.all([
+        api.patch(`/templates/categories/${current.id}`, { order: neighbor.order }),
+        api.patch(`/templates/categories/${neighbor.id}`, { order: current.order }),
+      ]);
+      await fetchTemplate();
+    } catch {
+      alert('Não foi possível reordenar a seção.');
+    }
+  }
+
+  async function handleMoveItem(categoryId: string, itemId: string, direction: -1 | 1) {
+    if (!template) return;
+    const category = template.categories.find((entry) => entry.id === categoryId);
+    const index = category?.items.findIndex((item) => item.id === itemId) ?? -1;
+    const current = category?.items[index];
+    const neighbor = category?.items[index + direction];
+    if (!current || !neighbor) return;
+    try {
+      await Promise.all([
+        api.patch(`/templates/items/${current.id}`, { order: neighbor.order }),
+        api.patch(`/templates/items/${neighbor.id}`, { order: current.order }),
+      ]);
+      await fetchTemplate();
+    } catch {
+      alert('Não foi possível reordenar a regra.');
+    }
+  }
+
   async function handleDeleteCategory(categoryId: string) {
     if (!confirm('Remover esta seção e todas as suas regras?')) return;
     await api.delete(`/templates/categories/${categoryId}`);
@@ -302,8 +352,13 @@ export default function TemplateBuilderPage() {
             size="sm" 
             className="shadow-sm text-xs"
             onClick={async () => {
-              await api.patch(`/templates/${template.id}`, { isActive: !template.isActive });
-              fetchTemplate();
+              try {
+                await api.patch(`/templates/${template.id}`, { isActive: !template.isActive });
+                await fetchTemplate();
+              } catch (error) {
+                const message = (error as { response?: { data?: { message?: string | string[] } } }).response?.data?.message;
+                alert(Array.isArray(message) ? message.join('\n') : message || 'Não foi possível alterar o status do modelo.');
+              }
             }}
           >
             {template.isActive ? 'Desativar Modelo' : 'Ativar Modelo'}
@@ -362,8 +417,12 @@ export default function TemplateBuilderPage() {
                 <CategoryBlock
                   key={cat.id}
                   category={cat}
+                  categoryIndex={template.categories.findIndex((category) => category.id === cat.id)}
+                  categoryCount={template.categories.length}
                   onAddItem={handleAddItem}
                   onUpdateItem={handleUpdateItem}
+                  onMoveCategory={handleMoveCategory}
+                  onMoveItem={handleMoveItem}
                   onDeleteItem={handleDeleteItem}
                   onRenameCategory={handleRenameCategory}
                   onDeleteCategory={handleDeleteCategory}

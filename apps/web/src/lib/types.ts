@@ -42,12 +42,28 @@ export interface Employee {
   matricula?: string;
   jobTitle?: string;
   role?: string;
-  email?: string;
-  phone?: string;
-  cpf?: string;
+  admissionDate?: string | null;
+  departmentName?: string | null;
+  supervisorId?: string | null;
+  supervisor?: Pick<Employee, 'id' | 'name' | 'jobTitle'> | null;
+  tenant?: { name: string };
+  photoUrl?: string | null;
+  badgeToken?: string | null;
+  companyIntegrationDate?: string | null;
+  companyIntegrationExpiresAt?: string | null;
+  clientIntegrationDate?: string | null;
+  clientIntegrationExpiresAt?: string | null;
+  trainings?: EmployeeTraining[];
   isActive: boolean;
   userId?: string;
   user?: User;
+}
+
+export interface EmployeeTraining {
+  id?: string;
+  name: string;
+  completedAt: string;
+  expiresAt?: string | null;
 }
 
 export interface AuthUser {
