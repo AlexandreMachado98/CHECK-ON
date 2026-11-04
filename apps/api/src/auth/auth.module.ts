@@ -1,3 +1,4 @@
+import { jwtSecret, jwtExpiresIn } from '../config/env';
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
@@ -10,8 +11,8 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     PassportModule,
     JwtModule.register({
       global: true,
-      secret: process.env.JWT_SECRET || 'super-secret-fallback-key-for-dev',
-      signOptions: { expiresIn: '1d' },
+      secret: jwtSecret(),
+      signOptions: { expiresIn: jwtExpiresIn() as any },
     }),
   ],
   controllers: [AuthController],

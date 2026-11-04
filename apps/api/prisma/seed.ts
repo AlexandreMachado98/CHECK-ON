@@ -35,12 +35,16 @@ async function main() {
   });
 
   // 3. Create Super Admin User
-  const hash = await bcrypt.hash('admin123', 10);
+  // Em produção, a senha inicial vem de SEED_ADMIN_PASSWORD; a senha de exemplo só vale em desenvolvimento.
+  const isProduction = process.env.NODE_ENV === 'production';
+  const password = process.env.SEED_ADMIN_PASSWORD || (isProduction ? '' : 'admin123');
+  if (password.length < 12 && isProduction) {
+    throw new Error('Defina SEED_ADMIN_PASSWORD com pelo menos 12 caracteres para rodar o seed em produção.');
+  }
+  const hash = await bcrypt.hash(password, 10);
   await prisma.user.upsert({
     where: { email: 'admin@checkon.com' },
-    update: {
-      passwordHash: hash,
-    },
+    update: isProduction ? {} : { passwordHash: hash },
     create: {
       tenantId: masterTenant.id,
       email: 'admin@checkon.com',
@@ -49,6 +53,11 @@ async function main() {
       roleId: superAdminRole.id,
     },
   });
+
+  if (isProduction) {
+    console.log('Seed de produção concluído: apenas a plataforma e o super admin foram criados.');
+    return;
+  }
 
   // 4. Create an Example Customer Tenant (Empresa A)
   const empA = await prisma.tenant.upsert({

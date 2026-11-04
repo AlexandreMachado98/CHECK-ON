@@ -35,7 +35,7 @@ describe('AuthService', () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('deve rejeitar login se o usuário não for encontrado', async () => {

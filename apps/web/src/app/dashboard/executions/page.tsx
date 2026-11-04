@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import api from '@/lib/api';
-import type { Checklist } from '@/lib/types';
+import type { Checklist, ChecklistAnswer } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ClipboardList, Search, Activity, Calendar, Car, User, Clock, ArrowRight } from 'lucide-react';
+import { ClipboardList, Search, Activity, Calendar, Car, User, Clock, ArrowRight, MessageSquare } from 'lucide-react';
+import { NC_SEVERITY, NC_STATUS } from '@/lib/status';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -124,6 +125,7 @@ export default function ExecutionsPage() {
                   <TableHead className="w-[20%]">Modelo</TableHead>
                   <TableHead className="w-[20%]">Veículo</TableHead>
                   <TableHead className="w-[20%]">Condutor</TableHead>
+                  <TableHead className="w-[10%]">Itens NC</TableHead>
                   <TableHead className="w-[10%]">Status</TableHead>
                   <TableHead className="text-right w-[10%]"></TableHead>
                 </TableRow>
@@ -165,6 +167,14 @@ export default function ExecutionsPage() {
                       ) : (
                         <span className="text-slate-500 text-sm">N/D</span>
                       )}
+                    </TableCell>
+                    <TableCell>
+                      {(() => {
+                        const nc = c.answers?.filter(a => !a.isCompliant).length ?? 0;
+                        return nc > 0
+                          ? <span className="text-sm font-semibold text-rose-700">{nc}</span>
+                          : <span className="text-sm text-slate-400">0</span>;
+                      })()}
                     </TableCell>
                     <TableCell>
                       {getStatusBadge(c.status)}
@@ -219,6 +229,29 @@ export default function ExecutionsPage() {
                   <span className="text-xs text-slate-500 block">Situação</span>
                   <div className="mt-1">{getStatusBadge(selectedChecklist.status)}</div>
                 </div>
+                <div>
+                  <span className="text-xs text-slate-500 block">Não conformidades</span>
+                  <span className="font-semibold text-slate-800">
+                    {selectedChecklist.answers?.filter(a => !a.isCompliant).length ?? 0} de {selectedChecklist.answers?.length ?? 0} itens
+                  </span>
+                </div>
+                <div>
+                  <span className="text-xs text-slate-500 block">Concluída em</span>
+                  <span className="font-semibold text-slate-800">
+                    {selectedChecklist.completedAt ? format(new Date(selectedChecklist.completedAt), "dd/MM/yyyy HH:mm") : '—'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-xs text-slate-500 block">Recebida pelo servidor</span>
+                  <span className="font-semibold text-slate-800">
+                    {selectedChecklist.syncedAt ? format(new Date(selectedChecklist.syncedAt), "dd/MM/yyyy HH:mm") : '—'}
+                  </span>
+                  {selectedChecklist.clientId && (
+                    <span className="text-[11px] text-slate-400 block font-mono" title={selectedChecklist.clientId}>
+                      app {selectedChecklist.clientId.slice(0, 8)}
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div>
@@ -230,24 +263,35 @@ export default function ExecutionsPage() {
                 ) : (
                   <div className="divide-y border rounded-lg overflow-hidden">
                     {selectedChecklist.answers.map((ans) => (
-                      <div key={ans.id} className="p-3 flex items-start justify-between gap-4 text-sm bg-white hover:bg-slate-50/50">
-                        <div className="flex-1">
-                          <p className="font-medium text-slate-800">{ans.item?.text || 'Regra de inspeção'}</p>
+                      <div key={ans.id} className="p-3 flex items-start justify-between gap-4 text-sm bg-white">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-slate-800">
+                            {ans.item?.text || 'Item de inspeção'}
+                            {ans.item?.isCritical && <span className="ml-2 text-[11px] font-semibold text-rose-600">crítico</span>}
+                          </p>
+                          <AnswerValue answer={ans} />
+                          {ans.observations && (
+                            <p className="mt-1 text-xs text-slate-600 flex items-start gap-1.5">
+                              <MessageSquare className="h-3.5 w-3.5 mt-0.5 text-slate-400 shrink-0" />
+                              {ans.observations}
+                            </p>
+                          )}
                           {ans.nonConformity && (
-                            <span className="inline-block mt-1 text-xs text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded font-medium">
-                              Não Conformidade Registrada: {ans.nonConformity.severity}
+                            <span className="inline-block mt-1.5 text-xs text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded font-medium">
+                              Abriu NC {NC_SEVERITY[ans.nonConformity.severity]?.label.toLowerCase() ?? ''} · {NC_STATUS[ans.nonConformity.status]?.label ?? ans.nonConformity.status}
+                            </span>
+                          )}
+                          {ans.recurrentNcId && !ans.nonConformity && (
+                            <span className="inline-block mt-1.5 text-xs text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded font-medium">
+                              Reincidência: somada a uma NC que já estava em tratativa
                             </span>
                           )}
                         </div>
                         <div className="text-right shrink-0">
                           <span className={`inline-flex px-2 py-1 rounded text-xs font-semibold ${
-                            ans.value === 'CONFORME' || ans.value === 'OK' || ans.value === 'PASS' 
-                              ? 'bg-emerald-100 text-emerald-800' 
-                              : ans.value === 'NAO_CONFORME' || ans.value === 'NC' || ans.value === 'FAIL'
-                              ? 'bg-rose-100 text-rose-800'
-                              : 'bg-slate-100 text-slate-700'
+                            ans.isCompliant ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
                           }`}>
-                            {ans.value}
+                            {ans.isCompliant ? 'Conforme' : 'Não conforme'}
                           </span>
                         </div>
                       </div>
@@ -260,5 +304,28 @@ export default function ExecutionsPage() {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+function AnswerValue({ answer }: { answer: ChecklistAnswer }) {
+  const parts: string[] = [];
+  if (answer.numberValue !== null && answer.numberValue !== undefined) parts.push(answer.numberValue.toLocaleString('pt-BR'));
+  if (answer.textValue) parts.push(answer.textValue);
+  if (parts.length === 0 && !answer.photoUrl) return null;
+  return (
+    <div className="mt-1 text-sm text-slate-700">
+      {parts.join(' · ')}
+      {answer.photoUrl && (
+        <a href={answer.photoUrl} target="_blank" rel="noreferrer" className="mt-2 block w-fit" title="Abrir foto em tamanho real">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={answer.photoUrl}
+            alt={`Foto do item ${answer.item?.text ?? ''}`}
+            loading="lazy"
+            className="h-24 w-32 rounded-md border border-slate-200 object-cover"
+          />
+        </a>
+      )}
+    </div>
   );
 }

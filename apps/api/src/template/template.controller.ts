@@ -12,6 +12,7 @@ import { TemplateService } from './template.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { CreateTemplateItemDto, UpdateTemplateItemDto } from './dto/template-item.dto';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN_EMPRESA', 'GESTOR', 'SUPER_ADMIN')
@@ -77,7 +78,7 @@ export class TemplateController {
   @Post('categories/:categoryId/items')
   addItem(
     @Param('categoryId') categoryId: string,
-    @Body() body: { text: string; type?: string; isRequired?: boolean; order?: number },
+    @Body() body: CreateTemplateItemDto,
   ) {
     return this.service.addItem(categoryId, body);
   }
@@ -85,7 +86,7 @@ export class TemplateController {
   @Patch('items/:itemId')
   updateItem(
     @Param('itemId') itemId: string,
-    @Body() body: { text?: string; type?: string; isRequired?: boolean; order?: number },
+    @Body() body: UpdateTemplateItemDto,
   ) {
     return this.service.updateItem(itemId, body);
   }

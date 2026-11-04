@@ -1,7 +1,10 @@
-version: '3.8'
+# Ambiente LOCAL de desenvolvimento (PostgreSQL igual ao de produção).
+# Uso: docker compose up -d   e, em apps/api/.env:
+#   DATABASE_URL="postgresql://checkon:checkon_secret@localhost:5432/checkondb"
+#   DIRECT_URL="postgresql://checkon:checkon_secret@localhost:5432/checkondb"
 services:
   db:
-    image: postgres:15
+    image: postgres:16
     container_name: checkon_db
     environment:
       POSTGRES_USER: checkon
@@ -11,6 +14,10 @@ services:
       - "5432:5432"
     volumes:
       - checkon_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U checkon -d checkondb"]
+      interval: 5s
+      retries: 10
 
 volumes:
   checkon_pgdata:

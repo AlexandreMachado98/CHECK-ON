@@ -1,12 +1,17 @@
-# Database migrations
+# Migrações (PostgreSQL / Neon)
 
-For a new database, run `npx prisma migrate deploy` from `apps/api`.
+O projeto passou de SQLite para PostgreSQL. As migrações antigas, escritas para SQLite, estão guardadas em `../legacy-sqlite-migrations` apenas como histórico e **não** são aplicadas.
 
-This repository previously created its schema without a migration history. Before deploying migrations to an existing database, make a database backup and mark the initial schema as already present, then apply the new migrations:
+## Criar a migração inicial (uma vez)
+
+Com `DATABASE_URL` e `DIRECT_URL` apontando para um banco **vazio** do Neon (de preferência uma branch de desenvolvimento), rode em `apps/api`:
 
 ```bash
-npx prisma migrate resolve --applied 20261102150000_initial
-npx prisma migrate deploy
+npx prisma migrate dev --name init_postgres
 ```
 
-The baseline command records migration history only; it does not change or delete existing tables. Subsequent migrations add the virtual badge fields and training records, then persist the required-answer setting in checklist items.
+Isso gera a pasta `<data>_init_postgres` aqui dentro, a partir do `schema.prisma`. Faça commit dessa pasta. Daí em diante, o deploy aplica as migrações com `npx prisma migrate deploy` (o container da API já faz isso ao iniciar).
+
+## Novas mudanças no schema
+
+Edite `schema.prisma` e rode `npx prisma migrate dev --name <descricao>` contra a branch de desenvolvimento. Nunca rode `migrate dev` contra o banco de produção.

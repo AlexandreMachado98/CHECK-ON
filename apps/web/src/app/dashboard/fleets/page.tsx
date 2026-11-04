@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { VehicleStatusBadge } from '@/lib/status';
 import { FolderOpen, Plus, Search, Edit2, Archive, Activity, Truck } from 'lucide-react';
 
 export default function FleetsPage() {
@@ -488,9 +489,11 @@ export default function FleetsPage() {
                         {v.brand || ''} {v.model || ''} {v.year ? `(${v.year})` : ''}
                       </div>
                     </div>
-                    <Badge className={v.isActive ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-slate-100 text-slate-500"}>
-                      {v.isActive ? 'Ativo' : 'Inativo'}
-                    </Badge>
+                    {v.isActive ? (
+                      <VehicleStatusBadge status={v.status} />
+                    ) : (
+                      <Badge className="bg-slate-100 text-slate-500">Inativo</Badge>
+                    )}
                   </div>
                 ))}
               </div>

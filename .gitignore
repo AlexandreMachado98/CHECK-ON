@@ -5,3 +5,8 @@ dist/
 *.tsbuildinfo
 .next/
 
+*.db
+*.db-journal
+uploads/
+.env.*
+!.env.example

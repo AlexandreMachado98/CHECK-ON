@@ -2,6 +2,7 @@
 
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CreateTemplateItemDto, UpdateTemplateItemDto } from './dto/template-item.dto';
 
 @Injectable()
 export class TemplateService {
@@ -78,32 +79,36 @@ export class TemplateService {
 
   // ── Items ───────────────────────────────────────────────────────────────────
 
-  async addItem(
-    categoryId: string,
-    data: { text: string; type?: string; isRequired?: boolean; order?: number },
-  ) {
+  async addItem(categoryId: string, data: CreateTemplateItemDto) {
     const cat = await this.prisma.templateCategory.findUnique({ where: { id: categoryId } });
     if (!cat) throw new NotFoundException('Categoria não encontrada');
     const count = await this.prisma.templateItem.count({ where: { categoryId } });
     return this.prisma.templateItem.create({
       data: {
+        tenantId: cat.tenantId,
         categoryId,
-        templateId: cat.templateId,
-        text: data.text,
+        text: data.text.trim(),
         type: data.type ?? 'PASS_FAIL',
         isRequired: data.isRequired ?? true,
+        isCritical: data.isCritical ?? false,
+        // Item do tipo foto já é a própria evidência; a opção não se aplica.
+        photoRequirement: data.type === 'PHOTO' ? 'NONE' : data.photoRequirement ?? 'NONE',
         order: data.order ?? count,
-      } as any,
+      },
     });
   }
 
-  async updateItem(
-    itemId: string,
-    data: { text?: string; type?: string; isRequired?: boolean; order?: number },
-  ) {
+  async updateItem(itemId: string, data: UpdateTemplateItemDto) {
     const item = await this.prisma.templateItem.findUnique({ where: { id: itemId } });
     if (!item) throw new NotFoundException('Item não encontrado');
-    return this.prisma.templateItem.update({ where: { id: itemId }, data: data as any });
+    // Só os campos editáveis passam: tenantId e categoryId nunca vêm do corpo da requisição.
+    const { text, type, isRequired, isCritical, order } = data;
+    const finalType = type ?? item.type;
+    const photoRequirement = finalType === 'PHOTO' ? 'NONE' : data.photoRequirement;
+    return this.prisma.templateItem.update({
+      where: { id: itemId },
+      data: { text: text?.trim(), type, isRequired, isCritical, photoRequirement, order },
+    });
   }
 
   async removeItem(itemId: string) {

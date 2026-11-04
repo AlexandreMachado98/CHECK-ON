@@ -17,9 +17,16 @@ export interface Vehicle {
   model: string;
   year: number;
   isActive: boolean;
+  /** Status operacional calculado pelas NCs ativas. */
+  status?: VehicleStatus;
+  mileage?: number;
   fleetId: string;
-  fleet?: Fleet;
+  fleet?: Pick<Fleet, 'id' | 'name'> & Partial<Fleet>;
+  /** NCs ativas (abertas ou em tratativa) do veículo. */
+  _count?: { ncs: number };
 }
+
+export type VehicleStatus = 'LIBERADO' | 'ATENCAO' | 'BLOQUEADO';
 
 export interface Role {
   id: string;
@@ -82,9 +89,15 @@ export interface TemplateItem {
   text: string;
   type: ItemType;
   isRequired: boolean;
+  /** Não conforme em item crítico gera NC crítica e bloqueia o veículo. */
+  isCritical: boolean;
+  /** Quando a resposta precisa vir com foto. Não se aplica a itens do tipo PHOTO. */
+  photoRequirement: PhotoRequirement;
   order: number;
   categoryId: string;
 }
+
+export type PhotoRequirement = 'NONE' | 'ON_NON_COMPLIANCE' | 'ALWAYS';
 
 export interface TemplateCategory {
   id: string;
@@ -106,10 +119,16 @@ export interface Template {
 
 export interface ChecklistAnswer {
   id: string;
-  value: string;
-  photoUrl?: string;
+  itemId: string;
+  isCompliant: boolean;
+  textValue?: string | null;
+  numberValue?: number | null;
+  photoUrl?: string | null;
+  observations?: string | null;
+  /** NC ativa à qual esta resposta foi agrupada (reincidência). */
+  recurrentNcId?: string | null;
   item?: TemplateItem;
-  nonConformity?: NC;
+  nonConformity?: NC | null;
 }
 
 export interface Checklist {
@@ -117,6 +136,10 @@ export interface Checklist {
   status: string;
   startedAt: string;
   completedAt?: string;
+  syncedAt?: string | null;
+  clientId?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   vehicleId: string;
   driverId: string;
   templateId: string;
@@ -126,17 +149,44 @@ export interface Checklist {
   answers?: ChecklistAnswer[];
 }
 
+export type NCStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+export type NCSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+
 export interface NC {
   id: string;
-  status: string;
-  severity: string;
-  notes?: string;
+  status: NCStatus;
+  severity: NCSeverity;
+  notes?: string | null;
+  occurrences: number;
+  lastOccurrenceAt?: string | null;
   createdAt: string;
-  resolvedAt?: string;
+  resolvedAt?: string | null;
   answerId: string;
+  vehicleId?: string | null;
+  itemId?: string | null;
+  vehicle?: Vehicle | null;
+  item?: TemplateItem | null;
   answer?: ChecklistAnswer & {
     checklist?: Checklist;
     item?: TemplateItem;
   };
+  _count?: { recurrences: number };
 }
 
+export interface DashboardSummary {
+  activeVehicles: number;
+  activeFleets: number;
+  activeEmployees: number;
+  activeUsers: number;
+  vehicleStatus: Record<VehicleStatus, number>;
+  ncs: { active: number; critical: number; recurrent: number };
+  inspections: { today: number; last7Days: number };
+}
+
+/** Extrai a mensagem de erro devolvida pela API NestJS. */
+export function apiErrorMessage(error: unknown, fallback: string): string {
+  const data = (error as { response?: { data?: { message?: string | string[] } } })?.response?.data;
+  const message = data?.message;
+  if (Array.isArray(message)) return message.join(' ');
+  return message || fallback;
+}

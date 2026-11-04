@@ -5,16 +5,10 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Truck, Users, ShieldCheck, FolderOpen, AlertTriangle, ArrowRight } from 'lucide-react';
+import { Truck, Users, ShieldCheck, FolderOpen, AlertTriangle, ArrowRight, Lock, ClipboardList, Repeat } from 'lucide-react';
 import api from '@/lib/api';
-import type { NC } from '@/lib/types';
-
-interface DashboardSummary {
-  activeVehicles: number;
-  activeFleets: number;
-  activeEmployees: number;
-  activeUsers: number;
-}
+import type { DashboardSummary, NC } from '@/lib/types';
+import { VEHICLE_STATUS } from '@/lib/status';
 
 export default function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
@@ -41,7 +35,10 @@ export default function DashboardPage() {
     loadData();
   }, []);
 
-  const openNcs = ncs.filter(nc => nc.status === 'OPEN' || nc.status === 'IN_PROGRESS');
+  const severityRank: Record<string, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+  const openNcs = ncs
+    .filter(nc => nc.status === 'OPEN' || nc.status === 'IN_PROGRESS')
+    .sort((a, b) => (severityRank[a.severity] ?? 9) - (severityRank[b.severity] ?? 9));
 
   return (
     <>
@@ -122,6 +119,73 @@ export default function DashboardPage() {
         </Card>
       </div>
 
+      <div className="mt-6 grid gap-4 lg:grid-cols-3">
+        <Card className="border-slate-200 shadow-sm lg:col-span-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold text-slate-600 flex items-center justify-between">
+              Situação da frota agora
+              <Link href="/dashboard/vehicles" className="text-xs font-medium text-primary hover:underline">Ver veículos</Link>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading || !summary ? (
+              <div className="h-16 bg-slate-100 animate-pulse rounded" />
+            ) : (
+              <>
+                <div className="flex h-3 w-full overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
+                  {(['LIBERADO', 'ATENCAO', 'BLOQUEADO'] as const).map(status => {
+                    const total = summary.activeVehicles || 1;
+                    const width = (summary.vehicleStatus[status] / total) * 100;
+                    const color = status === 'LIBERADO' ? 'bg-emerald-500' : status === 'ATENCAO' ? 'bg-amber-400' : 'bg-rose-500';
+                    return width > 0 ? <div key={status} className={color} style={{ width: `${width}%` }} /> : null;
+                  })}
+                </div>
+                <dl className="mt-4 grid grid-cols-3 gap-3">
+                  {(['LIBERADO', 'ATENCAO', 'BLOQUEADO'] as const).map(status => (
+                    <div key={status}>
+                      <dt className="text-xs text-slate-500">{VEHICLE_STATUS[status].label}</dt>
+                      <dd className={`text-2xl font-bold ${status === 'LIBERADO' ? 'text-emerald-700' : status === 'ATENCAO' ? 'text-amber-700' : 'text-rose-700'}`}>
+                        {summary.vehicleStatus[status]}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold text-slate-600">Inspeções e pendências</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading || !summary ? (
+              <div className="h-16 bg-slate-100 animate-pulse rounded" />
+            ) : (
+              <ul className="space-y-2 text-sm">
+                <li className="flex items-center justify-between">
+                  <span className="flex items-center text-slate-600"><ClipboardList className="h-4 w-4 mr-2 text-slate-400" />Inspeções hoje</span>
+                  <span className="font-bold text-slate-900">{summary.inspections.today}</span>
+                </li>
+                <li className="flex items-center justify-between">
+                  <span className="flex items-center text-slate-600"><ClipboardList className="h-4 w-4 mr-2 text-slate-400" />Últimos 7 dias</span>
+                  <span className="font-bold text-slate-900">{summary.inspections.last7Days}</span>
+                </li>
+                <li className="flex items-center justify-between">
+                  <span className="flex items-center text-slate-600"><Lock className="h-4 w-4 mr-2 text-rose-500" />NCs críticas ativas</span>
+                  <span className="font-bold text-rose-700">{summary.ncs.critical}</span>
+                </li>
+                <li className="flex items-center justify-between">
+                  <span className="flex items-center text-slate-600"><Repeat className="h-4 w-4 mr-2 text-amber-500" />NCs com reincidência</span>
+                  <span className="font-bold text-amber-700">{summary.ncs.recurrent}</span>
+                </li>
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="mt-8">
         <div className="flex items-center justify-between border-b pb-3">
           <h2 className="text-lg font-bold tracking-tight text-slate-900 flex items-center gap-2">
@@ -168,11 +232,15 @@ export default function DashboardPage() {
                       nc.severity === 'HIGH' ? 'bg-orange-100 text-orange-700' :
                       'bg-amber-100 text-amber-700'
                     }>
-                      {nc.severity}
+                      {nc.severity === 'CRITICAL' ? 'Crítica' : nc.severity === 'HIGH' ? 'Alta' : nc.severity === 'MEDIUM' ? 'Média' : 'Baixa'}
                     </Badge>
                   </div>
                   <p className="text-sm font-medium text-slate-800 line-clamp-2">
-                    {nc.notes || 'Não conformidade registrada em inspeção.'}
+                    {nc.item?.text ?? nc.answer?.item?.text ?? nc.notes ?? 'Não conformidade registrada em inspeção.'}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {nc.vehicle?.plate ?? nc.answer?.checklist?.vehicle?.plate ?? 'Veículo não informado'}
+                    {nc.occurrences > 1 ? ` · ${nc.occurrences} ocorrências` : ''}
                   </p>
                   <div className="mt-3 pt-3 border-t flex justify-end">
                     <Link href="/dashboard/ncs">

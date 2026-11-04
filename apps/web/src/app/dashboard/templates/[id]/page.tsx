@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import api from '@/lib/api';
-import type { Template, TemplateCategory, TemplateItem, ItemType } from '@/lib/types';
+import type { Template, TemplateCategory, TemplateItem, ItemType, PhotoRequirement } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -20,11 +20,19 @@ const ITEM_TYPES: { value: ItemType; label: string; description: string; icon: R
   { value: 'PHOTO',     label: 'Evidência fotográfica',   description: 'Permite anexar uma evidência visual.', icon: Camera },
 ];
 
+type ItemFormData = { text: string; type: ItemType; isRequired: boolean; isCritical: boolean; photoRequirement: PhotoRequirement };
+
+const PHOTO_OPTIONS: { value: PhotoRequirement; label: string; description: string }[] = [
+  { value: 'NONE', label: 'Não exigir', description: 'A foto não é pedida neste item.' },
+  { value: 'ON_NON_COMPLIANCE', label: 'Só quando não conforme', description: 'Se o motorista apontar problema, precisa fotografar antes de finalizar.' },
+  { value: 'ALWAYS', label: 'Sempre', description: 'Toda resposta deste item precisa de foto.' },
+];
+
 interface ItemDialogProps {
   open: boolean;
   onClose: () => void;
-  onSave: (data: { text: string; type: ItemType; isRequired: boolean }) => Promise<void>;
-  initial?: Partial<{ text: string; type: ItemType; isRequired: boolean }>;
+  onSave: (data: ItemFormData) => Promise<void>;
+  initial?: Partial<ItemFormData>;
   title: string;
 }
 
@@ -32,6 +40,8 @@ function ItemDialog({ open, onClose, onSave, initial, title }: ItemDialogProps) 
   const [text, setText] = useState(initial?.text ?? '');
   const [type, setType] = useState<ItemType>(initial?.type ?? 'PASS_FAIL');
   const [isRequired, setRequired] = useState(initial?.isRequired ?? true);
+  const [isCritical, setCritical] = useState(initial?.isCritical ?? false);
+  const [photoRequirement, setPhotoRequirement] = useState<PhotoRequirement>(initial?.photoRequirement ?? 'NONE');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -39,6 +49,8 @@ function ItemDialog({ open, onClose, onSave, initial, title }: ItemDialogProps) 
       setText(initial?.text ?? '');
       setType(initial?.type ?? 'PASS_FAIL');
       setRequired(initial?.isRequired ?? true);
+      setCritical(initial?.isCritical ?? false);
+      setPhotoRequirement(initial?.photoRequirement ?? 'NONE');
     }
   }, [open, initial]);
 
@@ -46,7 +58,7 @@ function ItemDialog({ open, onClose, onSave, initial, title }: ItemDialogProps) 
     e.preventDefault();
     try {
       setSaving(true);
-      await onSave({ text, type, isRequired });
+      await onSave({ text, type, isRequired, isCritical, photoRequirement: type === 'PHOTO' ? 'NONE' : photoRequirement });
       onClose();
     } finally {
       setSaving(false);
@@ -96,6 +108,52 @@ function ItemDialog({ open, onClose, onSave, initial, title }: ItemDialogProps) 
             />
             <Label htmlFor="req" className="font-normal text-slate-700 cursor-pointer">Resposta obrigatória para finalizar o checklist</Label>
           </div>
+          {type !== 'PHOTO' && (
+            <fieldset className="space-y-2">
+              <legend className="text-sm font-medium text-slate-800 flex items-center gap-1.5">
+                <Camera className="h-4 w-4 text-slate-500" />
+                Exigir evidência fotográfica
+              </legend>
+              <div className="grid gap-2">
+                {PHOTO_OPTIONS
+                  .filter(option => type === 'PASS_FAIL' || option.value !== 'ON_NON_COMPLIANCE' || photoRequirement === 'ON_NON_COMPLIANCE')
+                  .map(option => (
+                  <label
+                    key={option.value}
+                    className={`flex items-start gap-2 rounded-md border p-2.5 cursor-pointer text-sm ${photoRequirement === option.value ? 'border-emerald-500 bg-emerald-50/60' : 'border-slate-200 hover:border-slate-300'}`}
+                  >
+                    <input
+                      type="radio"
+                      name="photoRequirement"
+                      value={option.value}
+                      checked={photoRequirement === option.value}
+                      onChange={() => setPhotoRequirement(option.value)}
+                      className="mt-0.5 h-4 w-4 text-emerald-600 focus:ring-emerald-600"
+                    />
+                    <span>
+                      <span className="font-medium text-slate-800">{option.label}</span>
+                      <span className="block text-xs text-slate-500">{option.description}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          )}
+          <div className="flex items-start space-x-2 rounded-md border border-rose-100 bg-rose-50/50 p-3">
+            <input
+              type="checkbox"
+              id="crit"
+              checked={isCritical}
+              onChange={e => setCritical(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-slate-300 text-rose-600 focus:ring-rose-600"
+            />
+            <div>
+              <Label htmlFor="crit" className="font-medium text-slate-800 cursor-pointer">Item crítico</Label>
+              <p className="text-xs text-slate-600 mt-0.5">
+                Se for apontado como não conforme, abre uma NC crítica e bloqueia o veículo até a tratativa.
+              </p>
+            </div>
+          </div>
           <DialogFooter className="mt-6">
             <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
             <Button type="submit" disabled={saving || !text}>
@@ -112,8 +170,8 @@ interface CategoryBlockProps {
   category: TemplateCategory;
   categoryIndex: number;
   categoryCount: number;
-  onAddItem: (catId: string, data: { text: string; type: ItemType; isRequired: boolean }) => Promise<void>;
-  onUpdateItem: (itemId: string, data: { text: string; type: ItemType; isRequired: boolean }) => Promise<void>;
+  onAddItem: (catId: string, data: ItemFormData) => Promise<void>;
+  onUpdateItem: (itemId: string, data: ItemFormData) => Promise<void>;
   onMoveCategory: (categoryId: string, direction: -1 | 1) => Promise<void>;
   onMoveItem: (categoryId: string, itemId: string, direction: -1 | 1) => Promise<void>;
   onDeleteItem: (itemId: string) => void;
@@ -180,6 +238,15 @@ function CategoryBlock({ category, categoryIndex, categoryCount, onAddItem, onUp
                     <p className="text-sm font-medium text-slate-800 flex items-center">
                       {item.isRequired && <span className="text-rose-500 mr-1" title="Obrigatório">*</span>}
                       <span className="break-words">{item.text}</span>
+                      {item.isCritical && (
+                        <Badge variant="outline" className="ml-2 shrink-0 bg-rose-50 text-rose-700 border-rose-200 text-[11px]">Crítico</Badge>
+                      )}
+                      {item.photoRequirement && item.photoRequirement !== 'NONE' && (
+                        <Badge variant="outline" className="ml-2 shrink-0 bg-sky-50 text-sky-700 border-sky-200 text-[11px]" title="Evidência fotográfica obrigatória">
+                          <Camera className="h-3 w-3 mr-1" />
+                          {item.photoRequirement === 'ALWAYS' ? 'Foto sempre' : 'Foto se não conforme'}
+                        </Badge>
+                      )}
                     </p>
                     <div className="flex items-center mt-1">
                       <Icon className="h-3 w-3 text-slate-400 mr-1" />
@@ -213,7 +280,7 @@ function CategoryBlock({ category, categoryIndex, categoryCount, onAddItem, onUp
 
         <ItemDialog open={addItemOpen} onClose={() => setAddItemOpen(false)} title={`Nova Regra em "${category.name}"`} onSave={data => onAddItem(category.id, data)} />
         {editItem && (
-          <ItemDialog open={!!editItem} onClose={() => setEditItem(null)} title="Configurar Regra" initial={{ text: editItem.text, type: editItem.type, isRequired: editItem.isRequired }} onSave={data => onUpdateItem(editItem.id, data)} />
+          <ItemDialog open={!!editItem} onClose={() => setEditItem(null)} title="Configurar Regra" initial={{ text: editItem.text, type: editItem.type, isRequired: editItem.isRequired, isCritical: editItem.isCritical, photoRequirement: editItem.photoRequirement ?? 'NONE' }} onSave={data => onUpdateItem(editItem.id, data)} />
         )}
       </CardContent>
     </Card>
@@ -307,12 +374,12 @@ export default function TemplateBuilderPage() {
     fetchTemplate();
   }
 
-  async function handleAddItem(categoryId: string, data: { text: string; type: ItemType; isRequired: boolean }) {
+  async function handleAddItem(categoryId: string, data: ItemFormData) {
     await api.post(`/templates/categories/${categoryId}/items`, data);
     fetchTemplate();
   }
 
-  async function handleUpdateItem(itemId: string, data: { text: string; type: ItemType; isRequired: boolean }) {
+  async function handleUpdateItem(itemId: string, data: ItemFormData) {
     await api.patch(`/templates/items/${itemId}`, data);
     fetchTemplate();
   }

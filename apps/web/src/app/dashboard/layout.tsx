@@ -18,7 +18,8 @@ import {
   AlertTriangle,
   BarChart3,
   Menu,
-  X
+  X,
+  FolderTree
 } from 'lucide-react';
 
 const MENU_GROUPS = [
@@ -34,7 +35,8 @@ const MENU_GROUPS = [
   {
     title: 'FROTA',
     items: [
-      { name: 'Frotas & Veículos', path: '/dashboard/fleets', icon: Truck },
+      { name: 'Veículos', path: '/dashboard/vehicles', icon: Truck },
+      { name: 'Frotas', path: '/dashboard/fleets', icon: FolderTree },
     ]
   },
   {
