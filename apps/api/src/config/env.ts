@@ -24,6 +24,17 @@ export function jwtExpiresIn(): string {
   return process.env.JWT_EXPIRES_IN?.trim() || '1d';
 }
 
+/** Validade do refresh token em dias (sessão do app mobile, que pode ficar dias offline). */
+export function refreshTokenTtlDays(): number {
+  const raw = process.env.REFRESH_TOKEN_EXPIRES_DAYS?.trim();
+  if (!raw) return 30;
+  const days = Number(raw);
+  if (!Number.isInteger(days) || days < 1 || days > 365) {
+    throw new Error('REFRESH_TOKEN_EXPIRES_DAYS deve ser um número inteiro entre 1 e 365.');
+  }
+  return days;
+}
+
 /** Domínios autorizados a chamar a API pelo navegador (o app mobile não depende de CORS). */
 export function corsOrigins(): string[] | true {
   const raw = process.env.CORS_ORIGINS?.trim();
@@ -61,6 +72,7 @@ export function s3Config() {
 /** Confere tudo na inicialização, para a falha aparecer no deploy e não no primeiro acesso. */
 export function validateEnvOnStartup() {
   jwtSecret();
+  refreshTokenTtlDays();
   corsOrigins();
   if (isProduction()) required('DATABASE_URL');
   if (storageDriver() === 's3') s3Config();

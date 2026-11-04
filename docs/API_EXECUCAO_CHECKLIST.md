@@ -2,6 +2,51 @@
 
 Todas as rotas exigem `Authorization: Bearer <token>`. Perfis aceitos: `ADMIN_EMPRESA`, `GESTOR`, `SUPERVISOR`, `MOTORISTA`.
 
+## Sessão do app
+
+| Rota | Corpo | Resposta |
+| --- | --- | --- |
+| `POST /auth/login` | `{ "email", "password" }` | `{ access_token, refresh_token, refresh_token_expires_at, user }` |
+| `POST /auth/refresh` | `{ "refreshToken" }` | Mesmo formato do login, com um **novo** `refresh_token` |
+| `POST /auth/logout` | `{ "refreshToken" }` | 204. Encerra a sessão deste aparelho |
+| `GET /auth/me` | — | Usuário logado com `role`, `permissions` e `employee` (funcionário vinculado, ou `null`) |
+
+- O `access_token` vale pouco (`JWT_EXPIRES_IN`, padrão 1 dia). O `refresh_token` vale `REFRESH_TOKEN_EXPIRES_DAYS` (padrão 30 dias) e deve ficar guardado com segurança no aparelho (Keychain/Keystore).
+- Ao receber 401 em qualquer rota, o app chama `/auth/refresh` e repete a requisição. Se o refresh também der 401, a sessão acabou: o app pede login de novo **sem apagar a fila offline**.
+- Cada refresh troca o token: grave o novo `refresh_token` antes de usar o novo `access_token`. O token antigo continua aceito por 60 segundos (para o caso de a resposta se perder na rede). Depois disso, reapresentá-lo é tratado como roubo e derruba todas as sessões daquele login.
+- Desativar o usuário ou a empresa invalida o refresh na próxima renovação.
+
+## Carga de dados para operar offline
+
+Perfis aceitos: `ADMIN_EMPRESA`, `GESTOR`, `SUPERVISOR`, `MOTORISTA`. Os dados são sempre da empresa do token.
+
+### GET /mobile/bootstrap
+
+Baixar ao fazer login e sempre que houver internet:
+
+```json
+{
+  "serverTime": "2026-11-04T10:00:00.000Z",
+  "templates": [
+    { "id", "name", "description", "updatedAt",
+      "categories": [ { "id", "name", "order",
+        "items": [ { "id", "text", "type", "isRequired", "isCritical", "photoRequirement", "order" } ] } ] }
+  ],
+  "vehicles": [ { "id", "plate", "prefix", "brand", "model", "year", "status", "mileage", "qrCode", "fleet": { "id", "name" } } ],
+  "openNcs": [ { "id", "vehicleId", "itemId", "status", "severity", "notes", "occurrences", "lastOccurrenceAt", "createdAt", "item": { "text", "isCritical" } } ]
+}
+```
+
+Só vêm modelos e veículos ativos e NCs `OPEN`/`IN_PROGRESS`. O pacote substitui por inteiro o que o app tinha guardado.
+
+### GET /mobile/vehicles/by-qr/:qrCode
+
+Veículo lido pelo QR Code, com `openNcs` do veículo para o alerta antes do checklist. 404 se o código não existir, o veículo estiver inativo ou for de outra empresa. Offline, o app procura o `qrCode` nos `vehicles` do bootstrap.
+
+### GET /mobile/vehicles/:id/ncs
+
+NCs ativas do veículo (mesmo formato de `openNcs`).
+
 ## POST /checklists/submit
 
 Envia uma execução completa.

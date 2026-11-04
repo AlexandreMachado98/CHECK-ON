@@ -15,6 +15,7 @@ import { ChecklistModule } from './checklist/checklist.module';
 import { NcModule } from './nc/nc.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { StorageModule } from './storage/storage.module';
+import { MobileModule } from './mobile/mobile.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TenantInterceptor } from './tenant/tenant.interceptor';
@@ -38,6 +39,7 @@ import { TenantInterceptor } from './tenant/tenant.interceptor';
     ChecklistModule,
     NcModule, DashboardModule,
     StorageModule,
+    MobileModule,
   ],
   controllers: [AppController],
   providers: [

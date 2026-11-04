@@ -1,3 +1,4 @@
+import { UnprocessableEntityException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { ChecklistExecutionService, AuthenticatedUser } from './checklist-execution.service';
 
@@ -128,7 +129,10 @@ describe('ChecklistExecutionService', () => {
         { itemId: 'luz', isCompliant: true },
       ],
     });
-    await expect(service.submit(dto, motorista)).rejects.toThrow('não foi enviada por esta plataforma');
+    // Com uma lista de erros, o Nest guarda as mensagens no corpo da resposta, não em error.message.
+    const error = await service.submit(dto, motorista).catch((e) => e);
+    expect(error).toBeInstanceOf(UnprocessableEntityException);
+    expect(JSON.stringify(error.getResponse())).toContain('não foi enviada por esta plataforma');
     expect(tx.checklist.create).not.toHaveBeenCalled();
   });
 });
