@@ -213,6 +213,8 @@ model Template {
   name        String
   description String?
   isActive    Boolean  @default(true)
+  // Sobe a cada mudança em seções ou itens; o app envia a versão que usou no checklist
+  version     Int      @default(1)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -227,6 +229,8 @@ model TemplateCategory {
   template   Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
   name       String
   order      Int      @default(0)
+  // Seção removida que já tem respostas: fica oculta, mas preserva o histórico
+  isActive   Boolean  @default(true)
 
   items TemplateItem[]
 }
@@ -243,6 +247,10 @@ model TemplateItem {
   // Evidência fotográfica: NONE, ON_NON_COMPLIANCE (só quando não conforme), ALWAYS
   photoRequirement String     @default("NONE")
   order      Int              @default(0)
+  // Item removido que já tem respostas: fica oculto, mas preserva o histórico
+  isActive   Boolean          @default(true)
+  // Versão do modelo em que o item entrou (checklists de versões anteriores não precisam respondê-lo)
+  addedInVersion Int          @default(1)
 
   answers ChecklistAnswer[]
   ncs     NonConformity[]
@@ -262,6 +270,10 @@ model Checklist {
 
   // UUID gerado no celular (idempotência do sync offline)
   clientId String?
+
+  // Modelo como estava quando o checklist foi preenchido
+  templateVersion Int?
+  templateName    String?
 
   status      String    @default("IN_PROGRESS") // IN_PROGRESS, COMPLETED, SYNCED
   startedAt   DateTime  @default(now())
@@ -292,6 +304,12 @@ model ChecklistAnswer {
   numberValue  Float?
   photoUrl     String?
   observations String?
+
+  // Cópia da pergunta no momento da resposta: editar o modelo não altera o histórico
+  itemText       String?
+  itemType       String?
+  itemIsCritical Boolean?
+  categoryName   String?
 
   // NC aberta a partir desta resposta (primeira ocorrência)
   nonConformity NonConformity? @relation("NcOrigin")

@@ -48,14 +48,17 @@ export class MobileService {
           id: true,
           name: true,
           description: true,
+          version: true,
           updatedAt: true,
           categories: {
+            where: { isActive: true },
             orderBy: { order: 'asc' },
             select: {
               id: true,
               name: true,
               order: true,
               items: {
+                where: { isActive: true },
                 orderBy: { order: 'asc' },
                 select: {
                   id: true,

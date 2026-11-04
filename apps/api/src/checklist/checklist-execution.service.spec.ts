@@ -4,17 +4,37 @@ import { ChecklistExecutionService, AuthenticatedUser } from './checklist-execut
 
 const motorista: AuthenticatedUser = { id: 'user-1', tenantId: 'tenant-1', role: 'MOTORISTA' };
 
+const item = (overrides: Record<string, unknown>) => ({
+  type: 'PASS_FAIL',
+  isRequired: true,
+  isCritical: false,
+  isActive: true,
+  addedInVersion: 1,
+  ...overrides,
+});
+
 const template = {
   id: 'tpl-1',
+  name: 'Inspeção diária',
+  version: 3,
   categories: [
     {
+      name: 'Rodagem',
+      isActive: true,
       items: [
-        { id: 'pneu', text: 'Pneus', type: 'PASS_FAIL', isRequired: true, isCritical: true },
-        { id: 'luz', text: 'Faróis', type: 'PASS_FAIL', isRequired: true, isCritical: false },
+        item({ id: 'pneu', text: 'Pneus', isCritical: true }),
+        item({ id: 'luz', text: 'Faróis' }),
       ],
     },
   ],
 };
+
+function templateWith(extraItems: Record<string, unknown>[]) {
+  return {
+    ...template,
+    categories: [{ ...template.categories[0], items: [...template.categories[0].items, ...extraItems.map(item)] }],
+  };
+}
 
 function baseDto(overrides: Record<string, unknown> = {}) {
   return {
@@ -134,5 +154,72 @@ describe('ChecklistExecutionService', () => {
     expect(error).toBeInstanceOf(UnprocessableEntityException);
     expect(JSON.stringify(error.getResponse())).toContain('não foi enviada por esta plataforma');
     expect(tx.checklist.create).not.toHaveBeenCalled();
+  });
+
+  describe('versão do modelo e histórico', () => {
+    it('grava a versão, o nome do modelo e a cópia de cada pergunta', async () => {
+      const { service, tx } = buildMocks();
+      await service.submit(baseDto({ templateVersion: 3 }), motorista);
+
+      expect(tx.checklist.create.mock.calls[0][0].data).toMatchObject({ templateVersion: 3, templateName: 'Inspeção diária' });
+      expect(tx.checklistAnswer.create.mock.calls[0][0].data).toMatchObject({
+        itemId: 'pneu',
+        itemText: 'Pneus',
+        itemType: 'PASS_FAIL',
+        itemIsCritical: true,
+        categoryName: 'Rodagem',
+      });
+    });
+
+    it('sem templateVersion, usa a versão atual', async () => {
+      const { service, tx } = buildMocks();
+      await service.submit(baseDto(), motorista);
+      expect(tx.checklist.create.mock.calls[0][0].data.templateVersion).toBe(3);
+    });
+
+    it('checklist de versão anterior não precisa responder item incluído depois', async () => {
+      const { service, tx } = buildMocks();
+      tx.template.findFirst.mockResolvedValue(templateWith([{ id: 'extintor', text: 'Extintor', addedInVersion: 3 }]));
+
+      const result = await service.submit(baseDto({ templateVersion: 2 }), motorista);
+      expect(result.status).toBe('CREATED');
+    });
+
+    it('na versão atual, o item novo obrigatório continua exigido', async () => {
+      const { service, tx } = buildMocks();
+      tx.template.findFirst.mockResolvedValue(templateWith([{ id: 'extintor', text: 'Extintor', addedInVersion: 3 }]));
+
+      const error = await service.submit(baseDto({ templateVersion: 3 }), motorista).catch((e) => e);
+      expect(error).toBeInstanceOf(UnprocessableEntityException);
+      expect(JSON.stringify(error.getResponse())).toContain('Extintor');
+    });
+
+    it('aceita resposta a item removido depois do download e abre a NC normalmente', async () => {
+      const { service, tx } = buildMocks();
+      tx.template.findFirst.mockResolvedValue(templateWith([{ id: 'antigo', text: 'Item antigo', isActive: false }]));
+
+      const result = await service.submit(
+        baseDto({
+          templateVersion: 2,
+          answers: [
+            { itemId: 'pneu', isCompliant: true },
+            { itemId: 'luz', isCompliant: true },
+            { itemId: 'antigo', isCompliant: false },
+          ],
+        }),
+        motorista,
+      );
+
+      expect(result).toMatchObject({ status: 'CREATED', ncsOpened: 1 });
+      expect(tx.nonConformity.create.mock.calls[0][0].data.itemId).toBe('antigo');
+    });
+
+    it('item removido deixa de ser obrigatório', async () => {
+      const { service, tx } = buildMocks();
+      tx.template.findFirst.mockResolvedValue(templateWith([{ id: 'antigo', text: 'Item antigo', isActive: false }]));
+
+      const result = await service.submit(baseDto(), motorista);
+      expect(result.status).toBe('CREATED');
+    });
   });
 });

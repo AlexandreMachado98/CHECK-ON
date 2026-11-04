@@ -5,6 +5,7 @@ import {
   IsArray,
   IsBoolean,
   IsDateString,
+  IsInt,
   IsLatitude,
   IsLongitude,
   IsNotEmpty,
@@ -13,6 +14,7 @@ import {
   IsString,
   IsUUID,
   MaxLength,
+  Min,
   ValidateNested,
 } from 'class-validator';
 
@@ -53,6 +55,12 @@ export class SubmitChecklistDto {
   @IsNotEmpty()
   @IsString()
   templateId: string;
+
+  /** Versão do modelo que o app usou (campo version do bootstrap). Sem ela, vale a versão atual. */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  templateVersion?: number;
 
   @IsNotEmpty()
   @IsString()

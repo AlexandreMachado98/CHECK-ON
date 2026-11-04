@@ -32,8 +32,11 @@ describe('MobileService', () => {
     const { prisma, service } = buildService();
     await service.bootstrap();
 
-    const itemSelect = prisma.template.findMany.mock.calls[0][0].select.categories.select.items.select;
-    expect(itemSelect).toMatchObject({ type: true, isRequired: true, isCritical: true, photoRequirement: true });
+    const select = prisma.template.findMany.mock.calls[0][0].select;
+    expect(select.version).toBe(true);
+    expect(select.categories.where).toEqual({ isActive: true });
+    expect(select.categories.select.items.where).toEqual({ isActive: true });
+    expect(select.categories.select.items.select).toMatchObject({ type: true, isRequired: true, isCritical: true, photoRequirement: true });
   });
 
   it('busca o veículo pelo QR Code e anexa as NCs ativas', async () => {

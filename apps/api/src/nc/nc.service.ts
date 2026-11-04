@@ -1,6 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateNcDto } from './dto/update-nc.dto';
+import { itemAsAnswered, withAnsweredItem } from '../checklist/answer-snapshot';
 import { ACTIVE_NC_STATUSES, canTransitionNc, vehicleStatusFromActiveNcs } from '../checklist/checklist-rules';
 
 @Injectable()
@@ -8,7 +9,7 @@ export class NcService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll() {
-    return this.prisma.nonConformity.findMany({
+    const ncs = await this.prisma.nonConformity.findMany({
       include: {
         vehicle: true,
         item: true,
@@ -24,6 +25,12 @@ export class NcService {
       },
       orderBy: { createdAt: 'desc' }
     });
+    // A NC mostra a pergunta como estava quando foi aberta.
+    return ncs.map((nc) => ({
+      ...nc,
+      item: itemAsAnswered(nc.item, nc.answer),
+      answer: nc.answer ? withAnsweredItem(nc.answer) : nc.answer,
+    }));
   }
 
   async update(id: string, updateNcDto: UpdateNcDto) {

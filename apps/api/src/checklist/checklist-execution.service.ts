@@ -15,6 +15,7 @@ import { SubmitChecklistDto } from './dto/submit-checklist.dto';
 import {
   ACTIVE_NC_STATUSES,
   escalateVehicleStatus,
+  itemsForVersion,
   maxSeverity,
   severityFor,
   validateAnswers,
@@ -90,7 +91,18 @@ export class ChecklistExecutionService {
         const driver = await tx.employee.findFirst({ where: { id: driverId, isActive: true } });
         if (!driver) throw new NotFoundException('Motorista não encontrado ou inativo.');
 
-        const items = template.categories.flatMap((category) => category.items);
+        // Checklist feito offline pode ter usado uma versão anterior do modelo.
+        const templateVersion = Math.min(dto.templateVersion ?? template.version, template.version);
+        const items = itemsForVersion(
+          template.categories.flatMap((category) =>
+            category.items.map((item) => ({
+              ...item,
+              isActive: item.isActive && category.isActive,
+              categoryName: category.name,
+            })),
+          ),
+          templateVersion,
+        );
         const itemsById = new Map(items.map((item) => [item.id, item]));
         const { errors, answers } = validateAnswers(items, dto.answers);
         for (const answer of answers) {
@@ -105,6 +117,8 @@ export class ChecklistExecutionService {
             tenantId,
             clientId: dto.clientId,
             templateId: template.id,
+            templateVersion,
+            templateName: template.name,
             vehicleId: vehicle.id,
             driverId: driver.id,
             status: 'COMPLETED',
@@ -122,7 +136,16 @@ export class ChecklistExecutionService {
         for (const answer of answers) {
           const item = itemsById.get(answer.itemId)!;
           const created = await tx.checklistAnswer.create({
-            data: { tenantId, checklistId: checklist.id, ...answer },
+            data: {
+              tenantId,
+              checklistId: checklist.id,
+              ...answer,
+              // Cópia da pergunta: editar o modelo depois não muda o que foi respondido.
+              itemText: item.text,
+              itemType: item.type,
+              itemIsCritical: item.isCritical,
+              categoryName: item.categoryName,
+            },
           });
 
           if (answer.isCompliant) continue;

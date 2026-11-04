@@ -6,6 +6,7 @@ import {
   severityFor,
   validateAnswers,
   validateTimestamps,
+  itemsForVersion,
   vehicleStatusFromActiveNcs,
   RuleItem,
 } from './checklist-rules';
@@ -124,5 +125,28 @@ describe('foto obrigatória', () => {
   it('exige foto sempre quando configurado como ALWAYS', () => {
     expect(validateAnswers([painel], [{ itemId: 'painel', numberValue: 1000 }]).errors).toHaveLength(1);
     expect(validateAnswers([painel], [{ itemId: 'painel', numberValue: 1000, photoUrl: 'http://x/p.jpg' }]).errors).toEqual([]);
+  });
+});
+
+describe('itemsForVersion', () => {
+  const base = { text: 'x', type: 'PASS_FAIL', isRequired: true, isCritical: false };
+  const items = [
+    { ...base, id: 'a', isActive: true, addedInVersion: 1 },
+    { ...base, id: 'b', isActive: true, addedInVersion: 4 },
+    { ...base, id: 'c', isActive: false, addedInVersion: 1 },
+  ];
+
+  it('mantém obrigatório só o que existia e continua ativo', () => {
+    const result = itemsForVersion(items, 3);
+    expect(result.map((i) => [i.id, i.isRequired])).toEqual([['a', true], ['b', false], ['c', false]]);
+  });
+
+  it('na versão do item novo, ele passa a ser obrigatório', () => {
+    expect(itemsForVersion(items, 4).find((i) => i.id === 'b')?.isRequired).toBe(true);
+  });
+
+  it('não altera os itens originais', () => {
+    itemsForVersion(items, 1);
+    expect(items[1].isRequired).toBe(true);
   });
 });

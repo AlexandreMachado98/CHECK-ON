@@ -13,6 +13,22 @@ export interface RuleItem {
 
 export const PHOTO_REQUIREMENTS = ['NONE', 'ON_NON_COMPLIANCE', 'ALWAYS'];
 
+export interface VersionedItem extends RuleItem {
+  isActive: boolean;
+  addedInVersion: number;
+}
+
+/**
+ * Ajusta os itens do modelo à versão que o app usou (o checklist pode ter sido feito offline,
+ * antes de uma edição). Itens removidos depois ou incluídos depois deixam de ser obrigatórios;
+ * respostas a itens removidos continuam aceitas, para não perder o que o motorista registrou.
+ */
+export function itemsForVersion<T extends VersionedItem>(items: T[], version: number): T[] {
+  return items.map((item) =>
+    item.isActive && item.addedInVersion <= version ? item : { ...item, isRequired: false },
+  );
+}
+
 /** Diz se a resposta precisa vir com foto, conforme a configuração do item. */
 export function photoIsRequired(item: RuleItem, isCompliant: boolean): boolean {
   if (item.type === 'PHOTO') return false; // tratado por isRequired

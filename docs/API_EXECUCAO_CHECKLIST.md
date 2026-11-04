@@ -28,7 +28,7 @@ Baixar ao fazer login e sempre que houver internet:
 {
   "serverTime": "2026-11-04T10:00:00.000Z",
   "templates": [
-    { "id", "name", "description", "updatedAt",
+    { "id", "name", "description", "version", "updatedAt",
       "categories": [ { "id", "name", "order",
         "items": [ { "id", "text", "type", "isRequired", "isCritical", "photoRequirement", "order" } ] } ] }
   ],
@@ -55,6 +55,7 @@ Envia uma execução completa.
 {
   "clientId": "6f1c2a8e-3b4d-4f5a-9c6b-7d8e9f0a1b2c",
   "templateId": "…",
+  "templateVersion": 3,
   "vehicleId": "…",
   "startedAt": "2026-11-04T10:00:00Z",
   "completedAt": "2026-11-04T10:12:00Z",
@@ -73,6 +74,7 @@ Envia uma execução completa.
 - `driverId` é opcional. Motoristas usam automaticamente o funcionário vinculado ao seu usuário; só `ADMIN_EMPRESA`, `GESTOR` e `SUPERVISOR` podem informar outro motorista.
 - Itens `PASS_FAIL` exigem `isCompliant`. `NUMBER`, `TEXT` e `PHOTO` exigem o valor correspondente e são conformes por padrão (envie `isCompliant: false` para apontar problema).
 - `completedAt` aceita até 5 minutos de adiantamento do relógio do aparelho.
+- `templateVersion` é o `version` do modelo no bootstrap que o app usou para montar o checklist. Veja **Versão do modelo** abaixo.
 
 Respostas:
 
@@ -134,3 +136,17 @@ Fluxo no app:
 3. Só então envia o checklist (`/checklists/submit` ou `/checklists/sync`) com `photoUrl` em cada resposta.
 
 O servidor recusa (422) o checklist quando falta uma foto exigida ou quando a `photoUrl` não foi gerada por esta API para a mesma empresa. Se o upload da foto der certo mas o envio do checklist falhar, basta reenviar o checklist com a mesma `photoUrl`.
+
+## Versão do modelo e histórico
+
+O gestor pode editar o modelo enquanto há checklists feitos offline esperando sincronização. Para nada se perder:
+
+- Toda mudança em seções ou itens sobe o `version` do modelo. O app guarda o `version` junto com o modelo baixado e o envia como `templateVersion` em cada checklist.
+- Item incluído depois da versão usada pelo app **não** é exigido naquele checklist.
+- Item removido depois continua aceito: a resposta é gravada e, se não conforme, abre NC normalmente. Ele só deixa de ser obrigatório.
+- Sem `templateVersion`, vale a versão atual (comportamento do painel web).
+- Seção ou item que já tem respostas não é apagado: fica desativado, some do painel e do bootstrap, mas o histórico continua completo. Sem respostas, é apagado de verdade.
+- Modelo com checklists registrados não pode ser excluído (HTTP 409): desative-o.
+- Cada resposta guarda a cópia da pergunta (`itemText`, `itemType`, `itemIsCritical`, `categoryName`) e cada checklist guarda `templateVersion` e `templateName`. As telas de histórico e de NCs mostram a pergunta como estava no dia da inspeção, mesmo que o texto tenha mudado depois.
+- O app deve baixar o bootstrap de novo sempre que tiver internet, para usar a versão mais recente nos próximos checklists.
+
