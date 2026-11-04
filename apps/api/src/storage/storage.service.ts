@@ -7,7 +7,8 @@ import { publicApiUrl, s3Config, storageDriver } from '../config/env';
 
 /** Pastas (prefixos) que a API pode gravar e apagar. */
 const ALLOWED_PREFIXES = ['employee-photos/', 'checklist-photos/'];
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+/** Limite das fotos. Abaixo dos 4,5 MB que a Vercel aceita no corpo de uma requisição. */
+export const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 
 interface StorageDriver {
   readonly publicBaseUrl: string;
@@ -118,7 +119,7 @@ export class StorageService {
 
   private async storeImage(fileBuffer: Buffer, mimetype: string, folder: string): Promise<string> {
     if (fileBuffer.length === 0 || fileBuffer.length > MAX_IMAGE_BYTES) {
-      throw new BadRequestException('A foto precisa ter entre 1 byte e 5 MB.');
+      throw new BadRequestException('A foto precisa ter entre 1 byte e 4 MB.');
     }
     const imageType = this.detectImageType(fileBuffer);
     if (!imageType || imageType.mime !== mimetype) {

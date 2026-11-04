@@ -12,6 +12,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { MAX_IMAGE_BYTES } from '../storage/storage.service';
 import { EmployeeService } from './employee.service';
 import type { PhotoUploadFile } from './employee.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
@@ -39,9 +40,9 @@ export class EmployeeController {
   update(@Param('id') id: string, @Body() updateDto: UpdateEmployeeDto) { return this.service.update(id, updateDto); }
 
   @Post(':id/photo')
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_IMAGE_BYTES } }))
   uploadPhoto(@Param('id') id: string, @UploadedFile() file?: PhotoUploadFile) {
-    if (!file) throw new BadRequestException('Selecione uma foto JPEG, PNG ou WebP de até 5 MB.');
+    if (!file) throw new BadRequestException('Selecione uma foto JPEG, PNG ou WebP de até 4 MB.');
     return this.service.uploadPhoto(id, file);
   }
 

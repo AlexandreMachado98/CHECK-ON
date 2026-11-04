@@ -127,7 +127,7 @@ Itens do tipo `PHOTO` continuam sendo controlados por `isRequired`.
 
 ### POST /checklists/photos
 
-Upload multipart com o campo `file` (JPEG, PNG ou WebP, até 5 MB). Resposta: `{ "photoUrl": "…" }`.
+Upload multipart com o campo `file` (JPEG, PNG ou WebP, até 4 MB). Resposta: `{ "photoUrl": "…" }`.
 
 Fluxo no app:
 

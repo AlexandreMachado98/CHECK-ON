@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req, Res, HttpCode, HttpStatus, UploadedFile, UseInterceptors, BadRequestException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { MAX_IMAGE_BYTES } from '../storage/storage.service';
 import type { Request, Response } from 'express';
 import { ChecklistService } from './checklist.service';
 import { ChecklistExecutionService, AuthenticatedUser } from './checklist-execution.service';
@@ -39,14 +40,14 @@ export class ChecklistController {
   }
 
   /**
-   * Envia uma foto de evidência (campo multipart "file", JPEG, PNG ou WebP, até 5 MB).
+   * Envia uma foto de evidência (campo multipart "file", JPEG, PNG ou WebP, até 4 MB).
    * Devolve { photoUrl }, que vai no campo photoUrl da resposta do item.
    */
   @Post('photos')
   @Roles(...EXECUTION_ROLES)
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_IMAGE_BYTES } }))
   uploadPhoto(@UploadedFile() file?: { buffer: Buffer; mimetype: string }) {
-    if (!file) throw new BadRequestException('Selecione uma foto JPEG, PNG ou WebP de até 5 MB.');
+    if (!file) throw new BadRequestException('Selecione uma foto JPEG, PNG ou WebP de até 4 MB.');
     return this.execution.uploadPhoto(file);
   }
 

@@ -83,3 +83,30 @@ DATABASE_URL='<url main com pooling>' DIRECT_URL='<url main direta>' npx prisma 
 - [ ] Upload de foto de funcionário aparece (confirma o armazenamento S3)
 - [ ] Ninguém consegue entrar com `admin123` em produção
 - [ ] Backups: o Neon guarda o histórico conforme o plano. Antes de receber clientes, passe para um plano pago com restauração para um ponto no tempo
+
+## Alternativa: API e painel juntos na Vercel (services)
+
+O `vercel.json` da raiz publica os dois apps num único projeto e num único domínio:
+
+| Serviço | Pasta | Caminho público |
+| --- | --- | --- |
+| `web` | `apps/web` | `/` |
+| `api` | `apps/api` | `/api` (a API recebe o caminho sem o prefixo: `/api/auth/login` chega como `/auth/login`) |
+
+1. No projeto da Vercel, deixe **Root Directory** vazio (raiz do repositório). Com `apps/api` ou `apps/web` ali, o `vercel.json` é ignorado.
+2. Em **Settings > Environment Variables** (valem para os dois serviços):
+
+| Variável | Valor |
+| --- | --- |
+| `DATABASE_URL`, `DIRECT_URL` | URLs do Neon. Em **Preview**, use as da branch `dev`: o build roda `prisma migrate deploy` |
+| `JWT_SECRET` | 32+ caracteres (`openssl rand -base64 48`) |
+| `CORS_ORIGINS` | O domínio do projeto, ex.: `https://checkon.vercel.app` |
+| `PUBLIC_API_URL` | `https://<dominio>/api` |
+| `S3_*`, `STORAGE_PUBLIC_URL` | Armazenamento das fotos (o disco das funções da Vercel não é persistente) |
+| `NEXT_PUBLIC_API_URL` | **Não defina.** O painel usa `/api` na mesma origem |
+
+3. O app mobile usa `https://<dominio>/api` como endereço base. As rotas são as mesmas de `docs/API_EXECUCAO_CHECKLIST.md`.
+4. Fotos: até 4 MB. A Vercel recusa corpos de requisição acima de 4,5 MB.
+5. Teste: `https://<dominio>/api/health` deve responder `{"status":"ok","database":"ok",...}`.
+
+Localmente, `vercel dev` na raiz sobe os dois serviços com o mesmo roteamento.

@@ -149,7 +149,7 @@ function EmployeeForm({
               }))}
             />
           </label>
-          <span className="text-center text-[11px] leading-4 text-slate-500">JPEG, PNG ou WebP · até 5 MB</span>
+          <span className="text-center text-[11px] leading-4 text-slate-500">JPEG, PNG ou WebP · até 4 MB</span>
         </div>
 
         <div className="grid content-start gap-4 sm:grid-cols-2">
