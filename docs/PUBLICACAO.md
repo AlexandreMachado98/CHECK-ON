@@ -29,11 +29,11 @@ Faça commit do `package-lock.json`. Sem isso o build do Docker falha no `npm ci
    - **com pooling** (host com `-pooler`): vai em `DATABASE_URL`. Acrescente `&pgbouncer=true&connection_limit=5`;
    - **direta** (sem `-pooler`): vai em `DIRECT_URL`.
 4. Em `apps/api`, copie `.env.example` para `.env` e preencha com as URLs da branch **dev**.
-5. Gere a migração inicial do PostgreSQL (uma única vez) e faça commit da pasta criada:
+5. Crie as tabelas na branch **dev** (a migração inicial já está no repositório) e carregue os dados de exemplo:
 
 ```bash
 cd apps/api
-npx prisma migrate dev --name init_postgres
+npx prisma migrate deploy
 npx prisma db seed   # dados de exemplo, só na branch dev
 ```
 

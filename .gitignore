@@ -10,3 +10,6 @@ dist/
 uploads/
 .env.*
 !.env.example
+
+# Banco PostgreSQL embutido do `npm run dev`
+.checkon-db/
