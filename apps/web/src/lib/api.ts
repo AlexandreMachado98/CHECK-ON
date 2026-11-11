@@ -51,3 +51,14 @@ api.interceptors.response.use(undefined, async (error: AxiosError) => {
 });
 
 export default api;
+
+/**
+ * Garante que a resposta é uma lista antes de a tela usar .filter/.map.
+ * Se vier outra coisa (página HTML de erro, objeto), lança um erro claro em vez de quebrar a tela inteira.
+ */
+export function ensureList<T>(data: unknown, what: string): T[] {
+  if (Array.isArray(data)) return data as T[];
+  const kind = typeof data === 'string' ? `texto (${data.trim().slice(0, 40)}...)` : data === null ? 'vazio' : typeof data;
+  console.error(`Resposta inesperada da API ao carregar ${what}:`, data);
+  throw new Error(`A API devolveu ${kind} em vez da lista de ${what}.`);
+}

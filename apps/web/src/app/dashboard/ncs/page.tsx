@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import api from '@/lib/api';
+import api, { ensureList } from '@/lib/api';
 import { apiErrorMessage, type NC, type NCStatus } from '@/lib/types';
 import { NC_STATUS, NcSeverityBadge, NcStatusBadge, VehicleStatusBadge, isActiveNc } from '@/lib/status';
 import { Button } from '@/components/ui/button';
@@ -53,7 +53,7 @@ export default function NCsPage() {
       setLoading(true);
       setLoadError('');
       const res = await api.get<NC[]>('/ncs');
-      setNcs(res.data);
+      setNcs(ensureList(res.data, 'não conformidades'));
     } catch (error) {
       setLoadError(apiErrorMessage(error, 'Não foi possível carregar as não conformidades.'));
     } finally {
