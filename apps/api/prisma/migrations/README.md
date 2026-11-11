@@ -1,17 +1,11 @@
-# Migrações (PostgreSQL / Neon)
+# Migrações PostgreSQL
 
-O projeto passou de SQLite para PostgreSQL. As migrações antigas, escritas para SQLite, estão guardadas em `../legacy-sqlite-migrations` apenas como histórico e **não** são aplicadas.
+A migration inicial 20261111224000_init_postgres cria as 16 tabelas do CHECK-ON. Foi gerada do schema Prisma e validada em uma branch isolada do Neon.
 
-## Criar a migração inicial (uma vez)
+## Deploy
 
-Com `DATABASE_URL` e `DIRECT_URL` apontando para um banco **vazio** do Neon (de preferência uma branch de desenvolvimento), rode em `apps/api`:
+Execute npx prisma migrate deploy em apps/api. O build da API no Vercel já executa esse comando. Ele cria as tabelas, mas não cria usuários. Para criar o administrador inicial, execute o seed com NODE_ENV=production e SEED_ADMIN_PASSWORD (12 caracteres ou mais).
 
-```bash
-npx prisma migrate dev --name init_postgres
-```
+## Novas alterações
 
-Isso gera a pasta `<data>_init_postgres` aqui dentro, a partir do `schema.prisma`. Faça commit dessa pasta. Daí em diante, o deploy aplica as migrações com `npx prisma migrate deploy` (o container da API já faz isso ao iniciar).
-
-## Novas mudanças no schema
-
-Edite `schema.prisma` e rode `npx prisma migrate dev --name <descricao>` contra a branch de desenvolvimento. Nunca rode `migrate dev` contra o banco de produção.
+Use npx prisma migrate dev --name <descricao> somente em uma branch de desenvolvimento. Versione a migration e aplique em produção com migrate deploy. As migrations antigas de SQLite ficam em ../legacy-sqlite-migrations e não são aplicadas.
