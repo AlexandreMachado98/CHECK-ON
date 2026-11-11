@@ -188,5 +188,8 @@ export function apiErrorMessage(error: unknown, fallback: string): string {
   const data = (error as { response?: { data?: { message?: string | string[] } } })?.response?.data;
   const message = data?.message;
   if (Array.isArray(message)) return message.join(' ');
-  return message || fallback;
+  if (message) return message;
+  // Erro gerado no próprio painel (ex.: resposta inesperada da API): a mensagem já está em português.
+  if (error instanceof Error && !(error as { isAxiosError?: boolean }).isAxiosError) return error.message || fallback;
+  return fallback;
 }

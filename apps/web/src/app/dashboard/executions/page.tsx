@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import api from '@/lib/api';
-import type { Checklist, ChecklistAnswer } from '@/lib/types';
+import api, { ensureList } from '@/lib/api';
+import { apiErrorMessage, type Checklist, type ChecklistAnswer } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 export default function ExecutionsPage() {
   const [checklists, setChecklists] = useState<Checklist[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [selectedChecklist, setSelectedChecklist] = useState<Checklist | null>(null);
@@ -30,10 +31,12 @@ export default function ExecutionsPage() {
   async function fetchChecklists() {
     try {
       setLoading(true);
+      setLoadError('');
       const res = await api.get<Checklist[]>('/checklists');
-      setChecklists(res.data);
-    } catch {
-      console.error('Falha ao buscar checklists');
+      setChecklists(ensureList(res.data, 'inspeções'));
+    } catch (error) {
+      console.error('Falha ao buscar checklists', error);
+      setLoadError(apiErrorMessage(error, 'Não foi possível carregar as inspeções.'));
     } finally {
       setLoading(false);
     }
@@ -102,6 +105,11 @@ export default function ExecutionsPage() {
             <div className="p-10 text-center text-sm text-slate-500 flex flex-col items-center">
               <Activity className="h-6 w-6 animate-pulse text-slate-300 mb-2" />
               Carregando inspeções...
+            </div>
+          ) : loadError ? (
+            <div className="p-10 text-center text-sm">
+              <p className="text-rose-700 mb-3">{loadError}</p>
+              <Button variant="outline" size="sm" onClick={fetchChecklists}>Tentar de novo</Button>
             </div>
           ) : checklists.length === 0 ? (
             <div className="py-20 px-6 text-center flex flex-col items-center bg-slate-50/30">

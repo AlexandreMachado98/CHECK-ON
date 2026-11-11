@@ -3,11 +3,11 @@
 | Parte | Onde | Observação |
 | --- | --- | --- |
 | Painel web (`apps/web`) | Vercel | Next.js, sem servidor próprio |
-| API (`apps/api`) | Render, serviço Docker sempre ligado | Região **Virginia** |
-| Banco | Neon (PostgreSQL) | Região **AWS us-east-1**, a mesma da API |
+| API (`apps/api`) | Vercel (services), funções em **São Paulo (`gru1`)** | Alternativa: Render (ver abaixo) |
+| Banco | Neon (PostgreSQL) | Região **AWS sa-east-1 (São Paulo)**, a mesma da API |
 | Fotos | Armazenamento compatível com S3 (ex.: Cloudflare R2) | Nunca no banco nem no disco da API |
 
-A API e o banco precisam ficar na mesma região: uma inspeção faz várias consultas ao banco, e cada uma pagaria a distância entre regiões.
+A API e o banco precisam ficar na mesma região: uma inspeção faz várias consultas ao banco, e cada uma pagaria a distância entre regiões. Com a API nos EUA e o banco em São Paulo, cada consulta levava ~113 ms, contra poucos ms na mesma região.
 
 ## 1. Preparar o repositório (na sua máquina, uma vez)
 
@@ -23,7 +23,7 @@ Faça commit do `package-lock.json`. Sem isso o build do Docker falha no `npm ci
 
 ## 2. Banco no Neon
 
-1. Crie um projeto na região **AWS US East 1 (N. Virginia)**, com um banco chamado `checkon`.
+1. Crie um projeto na região **AWS South America East 1 (São Paulo)**, com um banco chamado `checkon`.
 2. Crie também uma branch `dev` para desenvolvimento e migrações.
 3. Em **Connect**, copie duas connection strings de cada branch:
    - **com pooling** (host com `-pooler`): vai em `DATABASE_URL`. Acrescente `&pgbouncer=true&connection_limit=5`;
@@ -43,7 +43,9 @@ npx prisma db seed   # dados de exemplo, só na branch dev
 2. Ative o acesso público por um domínio próprio (ex.: `fotos.seudominio.com.br`) ou pela URL pública do R2. Esse endereço vai em `STORAGE_PUBLIC_URL`.
 3. Crie um token de API com permissão de leitura e escrita **só nesse bucket**. Anote o Access Key ID, o Secret e o endpoint (`https://<account_id>.r2.cloudflarestorage.com`).
 
-## 4. API no Render
+## 4. API no Render (alternativa)
+
+> O Render não tem região em São Paulo. Com o banco em `sa-east-1`, a API no Render pagaria ~110 ms por consulta. Prefira a publicação na Vercel (seção "API e painel juntos na Vercel"), que roda em `gru1`.
 
 1. **New > Blueprint** e selecione o repositório. O `render.yaml` já define o serviço Docker, a região, o health check e gera um `JWT_SECRET` aleatório.
 2. Preencha as variáveis marcadas como pendentes:
@@ -94,6 +96,7 @@ O `vercel.json` da raiz publica os dois apps num único projeto e num único dom
 | `api` | `apps/api` | `/api` (o NestJS registra o prefixo quando `VERCEL=1`) |
 
 1. No projeto da Vercel, deixe **Root Directory** vazio (raiz do repositório). Com `apps/api` ou `apps/web` ali, o `vercel.json` é ignorado.
+   - O `vercel.json` fixa as funções em **`gru1` (São Paulo)**, junto do banco. Confira também em **Settings > Functions > Function Region**: deve aparecer São Paulo (`gru1`). Se o banco mudar de região, mude as duas coisas juntas.
 2. Em **Settings > Environment Variables** (valem para os dois serviços):
 
 | Variável | Valor |
@@ -107,6 +110,6 @@ O `vercel.json` da raiz publica os dois apps num único projeto e num único dom
 
 3. O app mobile usa `https://<dominio>/api` como endereço base. As rotas são as mesmas de `docs/API_EXECUCAO_CHECKLIST.md`.
 4. Fotos: até 4 MB. A Vercel recusa corpos de requisição acima de 4,5 MB.
-5. Teste: `https://<dominio>/api/health` deve responder `{"status":"ok","database":"ok",...}`.
+5. Teste: `https://<dominio>/api/health` deve responder `{"status":"ok","database":"ok",...}`. O `latencyMs` deve ficar em poucos ms; perto de 100 ms indica API e banco em regiões diferentes.
 
 Localmente, `vercel dev` na raiz sobe os dois serviços com o mesmo roteamento.
