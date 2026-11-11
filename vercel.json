@@ -5,15 +5,7 @@
       "root": "apps/api",
       "framework": "nestjs",
       "entrypoint": "src/main.ts",
-      "buildCommand": "npx prisma migrate deploy && npm run build",
-      "routes": [
-        {
-          "src": "/api(?:/(.*))?",
-          "transforms": [
-            { "type": "request.path", "op": "set", "args": "/$1" }
-          ]
-        }
-      ]
+      "buildCommand": "npx prisma migrate deploy && npm run build"
     },
     "web": {
       "root": "apps/web",
@@ -21,8 +13,23 @@
     }
   },
   "rewrites": [
-    { "source": "/api", "destination": { "service": "api" } },
-    { "source": "/api/(.*)", "destination": { "service": "api" } },
-    { "source": "/(.*)", "destination": { "service": "web" } }
+    {
+      "source": "/api",
+      "destination": {
+        "service": "api"
+      }
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": {
+        "service": "api"
+      }
+    },
+    {
+      "source": "/(.*)",
+      "destination": {
+        "service": "web"
+      }
+    }
   ]
 }

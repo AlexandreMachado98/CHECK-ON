@@ -15,6 +15,8 @@ async function bootstrap() {
   validateEnvOnStartup();
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // Vercel Services forwards the public /api prefix to the Nest runtime.
+  if (process.env.VERCEL === '1') app.setGlobalPrefix('api');
   app.set('trust proxy', 1); // atrás do proxy HTTPS do serviço de hospedagem
   app.enableShutdownHooks();
 

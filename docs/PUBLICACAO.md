@@ -91,7 +91,7 @@ O `vercel.json` da raiz publica os dois apps num único projeto e num único dom
 | Serviço | Pasta | Caminho público |
 | --- | --- | --- |
 | `web` | `apps/web` | `/` |
-| `api` | `apps/api` | `/api` (a API recebe o caminho sem o prefixo: `/api/auth/login` chega como `/auth/login`) |
+| `api` | `apps/api` | `/api` (o NestJS registra o prefixo quando `VERCEL=1`) |
 
 1. No projeto da Vercel, deixe **Root Directory** vazio (raiz do repositório). Com `apps/api` ou `apps/web` ali, o `vercel.json` é ignorado.
 2. Em **Settings > Environment Variables** (valem para os dois serviços):
