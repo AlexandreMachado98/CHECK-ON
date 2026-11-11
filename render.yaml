@@ -8,7 +8,9 @@ services:
     dockerContext: .
     # Planos gratuitos "dormem" quando ociosos. Para a API sempre ligada, use um plano pago.
     plan: starter
-    # Mesma região do banco no Neon (AWS us-east-1). A região não pode ser alterada depois.
+    # Atenção: o banco no Neon está em São Paulo (sa-east-1) e o Render não tem região no Brasil.
+    # Aqui cada consulta pagaria ~110 ms; a publicação recomendada é a da Vercel (vercel.json, gru1).
+    # A região não pode ser alterada depois.
     region: virginia
     healthCheckPath: /health
     autoDeploy: true
