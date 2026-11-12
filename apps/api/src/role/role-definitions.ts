@@ -8,6 +8,13 @@ export const GESTOR = 'GESTOR';
 export const SUPERVISOR = 'SUPERVISOR';
 export const MOTORISTA = 'MOTORISTA';
 
+/**
+ * Perfis com acesso às telas do painel (veículos, inspeções, NCs, usuários...).
+ * O super admin entra junto para poder usar e testar todas as telas; ele opera nos dados
+ * da empresa dele (a da plataforma). Para os dados de um cliente, usa "Acessar empresa".
+ */
+export const PANEL_ROLES = [SUPER_ADMIN, 'ADMIN_EMPRESA', 'GESTOR'];
+
 export const DEFAULT_TENANT_ROLES: ReadonlyArray<{ name: string; label: string; permissions: string[] }> = [
   { name: ADMIN_EMPRESA, label: 'Administrador da empresa', permissions: ['*'] },
   { name: GESTOR, label: 'Gestor', permissions: ['fleet:*', 'checklist:*', 'nc:*', 'employees:*', 'users:*'] },
@@ -25,7 +32,8 @@ export const ROLE_LABELS: Record<string, string> = {
  * e um gestor não cria nem altera administradores da empresa.
  */
 export function assignableRoleNames(requesterRole: string): string[] {
-  if (requesterRole === ADMIN_EMPRESA) return [ADMIN_EMPRESA, GESTOR, SUPERVISOR, MOTORISTA];
+  // O super admin, na empresa da plataforma, cadastra usuários como um administrador (nunca outro SUPER_ADMIN).
+  if (requesterRole === ADMIN_EMPRESA || requesterRole === SUPER_ADMIN) return [ADMIN_EMPRESA, GESTOR, SUPERVISOR, MOTORISTA];
   if (requesterRole === GESTOR) return [GESTOR, SUPERVISOR, MOTORISTA];
   return [];
 }

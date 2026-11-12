@@ -10,12 +10,13 @@ import { SubmitChecklistDto, SyncChecklistsDto } from './dto/submit-checklist.dt
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { PANEL_ROLES } from '../role/role-definitions';
 
 /** Perfis que executam checklists em campo (app) ou registram pelo painel. */
 const EXECUTION_ROLES = ['ADMIN_EMPRESA', 'GESTOR', 'SUPERVISOR', 'MOTORISTA'];
 
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN_EMPRESA', 'GESTOR')
+@Roles(...PANEL_ROLES)
 @Controller('checklists')
 export class ChecklistController {
   constructor(
