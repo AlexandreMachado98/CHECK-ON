@@ -3,7 +3,7 @@
 import { ChangeEvent, useEffect, useMemo, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import api from '@/lib/api';
-import type { Employee, EmployeeTraining } from '@/lib/types';
+import { apiErrorMessage, type Employee, type EmployeeTraining } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -351,8 +351,8 @@ function BadgeDialog({
       const response = await api.post<{ id: string; badgeToken: string }>(`/employees/${employee.id}/badge/rotate-token`);
       setToken(response.data.badgeToken);
       onEmployeeUpdate({ ...employee, badgeToken: response.data.badgeToken });
-    } catch {
-      alert('Não foi possível gerar o QR do crachá.');
+    } catch (error) {
+      alert(apiErrorMessage(error, 'Não foi possível gerar o QR do crachá.'));
     } finally {
       setWorking(false);
     }
@@ -364,8 +364,8 @@ function BadgeDialog({
       await navigator.clipboard.writeText(publicUrl);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1800);
-    } catch {
-      alert('O navegador não permitiu copiar o link. Você pode copiá-lo pela barra de endereço após abrir o crachá.');
+    } catch (error) {
+      alert(apiErrorMessage(error, 'O navegador não permitiu copiar o link. Você pode copiá-lo pela barra de endereço após abrir o crachá.'));
     }
   }
 
@@ -555,8 +555,8 @@ export default function EmployeesPage() {
       setLoading(true);
       const response = await api.get<Employee[]>('/employees');
       setEmployees(response.data);
-    } catch {
-      alert('Não foi possível carregar a relação de colaboradores.');
+    } catch (error) {
+      alert(apiErrorMessage(error, 'Não foi possível carregar a relação de colaboradores.'));
     } finally {
       setLoading(false);
     }
@@ -571,13 +571,13 @@ export default function EmployeesPage() {
       if (data.photoFile) await uploadEmployeePhoto(created.id, data.photoFile);
       setCreateOpen(false);
       await fetchEmployees();
-    } catch {
+    } catch (error) {
       if (created) {
         setCreateOpen(false);
         await fetchEmployees();
         alert('O colaborador foi cadastrado e o crachá gerado, mas a foto não foi enviada. Edite o cadastro para tentar novamente.');
       } else {
-        alert('Não foi possível cadastrar o colaborador. Verifique matrícula e dados obrigatórios.');
+        alert(apiErrorMessage(error, 'Não foi possível cadastrar o colaborador. Verifique matrícula e dados obrigatórios.'));
       }
     } finally {
       setCreateSubmitting(false);
@@ -597,13 +597,13 @@ export default function EmployeesPage() {
       if (badgeTarget?.id === editTarget.id) {
         setBadgeTarget({ ...badgeTarget, ...updated });
       }
-    } catch {
+    } catch (error) {
       if (updated) {
         setEditTarget(null);
         await fetchEmployees();
         alert('Os dados foram salvos, mas a foto não foi enviada. Tente atualizar a foto novamente.');
       } else {
-        alert('Não foi possível atualizar o colaborador.');
+        alert(apiErrorMessage(error, 'Não foi possível atualizar o colaborador.'));
       }
     } finally {
       setEditSubmitting(false);
@@ -616,8 +616,8 @@ export default function EmployeesPage() {
     try {
       await api.patch(`/employees/${employee.id}`, { isActive: !employee.isActive });
       await fetchEmployees();
-    } catch {
-      alert('Não foi possível alterar a situação do colaborador.');
+    } catch (error) {
+      alert(apiErrorMessage(error, 'Não foi possível alterar a situação do colaborador.'));
     }
   }
 

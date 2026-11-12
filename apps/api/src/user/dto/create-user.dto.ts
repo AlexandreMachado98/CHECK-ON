@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsEmail, IsNotEmpty, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class CreateUserDto {
   @IsNotEmpty()
@@ -20,4 +20,9 @@ export class CreateUserDto {
   @IsNotEmpty()
   @IsString()
   roleId: string;
+
+  /** Colaborador (funcionário) deste login. Obrigatório para o motorista registrar checklist no app. */
+  @IsOptional()
+  @IsString()
+  employeeId?: string;
 }

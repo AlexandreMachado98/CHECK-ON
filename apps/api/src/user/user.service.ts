@@ -15,6 +15,8 @@ const USER_SELECT = {
   isActive: true,
   roleId: true,
   role: { select: { id: true, name: true } },
+  employeeId: true,
+  employee: { select: { id: true, name: true, matricula: true } },
 } as const;
 
 type UserRow = { role: { id: string; name: string } } & Record<string, unknown>;
@@ -34,10 +36,12 @@ export class UserService {
     const existing = await this.prisma.$queryRaw<{ id: string }[]>`SELECT id FROM "User" WHERE email = ${dto.email} LIMIT 1`;
     if (existing.length > 0) throw new ConflictException('Este e-mail já está em uso.');
 
+    if (dto.employeeId) await this.assertEmployeeAvailable(dto.employeeId);
+
     const passwordHash = await bcrypt.hash(dto.password, 10);
     const user = await this.prisma.user.create({
       // O tenantId é preenchido pela extensão do Prisma com a empresa de quem está logado.
-      data: { name: dto.name.trim(), email: dto.email, passwordHash, roleId: dto.roleId } as never,
+      data: { name: dto.name.trim(), email: dto.email, passwordHash, roleId: dto.roleId, employeeId: dto.employeeId || null } as never,
       select: USER_SELECT,
     });
     return withRoleLabel(user);
@@ -61,8 +65,10 @@ export class UserService {
       if (dto.roleId) throw new BadRequestException('Você não pode alterar o seu próprio perfil.');
     }
     if (dto.roleId) await this.assertAssignableRole(dto.roleId, requester);
+    if (dto.employeeId) await this.assertEmployeeAvailable(dto.employeeId, id);
 
-    const data: { name?: string; roleId?: string; isActive?: boolean; passwordHash?: string } = {};
+    const data: { name?: string; roleId?: string; isActive?: boolean; passwordHash?: string; employeeId?: string | null } = {};
+    if (dto.employeeId !== undefined) data.employeeId = dto.employeeId || null;
     if (dto.name !== undefined) data.name = dto.name.trim();
     if (dto.roleId !== undefined) data.roleId = dto.roleId;
     if (dto.isActive !== undefined) data.isActive = dto.isActive;
@@ -77,6 +83,18 @@ export class UserService {
       return user;
     });
     return withRoleLabel(updated);
+  }
+
+  /** O colaborador precisa ser da mesma empresa e não ter outro login vinculado. */
+  private async assertEmployeeAvailable(employeeId: string, exceptUserId?: string) {
+    // A extensão do Prisma restringe as buscas à empresa de quem está logado.
+    const employee = await this.prisma.employee.findFirst({ where: { id: employeeId }, select: { id: true, name: true } });
+    if (!employee) throw new BadRequestException('Colaborador não encontrado.');
+    const linked = await this.prisma.user.findFirst({
+      where: { employeeId, ...(exceptUserId ? { NOT: { id: exceptUserId } } : {}) },
+      select: { name: true },
+    });
+    if (linked) throw new ConflictException(`${employee.name} já está vinculado ao login de ${linked.name}.`);
   }
 
   /** O perfil precisa ser da mesma empresa e estar entre os que quem pede pode atribuir. */

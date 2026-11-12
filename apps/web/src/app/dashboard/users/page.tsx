@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import api, { ensureList } from '@/lib/api';
-import { apiErrorMessage, type User, type Role } from '@/lib/types';
+import { apiErrorMessage, type Employee, type User, type Role } from '@/lib/types';
 import { roleLabel } from '@/lib/roles';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,11 +19,19 @@ interface UserFormData {
   email: string;
   password?: string;
   roleId: string;
+  /** 'none' = sem colaborador vinculado. */
+  employeeId: string;
 }
 
-const EMPTY_FORM: UserFormData = { name: '', email: '', password: '', roleId: '' };
+const NO_EMPLOYEE = 'none';
+const EMPTY_FORM: UserFormData = { name: '', email: '', password: '', roleId: '', employeeId: NO_EMPLOYEE };
 
-function UserForm({ initial = EMPTY_FORM, roles, onSubmit, onCancel, submitting, mode, error }: { initial?: Partial<UserFormData>; roles: Role[]; onSubmit: (data: UserFormData) => Promise<void>; onCancel: () => void; submitting: boolean; mode: 'create' | 'edit'; error?: string; }) {
+/** Envia null para desfazer o vínculo e omite o campo quando não há colaborador no cadastro novo. */
+function employeeIdPayload(value: string) {
+  return value === NO_EMPLOYEE ? null : value;
+}
+
+function UserForm({ initial = EMPTY_FORM, roles, employees, onSubmit, onCancel, submitting, mode, error }: { initial?: Partial<UserFormData>; roles: Role[]; employees: Employee[]; onSubmit: (data: UserFormData) => Promise<void>; onCancel: () => void; submitting: boolean; mode: 'create' | 'edit'; error?: string; }) {
   const [form, setForm] = useState<UserFormData>({ ...EMPTY_FORM, ...initial });
 
   function set(field: keyof UserFormData) {
@@ -73,6 +81,26 @@ function UserForm({ initial = EMPTY_FORM, roles, onSubmit, onCancel, submitting,
         </Select>
       </div>
 
+      <div className="space-y-2">
+        <Label htmlFor="u-employee">Colaborador vinculado</Label>
+        <Select
+          items={[{ value: NO_EMPLOYEE, label: 'Nenhum' }, ...employees.map(e => ({ value: e.id, label: e.matricula ? `${e.name} (${e.matricula})` : e.name }))]}
+          value={form.employeeId}
+          onValueChange={(val) => setForm(prev => ({ ...prev, employeeId: (val as string) || NO_EMPLOYEE }))}
+        >
+          <SelectTrigger id="u-employee">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NO_EMPLOYEE}>Nenhum</SelectItem>
+            {employees.map(e => (
+              <SelectItem key={e.id} value={e.id}>{e.matricula ? `${e.name} (${e.matricula})` : e.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-slate-500">Obrigatório para motoristas e supervisores registrarem checklists no aplicativo.</p>
+      </div>
+
       {roles.length === 0 && <p className="text-xs text-amber-700">Não foi possível carregar os perfis. Feche e abra de novo.</p>}
       {error && <p className="text-sm text-rose-700">{error}</p>}
 
@@ -89,6 +117,7 @@ function UserForm({ initial = EMPTY_FORM, roles, onSubmit, onCancel, submitting,
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [formError, setFormError] = useState('');
@@ -104,7 +133,17 @@ export default function UsersPage() {
   useEffect(() => {
     fetchUsers();
     fetchRoles();
+    fetchEmployees();
   }, []);
+
+  async function fetchEmployees() {
+    try {
+      const res = await api.get<Employee[]>('/employees');
+      setEmployees(ensureList<Employee>(res.data, 'colaboradores').filter(e => e.isActive));
+    } catch (error) {
+      console.error('Falha ao buscar colaboradores', error);
+    }
+  }
 
   async function fetchUsers() {
     try {
@@ -134,7 +173,9 @@ export default function UsersPage() {
     try {
       setCreateSub(true);
       setFormError('');
-      await api.post('/users', data);
+      const { employeeId, ...rest } = data;
+      const linked = employeeIdPayload(employeeId);
+      await api.post('/users', linked ? { ...rest, employeeId: linked } : rest);
       setCreateOpen(false);
       fetchUsers();
     } catch (error) {
@@ -151,6 +192,8 @@ export default function UsersPage() {
       setFormError('');
       const payload: Partial<UserFormData> = { name: data.name };
       if (data.roleId !== editTarget.roleId) payload.roleId = data.roleId;
+      const linked = employeeIdPayload(data.employeeId);
+      if (linked !== (editTarget.employeeId ?? null)) (payload as Record<string, unknown>).employeeId = linked;
       if (data.password) payload.password = data.password;
       await api.patch(`/users/${editTarget.id}`, payload);
       setEditTarget(null);
@@ -204,6 +247,7 @@ export default function UsersPage() {
             <UserForm
               mode="create"
               roles={roles}
+              employees={employees}
               submitting={createSub}
               error={formError}
               onSubmit={handleCreate}
@@ -279,7 +323,10 @@ export default function UsersPage() {
                 {filteredUsers.map((u) => (
                   <TableRow key={u.id} className="hover:bg-slate-50/50 transition-colors">
                     <TableCell className="font-medium text-slate-900">{u.name}</TableCell>
-                    <TableCell className="text-slate-600 hidden sm:table-cell">{u.email}</TableCell>
+                    <TableCell className="text-slate-600 hidden sm:table-cell">
+                      {u.email}
+                      {u.employee && <span className="block text-xs text-slate-400">Colaborador: {u.employee.name}</span>}
+                    </TableCell>
                     <TableCell className="hidden md:table-cell">
                       <div className="inline-flex items-center text-sm font-medium text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
                         <Key className="h-3 w-3 mr-1.5 text-slate-400" />
@@ -335,7 +382,8 @@ export default function UsersPage() {
             <UserForm
               mode="edit"
               roles={roles}
-              initial={{ name: editTarget.name, email: editTarget.email, roleId: editTarget.roleId }}
+              employees={employees}
+              initial={{ name: editTarget.name, email: editTarget.email, roleId: editTarget.roleId, employeeId: editTarget.employeeId ?? NO_EMPLOYEE }}
               submitting={editSub}
               error={formError}
               onSubmit={handleEdit}

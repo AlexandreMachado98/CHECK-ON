@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import api from '@/lib/api';
-import type { Fleet, Vehicle } from '@/lib/types';
+import { apiErrorMessage, type Fleet, type Vehicle } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -69,8 +69,8 @@ export default function FleetsPage() {
       setName('');
       setDescription('');
       fetchFleets();
-    } catch {
-      alert('Não foi possível cadastrar a frota.');
+    } catch (error) {
+      alert(apiErrorMessage(error, 'Não foi possível cadastrar a frota.'));
     } finally {
       setSubmitting(false);
     }
@@ -84,8 +84,8 @@ export default function FleetsPage() {
       await api.patch(`/fleets/${editTarget.id}`, { name: editName, description: editDesc });
       setEditTarget(null);
       fetchFleets();
-    } catch {
-      alert('Erro ao atualizar dados da frota.');
+    } catch (error) {
+      alert(apiErrorMessage(error, 'Erro ao atualizar dados da frota.'));
     } finally {
       setEditSubmitting(false);
     }
@@ -101,8 +101,8 @@ export default function FleetsPage() {
     try {
       await api.patch(`/fleets/${fleet.id}`, { isActive: !fleet.isActive });
       fetchFleets();
-    } catch {
-      alert('Erro ao alterar situação da frota.');
+    } catch (error) {
+      alert(apiErrorMessage(error, 'Erro ao alterar situação da frota.'));
     }
   }
 
@@ -130,8 +130,8 @@ export default function FleetsPage() {
         year: new Date().getFullYear(),
       });
       fetchFleets();
-    } catch {
-      alert('Erro ao cadastrar veículo na frota. Verifique se a placa já existe.');
+    } catch (error) {
+      alert(apiErrorMessage(error, 'Erro ao cadastrar veículo na frota. Verifique se a placa já existe.'));
     } finally {
       setVehicleSubmitting(false);
     }

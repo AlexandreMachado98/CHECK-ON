@@ -42,6 +42,9 @@ export interface User {
   isActive: boolean;
   role?: Role;
   roleId: string;
+  /** Colaborador vinculado ao login (o motorista precisa dele para registrar checklist no app). */
+  employeeId?: string | null;
+  employee?: { id: string; name: string; matricula?: string | null } | null;
 }
 
 export interface Tenant {
