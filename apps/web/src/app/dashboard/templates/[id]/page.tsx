@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import api from '@/lib/api';
-import type { Template, TemplateCategory, TemplateItem, ItemType, PhotoRequirement } from '@/lib/types';
+import { apiErrorMessage, type Template, type TemplateCategory, type TemplateItem, type ItemType, type PhotoRequirement } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -321,8 +321,8 @@ export default function TemplateBuilderPage() {
       await api.post(`/templates/${id}/categories`, { name: newCatName.trim() });
       setNewCatName('');
       fetchTemplate();
-    } catch {
-      alert('Erro ao adicionar seção.');
+    } catch (error) {
+      alert(apiErrorMessage(error, 'Erro ao adicionar seção.'));
     } finally {
       setAddingCat(false);
     }
@@ -345,8 +345,8 @@ export default function TemplateBuilderPage() {
         api.patch(`/templates/categories/${neighbor.id}`, { order: current.order }),
       ]);
       await fetchTemplate();
-    } catch {
-      alert('Não foi possível reordenar a seção.');
+    } catch (error) {
+      alert(apiErrorMessage(error, 'Não foi possível reordenar a seção.'));
     }
   }
 
@@ -363,8 +363,8 @@ export default function TemplateBuilderPage() {
         api.patch(`/templates/items/${neighbor.id}`, { order: current.order }),
       ]);
       await fetchTemplate();
-    } catch {
-      alert('Não foi possível reordenar a regra.');
+    } catch (error) {
+      alert(apiErrorMessage(error, 'Não foi possível reordenar a regra.'));
     }
   }
 

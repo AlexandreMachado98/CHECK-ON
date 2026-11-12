@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import api from '@/lib/api';
-import type { Template } from '@/lib/types';
+import { apiErrorMessage, type Template } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -46,8 +46,8 @@ export default function TemplatesPage() {
       setName(''); 
       setDescription('');
       fetchTemplates();
-    } catch {
-      alert('Erro ao criar template.');
+    } catch (error) {
+      alert(apiErrorMessage(error, 'Erro ao criar template.'));
     } finally {
       setSaving(false);
     }
@@ -57,8 +57,8 @@ export default function TemplatesPage() {
     try {
       await api.patch(`/templates/${tpl.id}`, { isActive: !tpl.isActive });
       fetchTemplates();
-    } catch {
-      alert('Erro ao alterar status.');
+    } catch (error) {
+      alert(apiErrorMessage(error, 'Erro ao alterar status.'));
     }
   }
 
