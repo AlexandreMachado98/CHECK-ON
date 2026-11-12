@@ -94,6 +94,16 @@ export interface AuthUser {
   tenantName?: string;
   /** Nome do perfil, como a API devolve no login (ex.: "SUPER_ADMIN", "GESTOR"). */
   role?: string;
+  /** Super admin dentro do painel de uma empresa ("Acessar empresa"). */
+  impersonating?: boolean;
+}
+
+export interface AdminAccessLog {
+  id: string;
+  createdAt: string;
+  ip: string | null;
+  adminUser: { name: string; email: string };
+  tenant: { id: string; name: string };
 }
 
 // ─── Checklist Builder ────────────────────────────────────────────────────────

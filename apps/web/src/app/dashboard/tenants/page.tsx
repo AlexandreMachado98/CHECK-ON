@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
-import { Building2, CheckCircle2, Plus, Power, Search, ShieldOff, Truck, Users } from 'lucide-react';
+import { Building2, CheckCircle2, History, LogIn, Plus, Power, Search, ShieldOff, Truck, Users } from 'lucide-react';
 import api, { ensureList } from '@/lib/api';
-import { apiErrorMessage, type Tenant } from '@/lib/types';
+import { apiErrorMessage, type AdminAccessLog, type AuthUser, type Tenant } from '@/lib/types';
+import { startTenantAccess } from '@/lib/session';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -52,9 +53,43 @@ export default function TenantsPage() {
   const [toggleError, setToggleError] = useState('');
   const [toggling, setToggling] = useState(false);
 
+  const [accessingId, setAccessingId] = useState<string | null>(null);
+  const [accessError, setAccessError] = useState('');
+  const [accessExpired, setAccessExpired] = useState(false);
+  const [accessLogs, setAccessLogs] = useState<AdminAccessLog[]>([]);
+
   useEffect(() => {
     fetchTenants();
+    fetchAccessLogs();
+    // Chegou aqui porque o acesso de 1 hora a uma empresa expirou.
+    if (new URLSearchParams(window.location.search).get('acesso') === 'expirado') {
+      setAccessExpired(true);
+      window.history.replaceState(null, '', '/dashboard/tenants');
+    }
   }, []);
+
+  async function fetchAccessLogs() {
+    try {
+      const res = await api.get<AdminAccessLog[]>('/admin/tenants/access-logs');
+      setAccessLogs(ensureList<AdminAccessLog>(res.data, 'acessos'));
+    } catch (error) {
+      console.error('Falha ao buscar o histórico de acessos', error);
+    }
+  }
+
+  async function handleAccess(tenant: Tenant) {
+    try {
+      setAccessingId(tenant.id);
+      setAccessError('');
+      const res = await api.post<{ access_token: string; user: AuthUser }>(`/admin/tenants/${tenant.id}/access`);
+      startTenantAccess(res.data.access_token, res.data.user);
+      // Recarrega a página inteira, já como administrador da empresa.
+      window.location.assign('/dashboard');
+    } catch (error) {
+      setAccessError(apiErrorMessage(error, `Não foi possível acessar ${tenant.name}.`));
+      setAccessingId(null);
+    }
+  }
 
   async function fetchTenants() {
     try {
@@ -139,6 +174,20 @@ export default function TenantsPage() {
           Nova empresa
         </Button>
       </div>
+
+      {accessExpired && (
+        <div className="mb-6 flex items-start justify-between gap-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <p>O acesso de 1 hora à empresa expirou e você voltou para a plataforma. Clique em <strong>Acessar</strong> para entrar de novo.</p>
+          <button type="button" className="text-amber-800 hover:underline shrink-0" onClick={() => setAccessExpired(false)}>Fechar</button>
+        </div>
+      )}
+
+      {accessError && (
+        <div className="mb-6 flex items-start justify-between gap-4 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+          <p>{accessError}</p>
+          <button type="button" className="hover:underline shrink-0" onClick={() => setAccessError('')}>Fechar</button>
+        </div>
+      )}
 
       {created && (
         <div className="mb-6 flex items-start justify-between gap-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
@@ -234,6 +283,19 @@ export default function TenantsPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         {!t.isPlatform && (
+                          <div className="flex justify-end gap-2">
+                          {t.isActive && (
+                            <Button
+                              size="sm"
+                              className="h-8 text-xs"
+                              disabled={accessingId !== null}
+                              onClick={() => handleAccess(t)}
+                              title="Entrar no painel desta empresa como administrador"
+                            >
+                              <LogIn className="h-3.5 w-3.5 mr-1.5" />
+                              {accessingId === t.id ? 'Entrando...' : 'Acessar'}
+                            </Button>
+                          )}
                           <Button
                             variant="outline"
                             size="sm"
@@ -246,6 +308,7 @@ export default function TenantsPage() {
                             <Power className="h-3.5 w-3.5 mr-1.5" />
                             {t.isActive ? 'Desativar' : 'Reativar'}
                           </Button>
+                          </div>
                         )}
                       </TableCell>
                     </TableRow>
@@ -256,6 +319,31 @@ export default function TenantsPage() {
           )}
         </CardContent>
       </Card>
+
+      {accessLogs.length > 0 && (
+        <Card className="mt-6 shadow-sm border-slate-200">
+          <CardHeader className="pb-3 border-b border-slate-100 bg-slate-50/50">
+            <CardTitle className="text-base font-semibold flex items-center text-slate-700">
+              <History className="h-4 w-4 mr-2 text-slate-400" />
+              Acessos às empresas
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <ul className="divide-y text-sm">
+              {accessLogs.slice(0, 10).map((log) => (
+                <li key={log.id} className="flex flex-col gap-0.5 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="text-slate-800">
+                    <strong>{log.adminUser.name}</strong> entrou em <strong>{log.tenant.name}</strong>
+                  </span>
+                  <span className="text-xs text-slate-500">
+                    {format(new Date(log.createdAt), "dd/MM/yyyy 'às' HH:mm")}{log.ip ? ` · IP ${log.ip}` : ''}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="sm:max-w-lg">

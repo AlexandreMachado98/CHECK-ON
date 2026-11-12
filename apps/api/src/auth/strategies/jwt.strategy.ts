@@ -21,6 +21,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       tenantId: payload.tenantId,
       role: payload.role,
       permissions: payload.permissions,
+      // Presente quando um super admin está dentro do painel de uma empresa ("Acessar empresa").
+      impersonatedBy: payload.impersonatedBy ?? null,
     };
   }
 }
