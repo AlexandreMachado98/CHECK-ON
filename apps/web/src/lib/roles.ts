@@ -22,7 +22,7 @@ export function roleLabel(role?: string | null): string {
 /** Perfis que usam o painel web. Supervisor e motorista usam só o aplicativo. */
 export const PANEL_ROLES = [SUPER_ADMIN, ADMIN_EMPRESA, GESTOR];
 
-/** Telas de cada perfil. O super admin cuida das empresas; os dados de operação são de cada empresa. */
+/** Telas de cada perfil. Cada empresa só vê os próprios dados (a API filtra pela empresa do login). */
 const COMPANY_PATHS = [
   '/dashboard',
   '/dashboard/templates',
@@ -36,15 +36,14 @@ const COMPANY_PATHS = [
   '/dashboard/settings',
 ];
 const PATHS_BY_ROLE: Record<string, string[]> = {
-  // Modelos de checklist continuam com o super admin: a API libera /templates para ele
-  // e os modelos já criados na empresa da plataforma não podem sumir do menu.
-  SUPER_ADMIN: ['/dashboard/tenants', '/dashboard/templates'],
+  // O super admin vê todas as telas (dados da empresa da plataforma) e, além delas, Empresas.
+  SUPER_ADMIN: [...COMPANY_PATHS, '/dashboard/tenants'],
   ADMIN_EMPRESA: COMPANY_PATHS,
   GESTOR: COMPANY_PATHS,
 };
 
-export function homePathFor(role?: string | null): string {
-  return role === SUPER_ADMIN ? '/dashboard/tenants' : '/dashboard';
+export function homePathFor(): string {
+  return '/dashboard';
 }
 
 /** Libera a tela e as subtelas dela (ex.: /dashboard/templates/123). */

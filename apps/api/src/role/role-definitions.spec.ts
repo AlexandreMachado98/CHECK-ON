@@ -17,6 +17,10 @@ describe('assignableRoleNames', () => {
     }
   });
 
+  it('super admin atribui os perfis de empresa, como um administrador', () => {
+    expect(assignableRoleNames('SUPER_ADMIN')).toEqual(['ADMIN_EMPRESA', 'GESTOR', 'SUPERVISOR', 'MOTORISTA']);
+  });
+
   it('supervisor, motorista e perfis desconhecidos não atribuem nada', () => {
     expect(assignableRoleNames('SUPERVISOR')).toEqual([]);
     expect(assignableRoleNames('MOTORISTA')).toEqual([]);

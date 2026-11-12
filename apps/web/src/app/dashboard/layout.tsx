@@ -94,7 +94,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const hasPanelAccess = !!user && PANEL_ROLES.includes(user.role ?? '');
   const pathAllowed = !!user && canAccessPath(user.role, pathname);
   useEffect(() => {
-    if (user && hasPanelAccess && !pathAllowed) router.replace(homePathFor(user.role));
+    if (user && hasPanelAccess && !pathAllowed) router.replace(homePathFor());
   }, [user, hasPanelAccess, pathAllowed, router]);
 
   function handleLogout() {
@@ -141,7 +141,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     .map((group) => ({ ...group, items: group.items.filter((item) => canAccessPath(user.role, item.path)) }))
     .filter((group) => group.items.length > 0);
   const currentItem = visibleGroups.flatMap(g => g.items).find(i => i.path === pathname);
-  const isCompanyUser = user.role !== 'SUPER_ADMIN';
 
   const sidebarContent = (
     <div className="flex flex-col h-full bg-slate-950 text-slate-300">
@@ -269,7 +268,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           </div>
 
           {/* Quick Actions */}
-          {isCompanyUser && (
           <div className="flex items-center gap-2">
             <Link href="/dashboard/ncs">
               <Button variant="ghost" size="icon" className="text-slate-400 hover:text-amber-600 hover:bg-amber-50" title="Ver Não Conformidades">
@@ -282,7 +280,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               </Button>
             </Link>
           </div>
-          )}
         </header>
 
         {user.impersonating && (
