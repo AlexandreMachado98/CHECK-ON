@@ -36,7 +36,9 @@ const COMPANY_PATHS = [
   '/dashboard/settings',
 ];
 const PATHS_BY_ROLE: Record<string, string[]> = {
-  SUPER_ADMIN: ['/dashboard/tenants'],
+  // Modelos de checklist continuam com o super admin: a API libera /templates para ele
+  // e os modelos já criados na empresa da plataforma não podem sumir do menu.
+  SUPER_ADMIN: ['/dashboard/tenants', '/dashboard/templates'],
   ADMIN_EMPRESA: COMPANY_PATHS,
   GESTOR: COMPANY_PATHS,
 };
