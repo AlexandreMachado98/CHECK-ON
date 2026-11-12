@@ -1,27 +1,85 @@
-import { Injectable, ConflictException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ClsService } from 'nestjs-cls';
+import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTenantDto } from './dto/create-tenant.dto';
+import { UpdateTenantDto } from './dto/update-tenant.dto';
+import { ADMIN_EMPRESA, DEFAULT_TENANT_ROLES } from '../role/role-definitions';
+
+const TENANT_SELECT = {
+  id: true,
+  name: true,
+  cnpj: true,
+  plan: true,
+  isActive: true,
+  createdAt: true,
+  _count: { select: { users: true, vehicles: true, employees: true } },
+} as const;
 
 @Injectable()
 export class TenantAdminService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cls: ClsService,
+  ) {}
 
-  async create(createTenantDto: CreateTenantDto) {
-    if (createTenantDto.cnpj) {
-      const existing = await this.prisma.tenant.findUnique({ where: { cnpj: createTenantDto.cnpj } });
-      if (existing) {
-        throw new ConflictException('CNPJ já cadastrado em outra empresa');
-      }
+  /**
+   * Cria a empresa já pronta para uso: perfis padrão e o primeiro administrador, tudo ou nada.
+   */
+  async create(dto: CreateTenantDto) {
+    if (dto.cnpj) {
+      const existing = await this.prisma.tenant.findUnique({ where: { cnpj: dto.cnpj }, select: { id: true } });
+      if (existing) throw new ConflictException('Este CNPJ já está cadastrado em outra empresa.');
     }
-    
-    return this.prisma.tenant.create({
-      data: createTenantDto,
+    // E-mail é único na plataforma. SQL direto porque a extensão limitaria a busca à empresa do super admin.
+    const emailTaken = await this.prisma.$queryRaw<{ id: string }[]>`SELECT id FROM "User" WHERE email = ${dto.adminEmail} LIMIT 1`;
+    if (emailTaken.length > 0) throw new ConflictException('O e-mail do administrador já está em uso.');
+
+    const passwordHash = await bcrypt.hash(dto.adminPassword, 10);
+
+    const tenant = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.tenant.create({
+        data: { name: dto.name, cnpj: dto.cnpj, plan: dto.plan ?? 'STARTER' },
+        select: { id: true },
+      });
+
+      // A extensão do Prisma grava o tenantId do contexto da requisição (o do super admin).
+      // Aqui o contexto passa a ser a empresa nova, para perfis e usuário nascerem nela.
+      await this.cls.run(async () => {
+        this.cls.set('tenantId', created.id);
+        await tx.role.createMany({
+          data: DEFAULT_TENANT_ROLES.map((role) => ({
+            name: role.name,
+            permissions: JSON.stringify(role.permissions),
+            isSystem: true,
+          })) as never,
+        });
+        const adminRole = await tx.role.findFirst({ where: { name: ADMIN_EMPRESA }, select: { id: true } });
+        if (!adminRole) throw new Error('Perfil ADMIN_EMPRESA não foi criado.');
+        await tx.user.create({
+          data: { name: dto.adminName, email: dto.adminEmail, passwordHash, roleId: adminRole.id } as never,
+        });
+      });
+
+      return tx.tenant.findUniqueOrThrow({ where: { id: created.id }, select: TENANT_SELECT });
     });
+
+    return tenant;
   }
 
   async findAll() {
-    return this.prisma.tenant.findMany({
-      orderBy: { createdAt: 'desc' }
-    });
+    const platformTenantId = this.cls.get<string>('tenantId');
+    const tenants = await this.prisma.tenant.findMany({ select: TENANT_SELECT, orderBy: { createdAt: 'desc' } });
+    return tenants.map((tenant) => ({ ...tenant, isPlatform: tenant.id === platformTenantId }));
+  }
+
+  async update(id: string, dto: UpdateTenantDto) {
+    const tenant = await this.prisma.tenant.findUnique({ where: { id }, select: { id: true } });
+    if (!tenant) throw new NotFoundException('Empresa não encontrada.');
+    if (dto.isActive === false && id === this.cls.get<string>('tenantId')) {
+      throw new BadRequestException('A empresa da plataforma não pode ser desativada.');
+    }
+    // Empresa desativada: o login e a renovação de sessão já recusam usuários dela (auth.service).
+    return this.prisma.tenant.update({ where: { id }, data: dto, select: TENANT_SELECT });
   }
 }

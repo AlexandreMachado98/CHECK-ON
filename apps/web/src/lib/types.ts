@@ -31,7 +31,8 @@ export type VehicleStatus = 'LIBERADO' | 'ATENCAO' | 'BLOQUEADO';
 export interface Role {
   id: string;
   name: string;
-  permissions: string[];
+  /** Nome em português para exibir (ex.: "Administrador da empresa"). */
+  label: string;
 }
 
 export interface User {
@@ -41,6 +42,18 @@ export interface User {
   isActive: boolean;
   role?: Role;
   roleId: string;
+}
+
+export interface Tenant {
+  id: string;
+  name: string;
+  cnpj: string | null;
+  plan: string;
+  isActive: boolean;
+  createdAt: string;
+  /** Empresa dona da plataforma (a do super admin): não pode ser desativada. */
+  isPlatform?: boolean;
+  _count: { users: number; vehicles: number; employees: number };
 }
 
 export interface Employee {
@@ -77,7 +90,10 @@ export interface AuthUser {
   id: string;
   name: string;
   email: string;
-  role?: Role;
+  tenantId?: string;
+  tenantName?: string;
+  /** Nome do perfil, como a API devolve no login (ex.: "SUPER_ADMIN", "GESTOR"). */
+  role?: string;
 }
 
 // ─── Checklist Builder ────────────────────────────────────────────────────────

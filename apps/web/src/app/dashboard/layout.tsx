@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import type { AuthUser } from '@/lib/types';
+import { PANEL_ROLES, canAccessPath, homePathFor, roleLabel } from '@/lib/roles';
 import { 
   LayoutDashboard, 
   ClipboardCheck,
@@ -19,10 +20,17 @@ import {
   BarChart3,
   Menu,
   X,
-  FolderTree
+  FolderTree,
+  Building2
 } from 'lucide-react';
 
 const MENU_GROUPS = [
+  {
+    title: 'PLATAFORMA',
+    items: [
+      { name: 'Empresas', path: '/dashboard/tenants', icon: Building2 },
+    ]
+  },
   {
     title: 'OPERAÇÃO',
     items: [
@@ -81,13 +89,38 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     setMobileMenuOpen(false);
   }, [pathname]);
 
+  // Cada perfil só abre as telas dele (a API negaria as outras com 403).
+  const hasPanelAccess = !!user && PANEL_ROLES.includes(user.role ?? '');
+  const pathAllowed = !!user && canAccessPath(user.role, pathname);
+  useEffect(() => {
+    if (user && hasPanelAccess && !pathAllowed) router.replace(homePathFor(user.role));
+  }, [user, hasPanelAccess, pathAllowed, router]);
+
   function handleLogout() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     router.push('/login');
   }
 
-  if (!user) {
+  if (user && !hasPanelAccess) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-slate-900 p-6 text-white">
+        <div className="max-w-sm text-center">
+          <ShieldCheck className="mx-auto mb-3 h-8 w-8 text-emerald-500" />
+          <h1 className="text-lg font-semibold">O painel é para gestores</h1>
+          <p className="mt-2 text-sm text-slate-400">
+            Seu perfil ({roleLabel(user.role)}) usa o aplicativo CHECK-ON no celular. Se precisar do painel, peça ao administrador da sua empresa.
+          </p>
+          <Button variant="outline" className="mt-5 bg-transparent text-white hover:bg-slate-800" onClick={handleLogout}>
+            <LogOut className="mr-2 h-4 w-4" />
+            Sair
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user || !pathAllowed) {
     return (
       <div className="min-h-screen w-full flex items-center justify-center bg-slate-900 text-white">
         <div className="flex flex-col items-center gap-3">
@@ -98,7 +131,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     );
   }
 
-  const currentItem = MENU_GROUPS.flatMap(g => g.items).find(i => i.path === pathname);
+  const visibleGroups = MENU_GROUPS
+    .map((group) => ({ ...group, items: group.items.filter((item) => canAccessPath(user.role, item.path)) }))
+    .filter((group) => group.items.length > 0);
+  const currentItem = visibleGroups.flatMap(g => g.items).find(i => i.path === pathname);
+  const isCompanyUser = user.role !== 'SUPER_ADMIN';
 
   const sidebarContent = (
     <div className="flex flex-col h-full bg-slate-950 text-slate-300">
@@ -122,7 +159,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-6 custom-scrollbar px-3">
-        {MENU_GROUPS.map((group, idx) => (
+        {visibleGroups.map((group, idx) => (
           <div key={idx} className="mb-6">
             <p className="px-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2">
               {group.title}
@@ -162,7 +199,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           </div>
           <div className="overflow-hidden">
             <p className="text-sm font-medium text-white truncate">{user.name}</p>
-            <p className="text-xs text-slate-400 truncate">{user.role?.name ?? 'Gestor'}</p>
+            <p className="text-xs text-slate-400 truncate">{roleLabel(user.role)}</p>
+            {user.tenantName && <p className="text-[11px] text-slate-500 truncate">{user.tenantName}</p>}
           </div>
         </div>
         <Button 
@@ -225,6 +263,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           </div>
 
           {/* Quick Actions */}
+          {isCompanyUser && (
           <div className="flex items-center gap-2">
             <Link href="/dashboard/ncs">
               <Button variant="ghost" size="icon" className="text-slate-400 hover:text-amber-600 hover:bg-amber-50" title="Ver Não Conformidades">
@@ -237,6 +276,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               </Button>
             </Link>
           </div>
+          )}
         </header>
 
         {/* Page Content with responsive padding */}
