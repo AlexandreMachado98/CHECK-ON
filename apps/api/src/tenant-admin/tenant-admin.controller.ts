@@ -1,6 +1,7 @@
-import { Controller, Get, Post, Body, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { TenantAdminService } from './tenant-admin.service';
 import { CreateTenantDto } from './dto/create-tenant.dto';
+import { UpdateTenantDto } from './dto/update-tenant.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -19,5 +20,10 @@ export class TenantAdminController {
   @Get()
   findAll() {
     return this.tenantAdminService.findAll();
+  }
+
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() updateTenantDto: UpdateTenantDto) {
+    return this.tenantAdminService.update(id, updateTenantDto);
   }
 }

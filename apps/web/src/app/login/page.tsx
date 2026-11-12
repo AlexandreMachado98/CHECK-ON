@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
+import { homePathFor } from '@/lib/roles';
 
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -30,7 +31,7 @@ export default function LoginPage() {
       localStorage.setItem('token', access_token);
       localStorage.setItem('user', JSON.stringify(user));
       
-      router.push('/dashboard');
+      router.push(homePathFor(user?.role));
     } catch (err: unknown) {
       const axiosErr = err as { response?: { status?: number; data?: { message?: string } } };
       if (axiosErr.response?.status === 401) {

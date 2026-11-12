@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import api from '@/lib/api';
-import type { User, Role } from '@/lib/types';
+import api, { ensureList } from '@/lib/api';
+import { apiErrorMessage, type User, type Role } from '@/lib/types';
+import { roleLabel } from '@/lib/roles';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -22,7 +23,7 @@ interface UserFormData {
 
 const EMPTY_FORM: UserFormData = { name: '', email: '', password: '', roleId: '' };
 
-function UserForm({ initial = EMPTY_FORM, roles, onSubmit, onCancel, submitting, mode }: { initial?: Partial<UserFormData>; roles: Role[]; onSubmit: (data: UserFormData) => Promise<void>; onCancel: () => void; submitting: boolean; mode: 'create' | 'edit'; }) {
+function UserForm({ initial = EMPTY_FORM, roles, onSubmit, onCancel, submitting, mode, error }: { initial?: Partial<UserFormData>; roles: Role[]; onSubmit: (data: UserFormData) => Promise<void>; onCancel: () => void; submitting: boolean; mode: 'create' | 'edit'; error?: string; }) {
   const [form, setForm] = useState<UserFormData>({ ...EMPTY_FORM, ...initial });
 
   function set(field: keyof UserFormData) {
@@ -30,7 +31,7 @@ function UserForm({ initial = EMPTY_FORM, roles, onSubmit, onCancel, submitting,
       setForm(prev => ({ ...prev, [field]: e.target.value }));
   }
 
-  const canSubmit = form.name && form.email && form.roleId && (mode === 'edit' || (form.password && form.password.length >= 6));
+  const canSubmit = form.name && form.email && form.roleId && (mode === 'edit' ? !form.password || form.password.length >= 8 : !!form.password && form.password.length >= 8);
 
   return (
     <form onSubmit={async (e) => { e.preventDefault(); await onSubmit(form); }} className="space-y-4 pt-2">
@@ -41,12 +42,12 @@ function UserForm({ initial = EMPTY_FORM, roles, onSubmit, onCancel, submitting,
 
       <div className="space-y-2">
         <Label htmlFor="u-email">E-mail de Acesso *</Label>
-        <Input id="u-email" type="email" value={form.email} onChange={set('email')} required placeholder="usuario@empresa.com.br" />
+        <Input id="u-email" type="email" value={form.email} onChange={set('email')} required disabled={mode === 'edit'} placeholder="usuario@empresa.com.br" />
       </div>
 
       <div className="space-y-2">
         <Label htmlFor="u-password">
-          {mode === 'edit' ? 'Nova Senha (deixe em branco para manter)' : 'Senha Inicial * (mín. 6 caracteres)'}
+          {mode === 'edit' ? 'Nova senha (deixe em branco para manter; mín. 8 caracteres)' : 'Senha inicial * (mín. 8 caracteres)'}
         </Label>
         <Input
           id="u-password"
@@ -60,17 +61,20 @@ function UserForm({ initial = EMPTY_FORM, roles, onSubmit, onCancel, submitting,
 
       <div className="space-y-2">
         <Label htmlFor="u-role">Perfil de Acesso *</Label>
-        <Select value={form.roleId} onValueChange={(val) => setForm(prev => ({ ...prev, roleId: val || '' }))} required>
+        <Select items={roles.map(r => ({ value: r.id, label: r.label }))} value={form.roleId} onValueChange={(val) => setForm(prev => ({ ...prev, roleId: (val as string) || '' }))} required>
           <SelectTrigger id="u-role">
             <SelectValue placeholder="Selecione o nível de permissão" />
           </SelectTrigger>
           <SelectContent>
             {roles.map(r => (
-              <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+              <SelectItem key={r.id} value={r.id}>{r.label}</SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
+
+      {roles.length === 0 && <p className="text-xs text-amber-700">Não foi possível carregar os perfis. Feche e abra de novo.</p>}
+      {error && <p className="text-sm text-rose-700">{error}</p>}
 
       <DialogFooter className="mt-6">
         <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
@@ -86,6 +90,9 @@ export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [formError, setFormError] = useState('');
+  const [actionError, setActionError] = useState('');
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createSub, setCreateSub] = useState(false);
@@ -102,10 +109,11 @@ export default function UsersPage() {
   async function fetchUsers() {
     try {
       setLoading(true);
+      setLoadError('');
       const res = await api.get<User[]>('/users');
-      setUsers(res.data);
-    } catch {
-      console.error('Falha ao buscar usuários');
+      setUsers(ensureList<User>(res.data, 'usuários'));
+    } catch (error) {
+      setLoadError(apiErrorMessage(error, 'Não foi possível carregar os usuários.'));
     } finally {
       setLoading(false);
     }
@@ -113,25 +121,24 @@ export default function UsersPage() {
 
   async function fetchRoles() {
     try {
-      await api.get('/admin/tenants');
-      // For now we simulate roles until backend is ready for it
-      setRoles([
-        { id: '1', name: 'SUPER_ADMIN', permissions: [] },
-        { id: '2', name: 'GESTOR', permissions: [] }
-      ]);
-    } catch (_e) {
-      console.error('Sem rota de roles isolada', _e);
+      // Só os perfis que quem está logado pode atribuir (gestor não cria administrador).
+      const res = await api.get<Role[]>('/roles');
+      setRoles(ensureList<Role>(res.data, 'perfis'));
+    } catch (error) {
+      console.error('Falha ao buscar perfis', error);
+      setRoles([]);
     }
   }
 
   async function handleCreate(data: UserFormData) {
     try {
       setCreateSub(true);
+      setFormError('');
       await api.post('/users', data);
       setCreateOpen(false);
       fetchUsers();
-    } catch {
-      alert('Erro ao criar usuário.');
+    } catch (error) {
+      setFormError(apiErrorMessage(error, 'Não foi possível criar o usuário.'));
     } finally {
       setCreateSub(false);
     }
@@ -141,13 +148,15 @@ export default function UsersPage() {
     if (!editTarget) return;
     try {
       setEditSub(true);
-      const payload: Partial<UserFormData> = { name: data.name, roleId: data.roleId };
+      setFormError('');
+      const payload: Partial<UserFormData> = { name: data.name };
+      if (data.roleId !== editTarget.roleId) payload.roleId = data.roleId;
       if (data.password) payload.password = data.password;
       await api.patch(`/users/${editTarget.id}`, payload);
       setEditTarget(null);
       fetchUsers();
-    } catch {
-      alert('Erro ao atualizar usuário.');
+    } catch (error) {
+      setFormError(apiErrorMessage(error, 'Não foi possível atualizar o usuário.'));
     } finally {
       setEditSub(false);
     }
@@ -155,10 +164,11 @@ export default function UsersPage() {
 
   async function handleToggle(user: User) {
     try {
+      setActionError('');
       await api.patch(`/users/${user.id}`, { isActive: !user.isActive });
       fetchUsers();
-    } catch {
-      alert('Erro ao alterar status do usuário.');
+    } catch (error) {
+      setActionError(apiErrorMessage(error, 'Não foi possível alterar o acesso deste usuário.'));
     }
   }
 
@@ -177,7 +187,7 @@ export default function UsersPage() {
           </p>
         </div>
 
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (open) setFormError(''); }}>
           <DialogTrigger>
             <Button className="shrink-0 shadow-sm" size="default">
               <Plus className="mr-2 h-4 w-4" />
@@ -186,21 +196,29 @@ export default function UsersPage() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Novo Usuário Administrativo</DialogTitle>
+              <DialogTitle>Novo usuário</DialogTitle>
               <DialogDescription>
-                Forneça login e senha para um gestor ou operador de central.
+                Gestores e administradores usam o painel; supervisores e motoristas usam o aplicativo.
               </DialogDescription>
             </DialogHeader>
             <UserForm
               mode="create"
               roles={roles}
               submitting={createSub}
+              error={formError}
               onSubmit={handleCreate}
               onCancel={() => setCreateOpen(false)}
             />
           </DialogContent>
         </Dialog>
       </div>
+
+      {actionError && (
+        <div className="mb-4 flex items-start justify-between gap-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
+          <p>{actionError}</p>
+          <button type="button" className="shrink-0 hover:underline" onClick={() => setActionError('')}>Fechar</button>
+        </div>
+      )}
 
       <Card className="border-slate-200 shadow-sm">
         <CardHeader className="pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
@@ -223,6 +241,11 @@ export default function UsersPage() {
             <div className="p-10 text-center text-sm text-slate-500 flex flex-col items-center">
               <Activity className="h-6 w-6 animate-pulse text-slate-300 mb-2" />
               Buscando usuários autorizados...
+            </div>
+          ) : loadError ? (
+            <div className="p-10 text-center text-sm">
+              <p className="text-rose-700 mb-3">{loadError}</p>
+              <Button variant="outline" size="sm" onClick={fetchUsers}>Tentar de novo</Button>
             </div>
           ) : users.length === 0 ? (
             <div className="py-20 px-6 text-center flex flex-col items-center bg-slate-50/30">
@@ -260,7 +283,7 @@ export default function UsersPage() {
                     <TableCell className="hidden md:table-cell">
                       <div className="inline-flex items-center text-sm font-medium text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
                         <Key className="h-3 w-3 mr-1.5 text-slate-400" />
-                        {u.role?.name || 'Padrão'}
+                        {u.role?.label ?? roleLabel(u.role?.name)}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -278,7 +301,7 @@ export default function UsersPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-primary" onClick={() => setEditTarget(u)}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-primary" onClick={() => { setFormError(''); setEditTarget(u); }}>
                           <Edit2 className="h-4 w-4" />
                         </Button>
                         <Button
@@ -314,6 +337,7 @@ export default function UsersPage() {
               roles={roles}
               initial={{ name: editTarget.name, email: editTarget.email, roleId: editTarget.roleId }}
               submitting={editSub}
+              error={formError}
               onSubmit={handleEdit}
               onCancel={() => setEditTarget(null)}
             />

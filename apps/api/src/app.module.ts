@@ -16,6 +16,7 @@ import { NcModule } from './nc/nc.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { StorageModule } from './storage/storage.module';
 import { MobileModule } from './mobile/mobile.module';
+import { RoleModule } from './role/role.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TenantInterceptor } from './tenant/tenant.interceptor';
@@ -40,6 +41,7 @@ import { TenantInterceptor } from './tenant/tenant.interceptor';
     NcModule, DashboardModule,
     StorageModule,
     MobileModule,
+    RoleModule,
   ],
   controllers: [AppController],
   providers: [
