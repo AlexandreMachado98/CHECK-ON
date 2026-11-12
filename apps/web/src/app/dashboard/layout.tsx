@@ -6,6 +6,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import type { AuthUser } from '@/lib/types';
 import { PANEL_ROLES, canAccessPath, homePathFor, roleLabel } from '@/lib/roles';
+import { clearSession, returnToPlatform } from '@/lib/session';
 import { 
   LayoutDashboard, 
   ClipboardCheck,
@@ -97,9 +98,14 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   }, [user, hasPanelAccess, pathAllowed, router]);
 
   function handleLogout() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    clearSession();
     router.push('/login');
+  }
+
+  function handleReturnToPlatform() {
+    // Recarrega a página inteira para nenhuma tela manter dados da empresa na memória.
+    if (returnToPlatform()) window.location.assign('/dashboard/tenants');
+    else handleLogout();
   }
 
   if (user && !hasPanelAccess) {
@@ -278,6 +284,18 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           </div>
           )}
         </header>
+
+        {user.impersonating && (
+          <div className="flex flex-col gap-2 border-b border-amber-300 bg-amber-100 px-4 py-2.5 text-sm text-amber-950 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+            <p>
+              Você está dentro de <strong>{user.tenantName ?? 'uma empresa'}</strong> como super administrador. Tudo o que fizer vale para esta empresa. O acesso expira em 1 hora.
+            </p>
+            <Button size="sm" variant="outline" className="shrink-0 border-amber-400 bg-white hover:bg-amber-50" onClick={handleReturnToPlatform}>
+              <Building2 className="mr-1.5 h-4 w-4" />
+              Voltar à plataforma
+            </Button>
+          </div>
+        )}
 
         {/* Page Content with responsive padding */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">

@@ -1,4 +1,5 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
+import { isImpersonating, returnToPlatform } from './session';
 
 /**
  * Endereço base da API.
@@ -42,6 +43,13 @@ api.interceptors.request.use((config) => {
 });
 
 api.interceptors.response.use(undefined, async (error: AxiosError) => {
+  // O acesso do super admin a uma empresa vale 1 hora: ao expirar, volta sozinho para a plataforma.
+  if (error.response?.status === 401 && typeof window !== 'undefined' && isImpersonating()) {
+    if (returnToPlatform()) {
+      window.location.assign('/dashboard/tenants?acesso=expirado');
+      return new Promise(() => {}); // a página vai recarregar; não mostra erro na tela
+    }
+  }
   if (!isRetryable(error)) throw error;
   const config = error.config as RetryableConfig;
   config.__retryCount = (config.__retryCount ?? 0) + 1;

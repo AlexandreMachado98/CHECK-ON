@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { homePathFor } from '@/lib/roles';
+import { clearSession } from '@/lib/session';
 
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -28,6 +29,7 @@ export default function LoginPage() {
       const response = await api.post('/auth/login', { email: email.trim(), password });
       const { access_token, user } = response.data;
       
+      clearSession(); // descarta sessão antiga, inclusive uma guardada de "Acessar empresa"
       localStorage.setItem('token', access_token);
       localStorage.setItem('user', JSON.stringify(user));
       

@@ -1,10 +1,17 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { ClsService } from 'nestjs-cls';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
 import { ADMIN_EMPRESA, DEFAULT_TENANT_ROLES } from '../role/role-definitions';
+
+/** Validade do acesso do super admin a uma empresa. Sem refresh: expirou, volta para a plataforma. */
+export const TENANT_ACCESS_TTL_SECONDS = 60 * 60;
+
+export type PlatformAdmin = { id: string; email: string };
+export type AccessContext = { ip?: string; userAgent?: string };
 
 const TENANT_SELECT = {
   id: true,
@@ -18,9 +25,12 @@ const TENANT_SELECT = {
 
 @Injectable()
 export class TenantAdminService {
+  private readonly logger = new Logger(TenantAdminService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly cls: ClsService,
+    private readonly jwtService: JwtService,
   ) {}
 
   /**
@@ -81,5 +91,76 @@ export class TenantAdminService {
     }
     // Empresa desativada: o login e a renovação de sessão já recusam usuários dela (auth.service).
     return this.prisma.tenant.update({ where: { id }, data: dto, select: TENANT_SELECT });
+  }
+
+  /**
+   * "Acessar empresa": token de administrador daquela empresa, válido por 1 hora, para o super admin.
+   * O token carrega impersonatedBy e cada acesso fica registrado em AdminAccessLog.
+   */
+  async access(tenantId: string, admin: PlatformAdmin, context: AccessContext) {
+    const platformTenantId = this.cls.get<string>('tenantId');
+    if (tenantId === platformTenantId) {
+      throw new BadRequestException('A empresa da plataforma não tem painel de operação.');
+    }
+    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { id: true, name: true, isActive: true } });
+    if (!tenant) throw new NotFoundException('Empresa não encontrada.');
+    if (!tenant.isActive) throw new BadRequestException('Empresa desativada. Reative-a antes de acessar.');
+
+    // Busca no contexto da plataforma (a extensão do Prisma limita à empresa do super admin).
+    const adminUser = await this.prisma.user.findFirst({ where: { id: admin.id, isActive: true }, select: { id: true, name: true, email: true } });
+    if (!adminUser) throw new NotFoundException('Usuário administrador não encontrado.');
+
+    const expiresAt = new Date(Date.now() + TENANT_ACCESS_TTL_SECONDS * 1000);
+    await this.prisma.adminAccessLog.create({
+      data: {
+        adminUserId: adminUser.id,
+        tenantId: tenant.id,
+        ip: context.ip?.slice(0, 100),
+        userAgent: context.userAgent?.slice(0, 300),
+        expiresAt,
+      },
+    });
+    this.logger.log(`Super admin ${adminUser.email} acessou a empresa "${tenant.name}" (${tenant.id})`);
+
+    const accessToken = await this.jwtService.signAsync(
+      {
+        sub: adminUser.id,
+        email: adminUser.email,
+        tenantId: tenant.id,
+        role: ADMIN_EMPRESA,
+        permissions: '["*"]',
+        impersonatedBy: adminUser.id,
+      },
+      { expiresIn: TENANT_ACCESS_TTL_SECONDS },
+    );
+
+    return {
+      access_token: accessToken,
+      expires_at: expiresAt.toISOString(),
+      user: {
+        id: adminUser.id,
+        name: adminUser.name,
+        email: adminUser.email,
+        tenantId: tenant.id,
+        tenantName: tenant.name,
+        role: ADMIN_EMPRESA,
+        impersonating: true,
+      },
+    };
+  }
+
+  /** Últimos acessos de super admins às empresas, do mais recente para o mais antigo. */
+  async accessLogs() {
+    return this.prisma.adminAccessLog.findMany({
+      take: 50,
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        createdAt: true,
+        ip: true,
+        adminUser: { select: { name: true, email: true } },
+        tenant: { select: { id: true, name: true } },
+      },
+    });
   }
 }
