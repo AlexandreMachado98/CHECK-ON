@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import api, { ensureList } from '@/lib/api';
-import { apiErrorMessage, type NC, type NCStatus } from '@/lib/types';
-import { NC_STATUS, NcSeverityBadge, NcStatusBadge, VehicleStatusBadge, isActiveNc } from '@/lib/status';
+import { useEffect, useState } from 'react';
+import api from '@/lib/api';
+import { Pagination } from '@/components/pagination';
+import { useDebounced } from '@/lib/use-debounced';
+import { apiErrorMessage, type NC, type NCStatus, type PageResult } from '@/lib/types';
+import { NC_STATUS, NcSeverityBadge, NcStatusBadge, VehicleStatusBadge } from '@/lib/status';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -44,16 +46,36 @@ export default function NCsPage() {
   const [editError, setEditError] = useState('');
   const [editSubmitting, setEditSubmitting] = useState(false);
 
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [counts, setCounts] = useState({ active: 0, critical: 0, recurrent: 0 });
+  const [hasAny, setHasAny] = useState(true);
+  const debouncedSearch = useDebounced(search);
+  const PAGE_SIZE = 50;
+
+  // Nova busca ou filtro volta para a primeira página.
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, statusFilter, severityFilter]);
+
   useEffect(() => {
     fetchNCs();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, debouncedSearch, statusFilter, severityFilter]);
 
   async function fetchNCs() {
     try {
       setLoading(true);
       setLoadError('');
-      const res = await api.get<NC[]>('/ncs');
-      setNcs(ensureList(res.data, 'não conformidades'));
+      // Lista paginada e filtrada no servidor; os contadores do topo vêm calculados.
+      const res = await api.get<PageResult<NC> & { counts: { active: number; critical: number; recurrent: number } }>('/ncs', {
+        params: { page, pageSize: PAGE_SIZE, search: debouncedSearch.trim() || undefined, status: statusFilter, severity: severityFilter },
+      });
+      setNcs(res.data.items);
+      setTotal(res.data.total);
+      setCounts(res.data.counts);
+      // Sem filtro nenhum e sem resultado = empresa ainda sem NC (mensagem de "tudo certo").
+      if (!debouncedSearch.trim() && statusFilter === 'ALL' && severityFilter === 'ALL') setHasAny(res.data.total > 0);
     } catch (error) {
       setLoadError(apiErrorMessage(error, 'Não foi possível carregar as não conformidades.'));
     } finally {
@@ -84,22 +106,7 @@ export default function NCsPage() {
     }
   }
 
-  const counts = useMemo(() => ({
-    active: ncs.filter(n => isActiveNc(n.status)).length,
-    critical: ncs.filter(n => isActiveNc(n.status) && n.severity === 'CRITICAL').length,
-    recurrent: ncs.filter(n => isActiveNc(n.status) && n.occurrences > 1).length,
-  }), [ncs]);
-
-  const filteredNCs = ncs.filter(nc => {
-    const term = search.trim().toLowerCase();
-    const haystack = [nc.id, nc.notes, itemOf(nc)?.text, vehicleOf(nc)?.plate, nc.answer?.checklist?.driver?.name]
-      .filter(Boolean).join(' ').toLowerCase();
-    const matchesSearch = !term || haystack.includes(term);
-    const matchesStatus =
-      statusFilter === 'ALL' || (statusFilter === 'ACTIVE' ? isActiveNc(nc.status) : nc.status === statusFilter);
-    const matchesSeverity = severityFilter === 'ALL' || nc.severity === severityFilter;
-    return matchesSearch && matchesStatus && matchesSeverity;
-  });
+  const filteredNCs = ncs;
 
   const isClosed = editTarget?.status === 'CLOSED';
 
@@ -167,7 +174,7 @@ export default function NCsPage() {
               <p className="text-rose-700 mb-3">{loadError}</p>
               <Button variant="outline" size="sm" onClick={fetchNCs}>Tentar de novo</Button>
             </div>
-          ) : ncs.length === 0 ? (
+          ) : !hasAny ? (
             <div className="py-20 px-6 text-center flex flex-col items-center bg-slate-50/30">
               <div className="h-16 w-16 bg-white rounded-full flex items-center justify-center mb-4 border border-slate-200 shadow-sm">
                 <AlertOctagon className="h-8 w-8 text-emerald-400" />
@@ -177,7 +184,7 @@ export default function NCsPage() {
                 Quando um motorista apontar um item como não conforme, a NC aparece aqui automaticamente.
               </p>
             </div>
-          ) : filteredNCs.length === 0 ? (
+          ) : total === 0 ? (
             <div className="py-12 px-6 text-center text-slate-500 text-sm">
               Nenhuma não conformidade para os filtros escolhidos.
             </div>
@@ -186,12 +193,12 @@ export default function NCsPage() {
               <Table>
                 <TableHeader className="bg-slate-50/50">
                   <TableRow>
-                    <TableHead>Abertura</TableHead>
+                    <TableHead className="hidden md:table-cell">Abertura</TableHead>
                     <TableHead>Item apontado</TableHead>
                     <TableHead>Veículo</TableHead>
                     <TableHead>Severidade</TableHead>
-                    <TableHead className="text-center">Ocorrências</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead className="text-center hidden lg:table-cell">Ocorrências</TableHead>
+                    <TableHead className="hidden sm:table-cell">Status</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -200,8 +207,8 @@ export default function NCsPage() {
                     const item = itemOf(nc);
                     const vehicle = vehicleOf(nc);
                     return (
-                      <TableRow key={nc.id} className="hover:bg-slate-50/50 transition-colors">
-                        <TableCell>
+                      <TableRow key={nc.id} className="hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => startTreatment(nc)}>
+                        <TableCell className="hidden md:table-cell">
                           <div className="flex items-center text-slate-900 font-medium whitespace-nowrap">
                             <Calendar className="h-3.5 w-3.5 mr-2 text-slate-400" />
                             {format(new Date(nc.createdAt), 'dd/MM/yyyy')}
@@ -232,19 +239,19 @@ export default function NCsPage() {
                           ) : <span className="text-sm text-slate-400">—</span>}
                         </TableCell>
                         <TableCell><NcSeverityBadge severity={nc.severity} /></TableCell>
-                        <TableCell className="text-center">
+                        <TableCell className="text-center hidden lg:table-cell">
                           <span className={`text-lg font-bold ${nc.occurrences > 1 ? 'text-amber-700' : 'text-slate-700'}`}>{nc.occurrences}</span>
                           {nc.lastOccurrenceAt && nc.occurrences > 1 && (
                             <span className="block text-[11px] text-slate-500">última {format(new Date(nc.lastOccurrenceAt), 'dd/MM')}</span>
                           )}
                         </TableCell>
-                        <TableCell><NcStatusBadge status={nc.status} /></TableCell>
+                        <TableCell className="hidden sm:table-cell"><NcStatusBadge status={nc.status} /></TableCell>
                         <TableCell className="text-right">
                           <Button
                             variant="outline"
                             size="sm"
                             className="h-8 text-xs font-medium text-slate-700 bg-white"
-                            onClick={() => startTreatment(nc)}
+                            onClick={(event) => { event.stopPropagation(); startTreatment(nc); }}
                           >
                             {nc.status === 'CLOSED' ? <Lock className="h-3.5 w-3.5 mr-1.5" /> : <Wrench className="h-3.5 w-3.5 mr-1.5 text-primary" />}
                             {nc.status === 'CLOSED' ? 'Ver' : 'Tratar'}
@@ -256,6 +263,9 @@ export default function NCsPage() {
                 </TableBody>
               </Table>
             </div>
+          )}
+          {!loading && !loadError && (
+            <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} noun="não conformidades" />
           )}
         </CardContent>
       </Card>

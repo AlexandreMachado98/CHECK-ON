@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { ClsService } from 'nestjs-cls';
+import { autoBlockCriticalNc } from '../company/company-settings';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { SubmitChecklistDto } from './dto/submit-checklist.dto';
@@ -195,7 +196,7 @@ export class ChecklistExecutionService {
         });
         const vehicleStatus = escalateVehicleStatus(
           vehicle.status,
-          vehicleStatusFromActiveNcs(activeNcs.map((nc) => nc.severity)),
+          vehicleStatusFromActiveNcs(activeNcs.map((nc) => nc.severity), await autoBlockCriticalNc(tx, tenantId)),
         );
         if (vehicleStatus !== vehicle.status) {
           await tx.vehicle.update({ where: { id: vehicle.id }, data: { status: vehicleStatus } });

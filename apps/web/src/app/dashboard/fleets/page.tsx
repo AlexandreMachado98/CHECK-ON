@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import api from '@/lib/api';
+import { matchesSearch } from '@/lib/search';
 import { apiErrorMessage, type Fleet, type Vehicle } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -98,6 +99,10 @@ export default function FleetsPage() {
   }
 
   async function handleToggleStatus(fleet: Fleet) {
+    const question = fleet.isActive
+      ? `Inativar a frota "${fleet.name}"? Os veículos dela deixam de aparecer no aplicativo dos motoristas até a frota ser reativada.`
+      : `Reativar a frota "${fleet.name}"? Os veículos ativos dela voltam a aparecer no aplicativo.`;
+    if (!window.confirm(question)) return;
     try {
       await api.patch(`/fleets/${fleet.id}`, { isActive: !fleet.isActive });
       fetchFleets();
@@ -137,10 +142,9 @@ export default function FleetsPage() {
     }
   }
 
-  const filteredFleets = fleets.filter(f => 
-    f.name.toLowerCase().includes(search.toLowerCase()) ||
-    (f.description && f.description.toLowerCase().includes(search.toLowerCase()))
-  );
+  const filteredFleets = fleets.filter(f => matchesSearch(search, f.name, f.description));
+  // Veículo novo só entra em frota ativa.
+  const activeFleets = fleets.filter(f => f.isActive);
 
   return (
     <>
@@ -165,11 +169,11 @@ export default function FleetsPage() {
           <Button 
             className="shrink-0 shadow-sm bg-emerald-600 hover:bg-emerald-700 text-white" 
             onClick={() => {
-              if (fleets.length === 0) {
-                alert('Cadastre uma frota primeiro para associar seu veículo.');
+              if (activeFleets.length === 0) {
+                alert('Cadastre (ou reative) uma frota primeiro para associar seu veículo.');
                 setIsDialogOpen(true);
               } else {
-                setAddVehicleFleet(fleets[0]);
+                setAddVehicleFleet(activeFleets[0]);
               }
             }}
           >
@@ -263,7 +267,7 @@ export default function FleetsPage() {
                   <TableHead className="w-[28%]">Nome do Grupo</TableHead>
                   <TableHead className="w-[20%]">Veículos Vinculados</TableHead>
                   <TableHead className="hidden md:table-cell">Descrição</TableHead>
-                  <TableHead className="w-[12%]">Situação</TableHead>
+                  <TableHead className="w-[12%] hidden sm:table-cell">Situação</TableHead>
                   <TableHead className="text-right w-[20%]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -289,22 +293,23 @@ export default function FleetsPage() {
                             <Truck className="h-3 w-3 mr-1" />
                             {vCount} {vCount === 1 ? 'veículo' : 'veículos'}
                           </Badge>
-                          <Button
+                          {fleet.isActive && <Button
                             variant="ghost"
                             size="sm"
                             className="h-7 text-xs text-primary hover:bg-primary/10 px-2 font-medium"
                             onClick={() => setAddVehicleFleet(fleet)}
                             title={`Cadastrar veículo diretamente em ${fleet.name}`}
                           >
-                            <Plus className="h-3 w-3 mr-1" />
-                            Novo Veículo
-                          </Button>
+                            <Plus className="h-3 w-3 sm:mr-1" />
+                            <span className="hidden sm:inline">Novo Veículo</span>
+                            <span className="sr-only sm:hidden">Novo veículo</span>
+                          </Button>}
                         </div>
                       </TableCell>
                       <TableCell className="text-slate-500 hidden md:table-cell">
                         {fleet.description || <span className="text-slate-300">—</span>}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         <Badge 
                           variant="secondary" 
                           className={`font-medium ${
@@ -372,7 +377,7 @@ export default function FleetsPage() {
                   if (found) setAddVehicleFleet(found);
                 }}
               >
-                {fleets.map(f => (
+                {activeFleets.map(f => (
                   <option key={f.id} value={f.id}>{f.name}</option>
                 ))}
               </select>
@@ -383,7 +388,7 @@ export default function FleetsPage() {
                 <Label htmlFor="v-plate">Placa do Veículo *</Label>
                 <Input
                   id="v-plate"
-                  placeholder="ABC-1234 / ABC1D23"
+                  placeholder="ABC1234 ou ABC1D23"
                   value={vehicleForm.plate}
                   onChange={(e) => setVehicleForm({ ...vehicleForm, plate: e.target.value.toUpperCase() })}
                   required

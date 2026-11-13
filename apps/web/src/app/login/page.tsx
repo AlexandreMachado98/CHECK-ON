@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { homePathFor } from '@/lib/roles';
-import { clearSession } from '@/lib/session';
+import { clearSession, takeLoginNotice } from '@/lib/session';
 
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,11 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   
+  const [notice, setNotice] = useState('');
+  useEffect(() => {
+    setNotice(takeLoginNotice());
+  }, []);
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -35,9 +40,13 @@ export default function LoginPage() {
       
       router.push(homePathFor());
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { status?: number; data?: { message?: string } } };
+      const axiosErr = err as { response?: { status?: number; data?: { message?: string | string[] } } };
+      const apiMessage = axiosErr.response?.data?.message;
       if (axiosErr.response?.status === 401) {
-        setError('E-mail ou senha incorretos. Verifique os dados e tente novamente.');
+        // A API diferencia senha errada, acesso bloqueado e empresa desativada.
+        setError(typeof apiMessage === 'string' ? apiMessage : 'E-mail ou senha incorretos. Verifique os dados e tente novamente.');
+      } else if (axiosErr.response?.status === 400 && apiMessage) {
+        setError(Array.isArray(apiMessage) ? apiMessage.join(' ') : apiMessage);
       } else {
         setError('Não foi possível acessar sua conta agora. Tente novamente em instantes.');
       }
@@ -138,6 +147,11 @@ export default function LoginPage() {
               />
             </div>
             
+            {notice && !error && (
+              <div role="status" className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
+                {notice}
+              </div>
+            )}
             {error && (
               <div className="text-xs font-medium text-rose-700 bg-rose-50 border border-rose-200 p-3 rounded-lg flex items-start gap-2 animate-in fade-in duration-200">
                 <AlertOctagon className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />

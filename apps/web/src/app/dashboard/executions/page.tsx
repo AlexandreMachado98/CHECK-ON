@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import api, { ensureList } from '@/lib/api';
-import { apiErrorMessage, type Checklist, type ChecklistAnswer } from '@/lib/types';
+import api from '@/lib/api';
+import { apiErrorMessage, type Checklist, type ChecklistAnswer, type PageResult } from '@/lib/types';
+import { Pagination } from '@/components/pagination';
+import { useDebounced } from '@/lib/use-debounced';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,17 +25,33 @@ export default function ExecutionsPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [selectedChecklist, setSelectedChecklist] = useState<Checklist | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState('');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const debouncedSearch = useDebounced(search);
+  const PAGE_SIZE = 50;
+
+  // Nova busca ou filtro volta para a primeira página.
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, statusFilter]);
 
   useEffect(() => {
     fetchChecklists();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, debouncedSearch, statusFilter]);
 
   async function fetchChecklists() {
     try {
       setLoading(true);
       setLoadError('');
-      const res = await api.get<Checklist[]>('/checklists');
-      setChecklists(ensureList(res.data, 'inspeções'));
+      // Lista paginada e filtrada no servidor; as respostas de cada inspeção vêm só nos detalhes.
+      const res = await api.get<PageResult<Checklist>>('/checklists', {
+        params: { page, pageSize: PAGE_SIZE, search: debouncedSearch.trim() || undefined, status: statusFilter },
+      });
+      setChecklists(res.data.items);
+      setTotal(res.data.total);
     } catch (error) {
       console.error('Falha ao buscar checklists', error);
       setLoadError(apiErrorMessage(error, 'Não foi possível carregar as inspeções.'));
@@ -54,14 +72,22 @@ export default function ExecutionsPage() {
     }
   }
 
-  const filteredChecklists = checklists.filter(c => {
-    const matchesSearch = 
-      (c.vehicle?.plate && c.vehicle.plate.toLowerCase().includes(search.toLowerCase())) ||
-      (c.driver?.name && c.driver.name.toLowerCase().includes(search.toLowerCase())) ||
-      (c.template?.name && c.template.name.toLowerCase().includes(search.toLowerCase()));
-    const matchesStatus = statusFilter === 'ALL' || c.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const filteredChecklists = checklists;
+  const hasFilters = !!debouncedSearch.trim() || statusFilter !== 'ALL';
+
+  async function openDetails(checklist: Checklist) {
+    setSelectedChecklist(checklist);
+    setDetailError('');
+    setDetailLoading(true);
+    try {
+      const res = await api.get<Checklist>(`/checklists/${checklist.id}`);
+      setSelectedChecklist(res.data);
+    } catch (error) {
+      setDetailError(apiErrorMessage(error, 'Não foi possível carregar os itens desta inspeção.'));
+    } finally {
+      setDetailLoading(false);
+    }
+  }
 
   return (
     <>
@@ -111,7 +137,7 @@ export default function ExecutionsPage() {
               <p className="text-rose-700 mb-3">{loadError}</p>
               <Button variant="outline" size="sm" onClick={fetchChecklists}>Tentar de novo</Button>
             </div>
-          ) : checklists.length === 0 ? (
+          ) : total === 0 && !hasFilters ? (
             <div className="py-20 px-6 text-center flex flex-col items-center bg-slate-50/30">
               <div className="h-16 w-16 bg-white rounded-full flex items-center justify-center mb-4 border border-slate-200 shadow-sm">
                 <ClipboardList className="h-8 w-8 text-slate-400" />
@@ -121,7 +147,7 @@ export default function ExecutionsPage() {
                 As inspeções realizadas pelos motoristas no aplicativo aparecerão aqui.
               </p>
             </div>
-          ) : filteredChecklists.length === 0 ? (
+          ) : total === 0 ? (
             <div className="py-12 px-6 text-center text-slate-500 text-sm">
               Nenhuma inspeção encontrada para os filtros selecionados.
             </div>
@@ -130,17 +156,17 @@ export default function ExecutionsPage() {
               <TableHeader className="bg-slate-50/50">
                 <TableRow>
                   <TableHead className="w-[20%]">Data / Hora</TableHead>
-                  <TableHead className="w-[20%]">Modelo</TableHead>
+                  <TableHead className="w-[20%] hidden md:table-cell">Modelo</TableHead>
                   <TableHead className="w-[20%]">Veículo</TableHead>
-                  <TableHead className="w-[20%]">Condutor</TableHead>
-                  <TableHead className="w-[10%]">Itens NC</TableHead>
-                  <TableHead className="w-[10%]">Status</TableHead>
+                  <TableHead className="w-[20%] hidden lg:table-cell">Condutor</TableHead>
+                  <TableHead className="w-[10%] hidden sm:table-cell">Itens NC</TableHead>
+                  <TableHead className="w-[10%] hidden sm:table-cell">Status</TableHead>
                   <TableHead className="text-right w-[10%]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredChecklists.map((c) => (
-                  <TableRow key={c.id} className="hover:bg-slate-50/50 transition-colors">
+                  <TableRow key={c.id} className="hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => openDetails(c)}>
                     <TableCell>
                       <div className="flex flex-col">
                         <span className="font-medium text-slate-900 flex items-center">
@@ -153,8 +179,8 @@ export default function ExecutionsPage() {
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell className="font-medium text-slate-800">
-                      {c.template?.name || 'Modelo não identificado'}
+                    <TableCell className="font-medium text-slate-800 hidden md:table-cell">
+                      {c.templateName || c.template?.name || 'Modelo não identificado'}
                     </TableCell>
                     <TableCell>
                       {c.vehicle ? (
@@ -166,7 +192,7 @@ export default function ExecutionsPage() {
                         <span className="text-slate-500 text-sm">N/D</span>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden lg:table-cell">
                       {c.driver ? (
                         <div className="flex items-center">
                           <User className="h-4 w-4 mr-2 text-slate-400" />
@@ -176,15 +202,15 @@ export default function ExecutionsPage() {
                         <span className="text-slate-500 text-sm">N/D</span>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden sm:table-cell">
                       {(() => {
-                        const nc = c.answers?.filter(a => !a.isCompliant).length ?? 0;
+                        const nc = c.ncCount ?? c.answers?.filter(a => !a.isCompliant).length ?? 0;
                         return nc > 0
                           ? <span className="text-sm font-semibold text-rose-700">{nc}</span>
                           : <span className="text-sm text-slate-400">0</span>;
                       })()}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden sm:table-cell">
                       {getStatusBadge(c.status)}
                     </TableCell>
                     <TableCell className="text-right">
@@ -192,9 +218,10 @@ export default function ExecutionsPage() {
                         variant="ghost" 
                         size="sm" 
                         className="text-primary hover:text-primary hover:bg-primary/10"
-                        onClick={() => setSelectedChecklist(c)}
+                        onClick={(event) => { event.stopPropagation(); openDetails(c); }}
                       >
-                        Ver Detalhes
+                        <span className="hidden sm:inline">Ver Detalhes</span>
+                        <span className="sr-only sm:hidden">Ver detalhes</span>
                         <ArrowRight className="h-4 w-4 ml-1" />
                       </Button>
                     </TableCell>
@@ -202,6 +229,9 @@ export default function ExecutionsPage() {
                 ))}
               </TableBody>
             </Table>
+          )}
+          {!loading && !loadError && (
+            <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} noun="inspeções" />
           )}
         </CardContent>
       </Card>
@@ -240,7 +270,7 @@ export default function ExecutionsPage() {
                 <div>
                   <span className="text-xs text-slate-500 block">Não conformidades</span>
                   <span className="font-semibold text-slate-800">
-                    {selectedChecklist.answers?.filter(a => !a.isCompliant).length ?? 0} de {selectedChecklist.answers?.length ?? 0} itens
+                    {selectedChecklist.answers ? `${selectedChecklist.answers.filter(a => !a.isCompliant).length} de ${selectedChecklist.answers.length} itens` : `${selectedChecklist.ncCount ?? 0} item(ns)`}
                   </span>
                 </div>
                 <div>
@@ -264,7 +294,11 @@ export default function ExecutionsPage() {
 
               <div>
                 <h4 className="text-sm font-semibold text-slate-800 mb-2">Itens Inspecionados</h4>
-                {!selectedChecklist.answers || selectedChecklist.answers.length === 0 ? (
+                {detailLoading ? (
+                  <p className="text-sm text-slate-500 py-4 text-center">Carregando itens da inspeção...</p>
+                ) : detailError ? (
+                  <p className="text-sm text-rose-700 py-4 text-center">{detailError}</p>
+                ) : !selectedChecklist.answers || selectedChecklist.answers.length === 0 ? (
                   <p className="text-xs text-slate-500 italic p-4 bg-slate-50/50 rounded text-center">
                     Nenhuma resposta registrada nesta execução.
                   </p>

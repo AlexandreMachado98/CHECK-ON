@@ -5,7 +5,47 @@ import { Select as SelectPrimitive } from "@base-ui/react/select"
 import { cn } from "cn"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
-const Select = SelectPrimitive.Root
+type SelectOption = { value: unknown; label: React.ReactNode }
+
+/** Texto visível de um nó React (para o rótulo da opção escolhida). */
+function textOf(node: React.ReactNode): string {
+  if (node === null || node === undefined || typeof node === "boolean") return ""
+  if (typeof node === "string" || typeof node === "number") return String(node)
+  if (Array.isArray(node)) return node.map(textOf).join("")
+  if (React.isValidElement<{ children?: React.ReactNode }>(node)) return textOf(node.props.children)
+  return ""
+}
+
+/** Junta as opções (<SelectItem value>) declaradas dentro do Select, em qualquer nível. */
+function collectOptions(children: React.ReactNode, found: SelectOption[] = []): SelectOption[] {
+  React.Children.forEach(children, (child) => {
+    if (!React.isValidElement<{ value?: unknown; children?: React.ReactNode }>(child)) return
+    if (child.type === SelectItem) {
+      found.push({ value: child.props.value, label: textOf(child.props.children).trim() })
+    } else if (child.props.children) {
+      collectOptions(child.props.children, found)
+    }
+  })
+  return found
+}
+
+/**
+ * O campo fechado mostra o texto da opção escolhida ("Ativas", "Motorista"), e não o valor interno
+ * ("ACTIVE", "MOTORISTA"). Sem "items", o Base UI exibe o valor; aqui eles são montados a partir
+ * dos <SelectItem> declarados.
+ */
+function Select<Value, Multiple extends boolean | undefined = false>({
+  items,
+  children,
+  ...props
+}: SelectPrimitive.Root.Props<Value, Multiple>) {
+  const derived = React.useMemo(() => (items ? undefined : collectOptions(children)), [items, children])
+  return (
+    <SelectPrimitive.Root items={(items ?? derived) as SelectPrimitive.Root.Props<Value, Multiple>["items"]} {...props}>
+      {children}
+    </SelectPrimitive.Root>
+  )
+}
 
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (

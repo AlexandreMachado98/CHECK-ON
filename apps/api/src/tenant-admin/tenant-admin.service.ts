@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
 import { ADMIN_EMPRESA, DEFAULT_TENANT_ROLES } from '../role/role-definitions';
+import { SessionGuardCache } from '../auth/session-guard.cache';
 
 /** Validade do acesso do super admin a uma empresa. Sem refresh: expirou, volta para a plataforma. */
 export const TENANT_ACCESS_TTL_SECONDS = 60 * 60;
@@ -31,6 +32,7 @@ export class TenantAdminService {
     private readonly prisma: PrismaService,
     private readonly cls: ClsService,
     private readonly jwtService: JwtService,
+    private readonly sessionCache: SessionGuardCache,
   ) {}
 
   /**
@@ -89,8 +91,10 @@ export class TenantAdminService {
     if (dto.isActive === false && id === this.cls.get<string>('tenantId')) {
       throw new BadRequestException('A empresa da plataforma não pode ser desativada.');
     }
-    // Empresa desativada: o login e a renovação de sessão já recusam usuários dela (auth.service).
-    return this.prisma.tenant.update({ where: { id }, data: dto, select: TENANT_SELECT });
+    // Empresa desativada: login, renovação e também os acessos já abertos são recusados (SessionGuardCache).
+    const updated = await this.prisma.tenant.update({ where: { id }, data: dto, select: TENANT_SELECT });
+    this.sessionCache.invalidateTenant(id);
+    return updated;
   }
 
   /**

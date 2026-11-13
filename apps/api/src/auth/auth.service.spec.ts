@@ -74,37 +74,55 @@ describe('AuthService', () => {
 
   describe('login', () => {
     it('deve rejeitar login se o usuário não for encontrado', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue(null);
+      mockPrisma.user.findFirst.mockResolvedValue(null);
 
       await expect(authService.login({ email: 'x@x.com', password: '123' }))
-        .rejects.toThrow(new UnauthorizedException('Credenciais inválidas ou conta inativa'));
+        .rejects.toThrow(new UnauthorizedException('E-mail ou senha incorretos.'));
     });
 
-    it('deve rejeitar login se o usuário estiver inativo', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ ...activeUser, isActive: false });
-
-      await expect(authService.login({ email: 'x@x.com', password: '123' }))
-        .rejects.toThrow(new UnauthorizedException('Credenciais inválidas ou conta inativa'));
+    it('procura o e-mail sem diferenciar maiúsculas', async () => {
+      mockPrisma.user.findFirst.mockResolvedValue(null);
+      await authService.login({ email: ' X@X.com ', password: '123' }).catch(() => undefined);
+      expect(mockPrisma.user.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { email: { equals: 'X@X.com', mode: 'insensitive' } } }),
+      );
     });
 
-    it('deve rejeitar login se a empresa (tenant) estiver inativa', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ ...activeUser, tenant: { isActive: false, name: 'X' } });
+    it('com senha errada não revela se a conta está bloqueada', async () => {
+      mockPrisma.user.findFirst.mockResolvedValue({ ...activeUser, isActive: false });
+      compareMock.mockResolvedValue(false);
+
+      await expect(authService.login({ email: 'x@x.com', password: 'errada' }))
+        .rejects.toThrow(new UnauthorizedException('E-mail ou senha incorretos.'));
+    });
+
+    it('com a senha certa, avisa que o acesso está bloqueado', async () => {
+      mockPrisma.user.findFirst.mockResolvedValue({ ...activeUser, isActive: false });
+      compareMock.mockResolvedValue(true);
 
       await expect(authService.login({ email: 'x@x.com', password: '123' }))
-        .rejects.toThrow(new UnauthorizedException('Credenciais inválidas ou conta inativa'));
+        .rejects.toThrow(new UnauthorizedException('Seu acesso está bloqueado. Procure o administrador da sua empresa.'));
+    });
+
+    it('com a senha certa, avisa que a empresa está desativada', async () => {
+      mockPrisma.user.findFirst.mockResolvedValue({ ...activeUser, tenant: { isActive: false, name: 'X' } });
+      compareMock.mockResolvedValue(true);
+
+      await expect(authService.login({ email: 'x@x.com', password: '123' }))
+        .rejects.toThrow(new UnauthorizedException('A empresa desta conta está desativada. Procure o suporte do CHECK-ON.'));
     });
 
     it('deve rejeitar login se a senha estiver incorreta', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue(activeUser);
+      mockPrisma.user.findFirst.mockResolvedValue(activeUser);
       compareMock.mockResolvedValue(false);
 
       await expect(authService.login({ email: 'x@x.com', password: 'wrong' }))
-        .rejects.toThrow(new UnauthorizedException('Credenciais inválidas'));
+        .rejects.toThrow(new UnauthorizedException('E-mail ou senha incorretos.'));
       expect(mockPrisma.refreshToken.create).not.toHaveBeenCalled();
     });
 
     it('deve retornar tokens e dados do usuário se o login for válido', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue(activeUser);
+      mockPrisma.user.findFirst.mockResolvedValue(activeUser);
       compareMock.mockResolvedValue(true);
 
       const result = await authService.login({ email: 'x@x.com', password: 'correct' });

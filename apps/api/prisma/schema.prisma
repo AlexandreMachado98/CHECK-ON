@@ -15,14 +15,22 @@ datasource db {
 // ---------------------------------------------------------
 
 model Tenant {
-  id          String   @id @default(uuid())
-  name        String
-  cnpj        String?  @unique
-  isActive    Boolean  @default(true)
-  plan        String   @default("STARTER") // STARTER, PRO, ENTERPRISE
-  storageUsed BigInt   @default(0) // in bytes
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                  String    @id @default(uuid())
+  name                String
+  cnpj                String?   @unique
+  isActive            Boolean   @default(true)
+  plan                String    @default("STARTER") // STARTER, PRO, ENTERPRISE
+  storageUsed         BigInt    @default(0) // in bytes
+  // Dados de contato exibidos em Configurações
+  address             String?
+  contactEmail        String?
+  phone               String?
+  // NC crítica ativa bloqueia o veículo automaticamente (desligado: o veículo fica em "Atenção")
+  autoBlockCriticalNc Boolean   @default(true)
+  // "Revogar todas as sessões": tokens emitidos antes deste instante deixam de valer
+  sessionsRevokedAt   DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   users       User[]
   employees   Employee[]

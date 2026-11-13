@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req, Res, HttpCode, HttpStatus, UploadedFile, UseInterceptors, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req, Res, Query, HttpCode, HttpStatus, UploadedFile, UseInterceptors, BadRequestException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { MAX_IMAGE_BYTES } from '../storage/storage.service';
 import type { Request, Response } from 'express';
@@ -7,6 +7,7 @@ import { ChecklistExecutionService, AuthenticatedUser } from './checklist-execut
 import { CreateChecklistDto } from './dto/create-checklist.dto';
 import { UpdateChecklistDto } from './dto/update-checklist.dto';
 import { SubmitChecklistDto, SyncChecklistsDto } from './dto/submit-checklist.dto';
+import { ChecklistPageQueryDto } from '../common/pagination';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -63,8 +64,11 @@ export class ChecklistController {
   @Post()
   create(@Body() createDto: CreateChecklistDto) { return this.service.create(createDto); }
 
+  /** Com ?page=, devolve { items, total, page, pageSize } (tela de Inspeções). Sem, a lista completa de antes. */
   @Get()
-  findAll() { return this.service.findAll(); }
+  findAll(@Query() query: ChecklistPageQueryDto) {
+    return query.page ? this.service.findPage(query) : this.service.findAll();
+  }
 
   @Get(':id')
   findOne(@Param('id') id: string) { return this.service.findOne(id); }
