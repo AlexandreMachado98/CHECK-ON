@@ -2,6 +2,7 @@
 
 import { ChangeEvent, useEffect, useMemo, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
+import { matchesSearch } from '@/lib/search';
 import api from '@/lib/api';
 import { apiErrorMessage, type Employee, type EmployeeTraining } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -612,7 +613,10 @@ export default function EmployeesPage() {
 
   async function handleToggleActive(employee: Employee) {
     const action = employee.isActive ? 'inativar' : 'reativar';
-    if (!window.confirm(`Deseja ${action} ${employee.name}? A página pública do crachá ficará indisponível enquanto estiver inativo.`)) return;
+    const consequence = employee.isActive
+      ? 'A página pública do crachá ficará indisponível enquanto estiver inativo.'
+      : 'A página pública do crachá volta a funcionar.';
+    if (!window.confirm(`Deseja ${action} ${employee.name}? ${consequence}`)) return;
     try {
       await api.patch(`/employees/${employee.id}`, { isActive: !employee.isActive });
       await fetchEmployees();
@@ -624,10 +628,8 @@ export default function EmployeesPage() {
   const roleLabelMap = Object.fromEntries(EMPLOYEE_ROLES.map((role) => [role.value, role.label]));
   const filteredEmployees = employees.filter((employee) => {
     const job = employee.jobTitle || '';
-    const matchesSearch = employee.name.toLowerCase().includes(search.toLowerCase())
-      || (employee.matricula || '').toLowerCase().includes(search.toLowerCase())
-      || (employee.departmentName || '').toLowerCase().includes(search.toLowerCase());
-    return matchesSearch && (roleFilter === 'ALL' || job === roleFilter);
+    const found = matchesSearch(search, employee.name, employee.matricula, employee.departmentName);
+    return found && (roleFilter === 'ALL' || job === roleFilter);
   });
 
   const formFromEmployee = (employee: Employee): EmployeeFormData => ({

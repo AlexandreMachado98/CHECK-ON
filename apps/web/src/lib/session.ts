@@ -58,6 +58,27 @@ export function returnToPlatform(): boolean {
   return true;
 }
 
+const LOGIN_NOTICE = 'login_notice';
+
+/** Mensagem para a tela de login (ex.: "sua sessão expirou"), lida uma única vez. */
+export function setLoginNotice(message: string) {
+  try {
+    window.sessionStorage.setItem(LOGIN_NOTICE, message);
+  } catch {
+    // sem sessionStorage: a tela de login abre sem o aviso
+  }
+}
+
+export function takeLoginNotice(): string {
+  try {
+    const message = window.sessionStorage.getItem(LOGIN_NOTICE) ?? '';
+    window.sessionStorage.removeItem(LOGIN_NOTICE);
+    return message;
+  } catch {
+    return '';
+  }
+}
+
 /** Sai de tudo, inclusive da sessão guardada da plataforma. */
 export function clearSession() {
   const s = storage();

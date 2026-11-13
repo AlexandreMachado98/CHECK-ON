@@ -52,6 +52,7 @@ function baseDto(overrides: Record<string, unknown> = {}) {
 
 function buildMocks() {
   const tx = {
+    tenant: { findUnique: vi.fn().mockResolvedValue({ autoBlockCriticalNc: true }) },
     template: { findFirst: vi.fn().mockResolvedValue(template) },
     vehicle: {
       findFirst: vi.fn().mockResolvedValue({ id: 'veh-1', status: 'LIBERADO' }),

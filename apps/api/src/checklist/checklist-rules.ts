@@ -172,8 +172,12 @@ export function maxSeverity(a: string, b: string): string {
 }
 
 /** Status que o veículo deveria ter considerando apenas as NCs ativas. */
-export function vehicleStatusFromActiveNcs(severities: string[]): string {
-  if (severities.some((s) => s === 'CRITICAL')) return 'BLOQUEADO';
+/**
+ * Status do veículo pelas NCs ativas. Com autoBlockCritical desligado (configuração da empresa),
+ * NC crítica deixa o veículo em "Atenção" em vez de bloqueá-lo.
+ */
+export function vehicleStatusFromActiveNcs(severities: string[], autoBlockCritical = true): string {
+  if (severities.some((s) => s === 'CRITICAL')) return autoBlockCritical ? 'BLOQUEADO' : 'ATENCAO';
   if (severities.length > 0) return 'ATENCAO';
   return 'LIBERADO';
 }

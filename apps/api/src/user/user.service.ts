@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ROLE_LABELS, assignableRoleNames } from '../role/role-definitions';
+import { SessionGuardCache } from '../auth/session-guard.cache';
 
 /** Quem faz a alteração (vem do token). */
 export type Requester = { id: string; role: string };
@@ -27,7 +28,10 @@ function withRoleLabel<T extends UserRow>(user: T) {
 
 @Injectable()
 export class UserService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly sessionCache: SessionGuardCache,
+  ) {}
 
   async create(dto: CreateUserDto, requester: Requester) {
     await this.assertAssignableRole(dto.roleId, requester);
@@ -82,6 +86,7 @@ export class UserService {
       }
       return user;
     });
+    this.sessionCache.invalidateUser(id);
     return withRoleLabel(updated);
   }
 

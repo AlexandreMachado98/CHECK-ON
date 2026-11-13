@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { Building2, CheckCircle2, History, LogIn, Plus, Power, Search, ShieldOff, Truck, Users } from 'lucide-react';
+import { matchesSearch } from '@/lib/search';
 import api, { ensureList } from '@/lib/api';
 import { apiErrorMessage, type AdminAccessLog, type AuthUser, type Tenant } from '@/lib/types';
 import { startTenantAccess } from '@/lib/session';
@@ -155,7 +156,7 @@ export default function TenantsPage() {
   const term = search.trim().toLowerCase();
   const digits = term.replace(/\D/g, '');
   const filtered = tenants.filter(
-    (t) => !term || t.name.toLowerCase().includes(term) || (digits && t.cnpj?.includes(digits)),
+    (t) => !term || matchesSearch(term, t.name) || (digits && t.cnpj?.includes(digits)),
   );
   const canSubmit =
     form.name.trim() && form.adminName.trim() && form.adminEmail.trim() && form.adminPassword.length >= 8;

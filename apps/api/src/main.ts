@@ -4,6 +4,7 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import express from 'express';
 import { resolve } from 'node:path';
+import { PrismaExceptionFilter } from './common/prisma-exception.filter';
 import { corsOrigins, isProduction, storageDriver, validateEnvOnStartup } from './config/env';
 
 // O Prisma devolve BigInt (ex.: Tenant.storageUsed), que o JSON padrão não sabe serializar.
@@ -26,6 +27,8 @@ async function bootstrap() {
     const uploadsDirectory = resolve(process.env.UPLOADS_DIRECTORY || 'uploads');
     app.use('/uploads', express.static(uploadsDirectory, { dotfiles: 'deny', index: false, maxAge: '1d' }));
   }
+
+  app.useGlobalFilters(new PrismaExceptionFilter());
 
   app.useGlobalPipes(
     new ValidationPipe({

@@ -3,6 +3,17 @@ import { PrismaService } from '../prisma/prisma.service';
 import { UpdateNcDto } from './dto/update-nc.dto';
 import { itemAsAnswered, withAnsweredItem } from '../checklist/answer-snapshot';
 import { ACTIVE_NC_STATUSES, canTransitionNc, vehicleStatusFromActiveNcs } from '../checklist/checklist-rules';
+import { NcPageQueryDto, pageArgs } from '../common/pagination';
+import { autoBlockCriticalNc } from '../company/company-settings';
+import { SEARCH_LIMIT, containsPattern, currentTenantId, plain } from '../common/search-sql';
+import { Prisma } from '@prisma/client';
+
+const NC_INCLUDE = {
+  vehicle: true,
+  item: true,
+  answer: { include: { item: true, checklist: { include: { vehicle: true, driver: true } } } },
+  _count: { select: { recurrences: true } },
+} satisfies Prisma.NonConformityInclude;
 
 @Injectable()
 export class NcService {
@@ -31,6 +42,62 @@ export class NcService {
       item: itemAsAnswered(nc.item, nc.answer),
       answer: nc.answer ? withAnsweredItem(nc.answer) : nc.answer,
     }));
+  }
+
+  /**
+   * Lista paginada da tela de NCs, já filtrada por status, severidade e busca (placa, item, motorista).
+   * Os contadores do topo da tela (ativas, críticas, reincidentes) vêm calculados, independentes do filtro.
+   */
+  async findPage(query: NcPageQueryDto) {
+    const { page, pageSize, skip, take } = pageArgs(query);
+    const term = query.search?.trim();
+    const status = query.status ?? 'ACTIVE';
+    const where: Prisma.NonConformityWhereInput = {
+      ...(status === 'ACTIVE' ? { status: { in: ACTIVE_NC_STATUSES } } : status !== 'ALL' ? { status } : {}),
+      ...(query.severity && query.severity !== 'ALL' ? { severity: query.severity } : {}),
+      ...(term ? { id: { in: await this.searchIds(term) } } : {}),
+    };
+    const active = { status: { in: ACTIVE_NC_STATUSES } };
+    const [ncs, total, activeCount, critical, recurrent] = await Promise.all([
+      this.prisma.nonConformity.findMany({ where, include: NC_INCLUDE, orderBy: { createdAt: 'desc' }, skip, take }),
+      this.prisma.nonConformity.count({ where }),
+      this.prisma.nonConformity.count({ where: active }),
+      this.prisma.nonConformity.count({ where: { ...active, severity: 'CRITICAL' } }),
+      this.prisma.nonConformity.count({ where: { ...active, occurrences: { gt: 1 } } }),
+    ]);
+    return {
+      items: ncs.map((nc) => ({
+        ...nc,
+        item: itemAsAnswered(nc.item, nc.answer),
+        answer: nc.answer ? withAnsweredItem(nc.answer) : nc.answer,
+      })),
+      total,
+      page,
+      pageSize,
+      counts: { active: activeCount, critical, recurrent },
+    };
+  }
+
+  /** NCs cuja placa, item, motorista ou anotação contém o termo, sem diferenciar acentos e maiúsculas. */
+  private async searchIds(term: string): Promise<string[]> {
+    const tenantId = currentTenantId();
+    const pattern = containsPattern(term);
+    const platePattern = containsPattern(term.replace(/[^a-zA-Z0-9]/g, '') || term);
+    const rows = await this.prisma.$queryRaw<{ id: string }[]>`
+      SELECT n.id FROM "NonConformity" n
+      LEFT JOIN "Vehicle" v ON v.id = n."vehicleId"
+      LEFT JOIN "TemplateItem" i ON i.id = n."itemId"
+      LEFT JOIN "ChecklistAnswer" a ON a.id = n."answerId"
+      LEFT JOIN "Checklist" c ON c.id = a."checklistId"
+      LEFT JOIN "Employee" e ON e.id = c."driverId"
+      WHERE n."tenantId" = ${tenantId}
+        AND (${plain('v."plate"')} LIKE ${platePattern}
+          OR ${plain('i."text"')} LIKE ${pattern}
+          OR ${plain('a."itemText"')} LIKE ${pattern}
+          OR ${plain('e."name"')} LIKE ${pattern}
+          OR ${plain('n."notes"')} LIKE ${pattern})
+      LIMIT ${SEARCH_LIMIT}`;
+    return rows.map((row) => row.id);
   }
 
   async update(id: string, updateNcDto: UpdateNcDto) {
@@ -64,7 +131,7 @@ export class NcService {
         });
         await tx.vehicle.update({
           where: { id: vehicleId },
-          data: { status: vehicleStatusFromActiveNcs(activeNcs.map((nc) => nc.severity)) },
+          data: { status: vehicleStatusFromActiveNcs(activeNcs.map((nc) => nc.severity), await autoBlockCriticalNc(tx)) },
         });
       }
 

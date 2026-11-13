@@ -150,3 +150,17 @@ O gestor pode editar o modelo enquanto há checklists feitos offline esperando s
 - Cada resposta guarda a cópia da pergunta (`itemText`, `itemType`, `itemIsCritical`, `categoryName`) e cada checklist guarda `templateVersion` e `templateName`. As telas de histórico e de NCs mostram a pergunta como estava no dia da inspeção, mesmo que o texto tenha mudado depois.
 - O app deve baixar o bootstrap de novo sempre que tiver internet, para usar a versão mais recente nos próximos checklists.
 
+## Listas paginadas do painel
+
+`GET /checklists` e `GET /ncs` aceitam `?page=` (a partir de 1) e `?pageSize=` (até 200, padrão 50). Com `page`, a resposta é `{ items, total, page, pageSize }`; sem `page`, a rota devolve a lista completa como antes.
+
+- `GET /checklists?page=1&search=abc1234&status=COMPLETED`: lista leve (sem as respostas, com `ncCount`). Os itens de cada inspeção vêm em `GET /checklists/:id`.
+- `GET /ncs?page=1&status=ACTIVE&severity=CRITICAL&search=joao`: `status` aceita `ACTIVE` (abertas + em tratativa), `ALL` ou um status; a resposta traz também `counts { active, critical, recurrent }`.
+- A busca (`search`) ignora acentos e maiúsculas e encontra a placa com ou sem hífen.
+
+## Empresa (Configurações)
+
+- `GET /company`: dados da empresa logada, plano e uso.
+- `PATCH /company` (administrador): nome, CNPJ, endereço, e-mail e telefone de contato e `autoBlockCriticalNc`. Com `autoBlockCriticalNc: false`, NC crítica deixa o veículo em `ATENCAO` em vez de `BLOQUEADO`.
+- `POST /company/revoke-sessions` (administrador): encerra todos os logins da empresa, no painel e no app. Os acessos abertos caem em até 30 segundos.
+

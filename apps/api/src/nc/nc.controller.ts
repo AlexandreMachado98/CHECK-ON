@@ -1,4 +1,5 @@
-import { Controller, Get, Body, Patch, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Body, Patch, Param, Query, UseGuards } from '@nestjs/common';
+import { NcPageQueryDto } from '../common/pagination';
 import { NcService } from './nc.service';
 import { UpdateNcDto } from './dto/update-nc.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -12,9 +13,10 @@ import { PANEL_ROLES } from '../role/role-definitions';
 export class NcController {
   constructor(private readonly ncService: NcService) {}
 
+  /** Com ?page=, devolve { items, total, page, pageSize, counts }. Sem, a lista completa de antes. */
   @Get()
-  findAll() {
-    return this.ncService.findAll();
+  findAll(@Query() query: NcPageQueryDto) {
+    return query.page ? this.ncService.findPage(query) : this.ncService.findAll();
   }
 
   @Patch(':id')
