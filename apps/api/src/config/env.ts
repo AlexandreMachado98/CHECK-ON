@@ -53,6 +53,17 @@ export function storageDriver(): StorageDriverName {
   return driver;
 }
 
+/**
+ * Neon Auth (Managed Better Auth): usado só para enviar e conferir o código de "Esqueci minha senha".
+ * Sem a variável, a recuperação por e-mail fica desligada (a empresa continua gerando senha provisória).
+ */
+export function neonAuthUrl(): string | null {
+  const raw = process.env.NEON_AUTH_URL?.trim();
+  if (!raw) return null;
+  if (!/^https:\/\//.test(raw)) throw new Error('NEON_AUTH_URL deve começar com https://');
+  return raw.replace(/\/$/, '');
+}
+
 export function publicApiUrl(): string {
   return (process.env.PUBLIC_API_URL?.trim() || `http://localhost:${process.env.PORT || '3333'}`).replace(/\/$/, '');
 }

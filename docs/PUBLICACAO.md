@@ -113,3 +113,18 @@ O `vercel.json` da raiz publica os dois apps num único projeto e num único dom
 5. Teste: `https://<dominio>/api/health` deve responder `{"status":"ok","database":"ok",...}`. O `latencyMs` deve ficar em poucos ms; perto de 100 ms indica API e banco em regiões diferentes.
 
 Localmente, `vercel dev` na raiz sobe os dois serviços com o mesmo roteamento.
+
+## Recuperação de senha por e-mail (Neon Auth)
+
+"Esqueci minha senha" usa o **Neon Auth (Managed Better Auth)** só para enviar e conferir o código por e-mail. O login continua sendo o do CHECK-ON.
+
+1. No Neon (projeto → **Better Auth**), ative o Auth na branch de produção.
+2. Em **Settings → Better Auth**: deixe ligados **Sign-up with Email** e **Sign-in with Email**, e **desligado** "Verify at Sign-up".
+3. Em **Trusted domains**, adicione o domínio do painel (ex.: `https://check-on-mu.vercel.app`).
+4. Na Vercel, crie a variável `NEON_AUTH_URL` com a **Auth URL** da branch (ex.: `https://ep-...neonauth....aws.neon.tech/neondb/auth`) e publique de novo.
+   - Opcional: `NEON_AUTH_ORIGIN`. Se não for definida, usa o primeiro domínio de `CORS_ORIGINS`.
+5. Produção: em **Settings → Better Auth → Email**, configure um SMTP próprio. O remetente padrão do Neon tem limite de envio.
+6. Ao terminar os testes, desligue **Allow Localhost**.
+
+Sem `NEON_AUTH_URL`, a tela "Esqueci minha senha" avisa para pedir uma senha nova à empresa.
+

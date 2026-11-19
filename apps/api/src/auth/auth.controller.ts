@@ -1,5 +1,7 @@
 import { BadRequestException, Body, Controller, Get, Post, HttpCode, HttpStatus, Req, UseGuards } from '@nestjs/common';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { ForgotPasswordDto, ResetPasswordWithCodeDto } from './dto/forgot-password.dto';
+import { PasswordRecoveryService } from './password-recovery.service';
 import type { Request } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -8,7 +10,24 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly recovery: PasswordRecoveryService,
+  ) {}
+
+  /** Esqueci minha senha: envia um código para o e-mail (resposta igual exista ou não o e-mail). */
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  forgotPassword(@Body() dto: ForgotPasswordDto, @Req() req: Request) {
+    return this.recovery.requestCode(dto, req.ip);
+  }
+
+  /** Troca a senha com o código recebido por e-mail. */
+  @Post('reset-password-code')
+  @HttpCode(HttpStatus.OK)
+  resetPasswordWithCode(@Body() dto: ResetPasswordWithCodeDto) {
+    return this.recovery.resetWithCode(dto);
+  }
 
   @Post('login')
   @HttpCode(HttpStatus.OK)

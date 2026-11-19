@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import api from '@/lib/api';
 import { homePathFor } from '@/lib/roles';
 import { clearSession, takeLoginNotice } from '@/lib/session';
@@ -190,7 +191,14 @@ export default function LoginPage() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-slate-700">Senha</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password" className="text-slate-700">Senha</Label>
+                {mode === 'email' ? (
+                  <Link href="/esqueci-senha" className="text-xs font-medium text-emerald-700 hover:underline">Esqueci minha senha</Link>
+                ) : (
+                  <span className="text-xs text-slate-500">Esqueceu? Peça à sua empresa</span>
+                )}
+              </div>
               <Input 
                 id="password" 
                 type="password" 
