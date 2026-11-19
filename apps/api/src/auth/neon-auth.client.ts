@@ -3,7 +3,9 @@ import { randomBytes } from 'crypto';
 import { corsOrigins, neonAuthUrl } from '../config/env';
 
 /** Resultado de uma chamada ao Neon Auth: ok, ou o código de erro que ele devolveu (ex.: INVALID_OTP). */
-export type NeonAuthResult = { ok: true } | { ok: false; status: number; code: string; message: string };
+export type NeonAuthResult =
+  | { ok: true }
+  | { ok: false; status: number; code: string; message: string; /** Segundos para tentar de novo, quando o Neon limita envios. */ retryAfter?: number };
 
 const TIMEOUT_MS = 10_000;
 
@@ -80,7 +82,14 @@ export class NeonAuthClient {
       });
       if (response.ok) return { ok: true };
       const data = (await response.json().catch(() => ({}))) as { code?: string; message?: string };
-      return { ok: false, status: response.status, code: data.code ?? `HTTP_${response.status}`, message: data.message ?? '' };
+      const retry = Number(response.headers.get('retry-after') ?? response.headers.get('x-retry-after'));
+      return {
+        ok: false,
+        status: response.status,
+        code: data.code ?? (response.status === 429 ? 'TOO_MANY_REQUESTS' : `HTTP_${response.status}`),
+        message: data.message ?? '',
+        retryAfter: Number.isFinite(retry) && retry > 0 ? Math.ceil(retry) : undefined,
+      };
     } catch (error) {
       this.logger.error(`Neon Auth indisponível em ${path}`, error as Error);
       throw new ServiceUnavailableException('O serviço de recuperação de senha não respondeu. Tente de novo em instantes.');

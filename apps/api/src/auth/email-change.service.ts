@@ -47,7 +47,13 @@ export class EmailChangeService {
     const sent = mirror.ok ? await this.neon.sendEmailVerificationCode(dto.newEmail) : mirror;
     if (!sent.ok) {
       this.logger.warn(`Neon Auth não enviou o código de troca de e-mail (${sent.status} ${sent.code}): ${sent.message}`);
-      throw new HttpException('Não foi possível enviar o código para o novo e-mail. Tente de novo em instantes.', HttpStatus.BAD_GATEWAY);
+      // Limite de envios do Neon: diz quanto esperar, em vez de uma mensagem genérica.
+      if (sent.status === 429 || /TOO_MANY|RATE/i.test(sent.code)) {
+        const wait = sent.retryAfter ? `${sent.retryAfter} segundos` : '1 minuto';
+        throw new HttpException(`O serviço de e-mail limitou os envios seguidos. Aguarde ${wait} e clique de novo, uma vez só.`, HttpStatus.TOO_MANY_REQUESTS);
+      }
+      // O código do erro ajuda o suporte a identificar a causa sem acesso aos logs.
+      throw new HttpException(`Não foi possível enviar o código para o novo e-mail (motivo: ${sent.code}). Tente de novo em instantes.`, HttpStatus.BAD_GATEWAY);
     }
     await this.prisma.$executeRaw`
       UPDATE "User" SET "pendingEmail" = ${dto.newEmail}, "pendingEmailRequestedAt" = ${new Date()} WHERE id = ${userId}`;

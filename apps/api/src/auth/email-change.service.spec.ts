@@ -77,3 +77,18 @@ describe('troca do próprio e-mail', () => {
     expect(neon.sendEmailVerificationCode).not.toHaveBeenCalled();
   });
 });
+
+describe('falha no envio do código', () => {
+  it('limite do Neon (429): diz quanto esperar', async () => {
+    compare.mockResolvedValue(true);
+    const { service, neon } = setup();
+    neon.sendEmailVerificationCode.mockResolvedValue({ ok: false, status: 429, code: 'TOO_MANY_REQUESTS', message: '', retryAfter: 42 });
+    await expect(service.request('u10', { newEmail: 'novo@x.com', currentPassword: 'x' })).rejects.toThrow('Aguarde 42 segundos');
+  });
+  it('outro erro: mostra o código do motivo', async () => {
+    compare.mockResolvedValue(true);
+    const { service, neon } = setup();
+    neon.ensureUser.mockResolvedValue({ ok: false, status: 403, code: 'INVALID_ORIGIN', message: 'Invalid origin' });
+    await expect(service.request('u11', { newEmail: 'novo@x.com', currentPassword: 'x' })).rejects.toThrow('motivo: INVALID_ORIGIN');
+  });
+});
