@@ -17,19 +17,19 @@ export class LoginDto {
   @Transform(({ value }) => (typeof value === 'string' ? value.trim().toUpperCase() : value))
   @ValidateIf((dto: LoginDto) => !dto.email)
   @IsNotEmpty({ message: 'Informe o código da empresa.' })
-  @IsString()
-  @MaxLength(20)
+  @IsString({ message: 'Informe o código da empresa.' })
+  @MaxLength(20, { message: 'Código da empresa inválido.' })
   companyCode?: string;
 
   @Transform(trimmed)
   @ValidateIf((dto: LoginDto) => !dto.email)
   @IsNotEmpty({ message: 'Informe a matrícula.' })
-  @IsString()
-  @MaxLength(40)
+  @IsString({ message: 'Informe a matrícula.' })
+  @MaxLength(40, { message: 'Matrícula inválida.' })
   matricula?: string;
 
-  @IsNotEmpty({ message: 'A senha é obrigatória' })
-  @IsString()
-  @MaxLength(200)
+  @IsNotEmpty({ message: 'Informe a senha.' })
+  @IsString({ message: 'Informe a senha.' })
+  @MaxLength(200, { message: 'Senha muito longa.' })
   password: string;
 }
