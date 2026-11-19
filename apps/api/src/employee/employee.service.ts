@@ -148,7 +148,6 @@ export class EmployeeService {
     return {
       name: employee.name,
       photoUrl: employee.photoUrl,
-      matricula: employee.matricula,
       jobTitle: employee.jobTitle,
       departmentName: employee.departmentName,
       admissionDate: employee.admissionDate,

@@ -121,6 +121,8 @@ model RefreshToken {
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   // Tokens renovados a partir do mesmo login compartilham a família (detecção de reuso)
   familyId  String
+  // "app": sessão do aplicativo (login sem senha), limitada às rotas do app também na renovação
+  channel   String?
   tokenHash String    @unique
   expiresAt DateTime
   revokedAt DateTime?
@@ -336,6 +338,8 @@ model Checklist {
   syncedAt    DateTime?
   latitude    Float?
   longitude   Float?
+  // Aparelho que enviou (auditoria do login sem senha do aplicativo)
+  deviceInfo  String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -80,6 +80,35 @@ describe('AuthService', () => {
     vi.clearAllMocks();
   });
 
+  describe('login do aplicativo (empresa + matrícula, sem senha)', () => {
+    it('acesso criado: entra e o token é marcado como "app"', async () => {
+      mockPrisma.tenant.findFirst.mockResolvedValue({ id: 't1' });
+      mockPrisma.user.findMany.mockResolvedValue([{ ...activeUser, employee: { isActive: true } }]);
+      const result = await authService.appLogin({ companyCode: 'VISTECSSQV', matricula: 'm-1' });
+      expect(result.access_token).toBe('jwt_token');
+      expect(mockJwt.signAsync.mock.calls.at(-1)[0]).toMatchObject({ channel: 'app', sub: 'u1' });
+      expect(mockPrisma.refreshToken.create.mock.calls.at(-1)[0].data.channel).toBe('app');
+      expect(result.user.mustChangePassword).toBe(false);
+    });
+    it('sem acesso criado: recusa', async () => {
+      mockPrisma.tenant.findFirst.mockResolvedValue({ id: 't1' });
+      mockPrisma.user.findMany.mockResolvedValue([]);
+      await expect(authService.appLogin({ companyCode: 'VISTECSSQV', matricula: 'x' }, '7.7.7.7')).rejects.toThrow('acesso foi criado');
+    });
+    it('colaborador inativo ou acesso bloqueado: recusa', async () => {
+      mockPrisma.tenant.findFirst.mockResolvedValue({ id: 't1' });
+      for (const user of [{ ...activeUser, isActive: false, employee: { isActive: true } }, { ...activeUser, employee: { isActive: false } }]) {
+        mockPrisma.user.findMany.mockResolvedValue([user]);
+        await expect(authService.appLogin({ companyCode: 'VISTECSSQV', matricula: 'm-1' })).rejects.toThrow('bloqueado');
+      }
+    });
+    it('renovação de uma sessão do app continua sendo só do app', async () => {
+      mockPrisma.refreshToken.findUnique.mockResolvedValue({ ...storedToken(), channel: 'app' });
+      await authService.refresh('old-token');
+      expect(mockJwt.signAsync.mock.calls.at(-1)[0]).toMatchObject({ channel: 'app' });
+    });
+  });
+
   describe('login', () => {
     it('deve rejeitar login se o usuário não for encontrado', async () => {
       mockPrisma.user.findFirst.mockResolvedValue(null);

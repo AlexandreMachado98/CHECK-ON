@@ -7,6 +7,12 @@ const TTL_MS = 30_000;
 type TenantState = { isActive: boolean; sessionsRevokedAt: Date | null };
 type UserState = { isActive: boolean; mustChangePassword: boolean; passwordChangedAt: Date | null };
 
+/**
+ * Sessão do aplicativo (login sem senha): só as rotas do app. Portal, cadastros e relatórios ficam
+ * fechados mesmo para supervisor/gestor que entrou pelo app.
+ */
+const APP_ROUTE_PREFIXES = ['/mobile/', '/checklists/submit', '/checklists/sync', '/checklists/photos', '/auth/me', '/auth/logout'];
+
 /** Com senha provisória, o login só serve para trocar a senha (e consultar quem está logado / sair). */
 const ALLOWED_WITH_TEMPORARY_PASSWORD = ['/auth/change-password', '/auth/me', '/auth/logout'];
 
@@ -22,7 +28,7 @@ export class SessionGuardCache {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async assertValid(payload: { sub: string; tenantId: string; iat?: number; impersonatedBy?: string }, path = '') {
+  async assertValid(payload: { sub: string; tenantId: string; iat?: number; impersonatedBy?: string; channel?: string }, path = '') {
     const [user, tenant] = await Promise.all([this.user(payload.sub), this.tenant(payload.tenantId)]);
     if (!user || !user.isActive) throw new UnauthorizedException('Seu acesso foi bloqueado. Procure o administrador da sua empresa.');
     if (!tenant || !tenant.isActive) throw new UnauthorizedException('A empresa desta conta está desativada.');
@@ -35,6 +41,12 @@ export class SessionGuardCache {
       throw new UnauthorizedException('Sua senha foi alterada. Entre novamente com a senha nova.');
     }
     const route = path.replace(/^\/api(?=\/)/, '').split('?')[0];
+    if (payload.channel === 'app') {
+      if (!APP_ROUTE_PREFIXES.some((prefix) => route === prefix || route.startsWith(prefix))) {
+        throw new ForbiddenException({ statusCode: 403, message: 'Este acesso é só para o aplicativo. No portal, entre com a sua senha.', code: 'APP_ONLY_SESSION' });
+      }
+      return; // sem senha no app: a troca obrigatória de senha não se aplica
+    }
     if (user.mustChangePassword && !payload.impersonatedBy && !ALLOWED_WITH_TEMPORARY_PASSWORD.includes(route)) {
       throw new ForbiddenException({ statusCode: 403, message: 'Defina uma nova senha para continuar.', code: 'PASSWORD_CHANGE_REQUIRED' });
     }

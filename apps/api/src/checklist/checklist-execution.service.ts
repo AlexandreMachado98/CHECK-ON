@@ -28,6 +28,8 @@ export interface AuthenticatedUser {
   id: string;
   tenantId: string;
   role: string;
+  /** Aparelho que enviou (cabeçalho X-Device-Info do aplicativo), para auditoria. */
+  deviceInfo?: string | null;
 }
 
 export type SubmitResult =
@@ -127,6 +129,7 @@ export class ChecklistExecutionService {
             completedAt,
             latitude: dto.latitude ?? null,
             longitude: dto.longitude ?? null,
+            deviceInfo: user.deviceInfo ?? null,
             syncedAt: new Date(),
           },
         });

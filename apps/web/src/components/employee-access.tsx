@@ -46,8 +46,10 @@ export function CredentialsDialog({ name, credentials, onClose }: { name: string
     `Acesso CHECK-ON de ${name}`,
     credentials.companyCode && credentials.matricula ? `Empresa: ${credentials.companyCode}  |  Matrícula: ${credentials.matricula}` : null,
     credentials.email ? `Ou e-mail: ${credentials.email}` : null,
-    `Senha provisória: ${credentials.temporaryPassword}`,
-    'No primeiro acesso, o sistema pede para criar uma senha nova.',
+    credentials.temporaryPassword
+      ? `Senha provisória: ${credentials.temporaryPassword}`
+      : 'No aplicativo CHECK-ON, entre com o código da empresa e a sua matrícula.',
+    credentials.temporaryPassword ? 'No primeiro acesso, o sistema pede para criar uma senha nova.' : null,
   ].filter(Boolean) as string[];
 
   async function copy() {
@@ -66,7 +68,7 @@ export function CredentialsDialog({ name, credentials, onClose }: { name: string
         <DialogHeader>
           <DialogTitle>Acesso de {name}</DialogTitle>
           <DialogDescription>
-            Entregue estes dados ao colaborador. <strong>A senha provisória não será mostrada de novo.</strong>
+            Entregue estes dados ao colaborador.{credentials.temporaryPassword && <> <strong>A senha provisória não será mostrada de novo.</strong></>}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm">
@@ -88,12 +90,18 @@ export function CredentialsDialog({ name, credentials, onClose }: { name: string
               <p className="font-medium text-slate-900">{credentials.email}</p>
             </div>
           )}
-          <div>
-            <p className="text-xs text-slate-500">Senha provisória</p>
-            <p data-testid="temporary-password" className="font-mono text-lg font-bold tracking-wider text-emerald-700">{credentials.temporaryPassword}</p>
-          </div>
+          {credentials.temporaryPassword ? (
+            <div>
+              <p className="text-xs text-slate-500">Senha provisória</p>
+              <p data-testid="temporary-password" className="font-mono text-lg font-bold tracking-wider text-emerald-700">{credentials.temporaryPassword}</p>
+            </div>
+          ) : (
+            <p data-testid="app-only" className="text-xs text-slate-600">
+              No <strong>aplicativo</strong>, o colaborador entra só com o <strong>código da empresa</strong> e a <strong>matrícula</strong>. Não há senha.
+            </p>
+          )}
         </div>
-        <p className="text-xs text-slate-500">No primeiro acesso (aplicativo ou portal), a pessoa cria uma senha própria.</p>
+        {credentials.temporaryPassword && <p className="text-xs text-slate-500">No primeiro acesso ao portal, a pessoa cria uma senha própria.</p>}
         <DialogFooter>
           <Button variant="outline" onClick={copy}>
             {copied ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
@@ -107,7 +115,7 @@ export function CredentialsDialog({ name, credentials, onClose }: { name: string
 }
 
 const ROLE_HINT: Record<string, string> = {
-  MOTORISTA: 'Só aplicativo: faz as inspeções no celular.',
+  MOTORISTA: 'Só aplicativo: entra com o código da empresa + a matrícula e faz as inspeções no celular.',
   SUPERVISOR: 'Portal e aplicativo: acompanha a operação, trata NCs, libera e bloqueia veículos.',
   GESTOR: 'Portal e aplicativo: cadastra frota, colaboradores e acessos.',
   ADMIN_EMPRESA: 'Portal e aplicativo: tudo, inclusive Configurações da empresa.',
@@ -166,7 +174,7 @@ export function CreateAccessDialog({
         <DialogHeader>
           <DialogTitle>Criar acesso para {employee.name}</DialogTitle>
           <DialogDescription>
-            O login é o código da empresa + a matrícula <strong>{employee.matricula || '(sem matrícula)'}</strong>. O sistema gera uma senha provisória.
+            No aplicativo, o login é o código da empresa + a matrícula <strong>{employee.matricula || '(sem matrícula)'}</strong>. Para o portal, o sistema gera uma senha provisória.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-4">

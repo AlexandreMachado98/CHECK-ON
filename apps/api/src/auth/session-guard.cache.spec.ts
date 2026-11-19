@@ -40,3 +40,17 @@ describe('senha provisória', () => {
     }
   });
 });
+
+describe('sessão do aplicativo (sem senha)', () => {
+  const app = { sub: 'u', tenantId: 't', iat: now, channel: 'app' };
+  it.each(['/api/mobile/bootstrap', '/api/checklists/submit', '/checklists/sync', '/api/checklists/photos', '/api/auth/me'])('libera %s', async (path) => {
+    await expect(guard(active).assertValid(app, path)).resolves.toBeUndefined();
+  });
+  it.each(['/api/vehicles', '/api/users', '/api/checklists', '/api/ncs?page=1', '/api/company', '/api/auth/change-password'])('bloqueia %s', async (path) => {
+    await expect(guard(active).assertValid(app, path)).rejects.toThrow('só para o aplicativo');
+  });
+  it('senha provisória não trava o app', async () => {
+    await expect(guard({ ...active, mustChangePassword: true }).assertValid(app, '/api/mobile/bootstrap')).resolves.toBeUndefined();
+  });
+});
+

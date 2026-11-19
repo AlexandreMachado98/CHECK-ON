@@ -808,7 +808,7 @@ export default function EmployeesPage() {
                               )
                             ) : (
                               <>
-                                <Button
+                                {employee.user.role.name !== 'MOTORISTA' && <Button
                                   variant="ghost"
                                   size="sm"
                                   className="h-7 px-2 text-xs text-slate-600"
@@ -818,7 +818,7 @@ export default function EmployeesPage() {
                                   }}
                                 >
                                   <RotateCcw className="mr-1 h-3 w-3" /> Nova senha
-                                </Button>
+                                </Button>}
                                 <Button
                                   variant="ghost"
                                   size="sm"

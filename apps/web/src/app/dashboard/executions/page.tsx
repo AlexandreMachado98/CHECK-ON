@@ -290,6 +290,12 @@ export default function ExecutionsPage() {
                     </span>
                   )}
                 </div>
+                {selectedChecklist.deviceInfo && (
+                  <div className="col-span-2 sm:col-span-3">
+                    <span className="text-xs text-slate-500 block">Enviada do aparelho</span>
+                    <span className="text-xs text-slate-700 break-words">{selectedChecklist.deviceInfo}</span>
+                  </div>
+                )}
               </div>
 
               <div>

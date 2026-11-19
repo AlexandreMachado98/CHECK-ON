@@ -36,7 +36,7 @@ export class ChecklistController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = await this.execution.submit(dto, req.user as AuthenticatedUser);
+    const result = await this.execution.submit(dto, withDevice(req));
     if (result.status === 'DUPLICATE') res.status(HttpStatus.OK);
     return result;
   }
@@ -58,7 +58,7 @@ export class ChecklistController {
   @Roles(...EXECUTION_ROLES)
   @HttpCode(HttpStatus.OK)
   async sync(@Body() dto: SyncChecklistsDto, @Req() req: Request) {
-    return { results: await this.execution.sync(dto.checklists, req.user as AuthenticatedUser) };
+    return { results: await this.execution.sync(dto.checklists, withDevice(req)) };
   }
 
   @Post()
@@ -80,4 +80,18 @@ export class ChecklistController {
 
   @Delete(':id')
   remove(@Param('id') id: string) { return this.service.remove(id); }
+}
+
+/** Usuário do token + o aparelho informado pelo aplicativo (texto curto, só para auditoria). */
+function withDevice(req: Request): AuthenticatedUser {
+  const header = req.get('x-device-info');
+  // Cabeçalhos HTTP chegam como latin1: "·" ou "é" em UTF-8 viram "Â·"/"Ã©". Recupera o texto original.
+  const raw = header ? decodeHeader(header) : '';
+  const deviceInfo = raw.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 200) || null;
+  return { ...(req.user as AuthenticatedUser), deviceInfo };
+}
+
+function decodeHeader(value: string): string {
+  const utf8 = Buffer.from(value, 'latin1').toString('utf8');
+  return utf8.includes('\uFFFD') ? value : utf8;
 }
