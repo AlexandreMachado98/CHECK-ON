@@ -12,7 +12,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Activity, AlertOctagon, Lock, Search, ShieldCheck, TriangleAlert, Truck, LockOpen } from 'lucide-react';
+import { Activity, AlertOctagon, Lock, Search, ShieldCheck, TriangleAlert, Truck, LockOpen, QrCode } from 'lucide-react';
+import { VehicleQrDialog } from '@/components/vehicle-qr';
 
 const TILES: { status: VehicleStatus; icon: React.ElementType; tone: string }[] = [
   { status: 'LIBERADO', icon: ShieldCheck, tone: 'text-emerald-700' },
@@ -25,6 +26,7 @@ export default function VehiclesPage() {
   useEffect(() => { setManager(canManage(getStoredUser()?.role)); }, []);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
+  const [qrVehicle, setQrVehicle] = useState<Vehicle | null>(null);
   const [loadError, setLoadError] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<VehicleStatus | 'ALL'>('ALL');
@@ -181,6 +183,12 @@ export default function VehiclesPage() {
                           ) : <span className="text-slate-400">0</span>}
                         </TableCell>
                         <TableCell className="text-right">
+                          <div className="inline-flex flex-wrap justify-end gap-2">
+                          {v.isActive && (
+                            <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setQrVehicle(v)} aria-label={`QR Code de ${v.plate}`}>
+                              <QrCode className="h-3.5 w-3.5 mr-1.5" />QR Code
+                            </Button>
+                          )}
                           {status === 'BLOQUEADO' ? (
                             <Button size="sm" variant="outline" className="h-8 text-xs" disabled={savingId === v.id} onClick={() => changeStatus(v, activeNcs > 0 ? 'ATENCAO' : 'LIBERADO')}>
                               <LockOpen className="h-3.5 w-3.5 mr-1.5" />Liberar
@@ -190,6 +198,7 @@ export default function VehiclesPage() {
                               <Lock className="h-3.5 w-3.5 mr-1.5" />Bloquear
                             </Button>
                           )}
+                          </div>
                           {rowError?.id === v.id && (
                             <p className="mt-1 max-w-xs text-left text-xs text-rose-700 sm:ml-auto" role="alert">{rowError.message}</p>
                           )}
@@ -203,6 +212,7 @@ export default function VehiclesPage() {
           )}
         </CardContent>
       </Card>
+      <VehicleQrDialog vehicle={qrVehicle} onClose={() => setQrVehicle(null)} />
     </>
   );
 }
