@@ -1,5 +1,6 @@
 import { BadRequestException, Body, Controller, Get, Post, HttpCode, HttpStatus, Req, UseGuards } from '@nestjs/common';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { AppLoginDto } from './dto/app-login.dto';
 import { ForgotPasswordDto, ResetPasswordWithCodeDto } from './dto/forgot-password.dto';
 import { PasswordRecoveryService } from './password-recovery.service';
 import { EmailChangeService } from './email-change.service';
@@ -59,6 +60,13 @@ export class AuthController {
     const user = req.user as { id: string; impersonatedBy?: string | null };
     if (user.impersonatedBy) throw new BadRequestException('Volte à plataforma para alterar o seu acesso.');
     return user.id;
+  }
+
+  /** Login do aplicativo: código da empresa + matrícula (sem senha). Token vale só para o app. */
+  @Post('app-login')
+  @HttpCode(HttpStatus.OK)
+  appLogin(@Body() dto: AppLoginDto, @Req() req: Request) {
+    return this.authService.appLogin(dto, req.ip);
   }
 
   /** O próprio usuário troca a senha (obrigatório depois de uma senha provisória). */

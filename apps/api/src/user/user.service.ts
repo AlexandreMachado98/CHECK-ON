@@ -3,7 +3,7 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { ROLE_LABELS, assignableRoleNames } from '../role/role-definitions';
+import { MOTORISTA, ROLE_LABELS, assignableRoleNames } from '../role/role-definitions';
 import { SessionGuardCache } from '../auth/session-guard.cache';
 import { generateTemporaryPassword } from '../auth/password';
 import { CreateAccessDto } from './dto/create-access.dto';
@@ -122,15 +122,20 @@ export class UserService {
       if (taken.length > 0) throw new ConflictException('Este e-mail já está em uso.');
     }
 
-    const temporaryPassword = generateTemporaryPassword();
+    // Motorista usa só o aplicativo, que entra com código da empresa + matrícula (sem senha).
+    // Os demais perfis também entram no portal: recebem senha provisória.
+    const role = await this.prisma.role.findFirst({ where: { id: dto.roleId }, select: { name: true } });
+    const appOnly = role?.name === MOTORISTA;
+    const temporaryPassword = appOnly ? null : generateTemporaryPassword();
     const user = await this.prisma.user.create({
       data: {
         name: employee.name,
         email: dto.email ?? null,
-        passwordHash: await bcrypt.hash(temporaryPassword, 10),
+        // Sem senha de uso real para o motorista: um valor aleatório que ninguém conhece.
+        passwordHash: await bcrypt.hash(temporaryPassword ?? generateTemporaryPassword(32), 10),
         roleId: dto.roleId,
         employeeId: employee.id,
-        mustChangePassword: true,
+        mustChangePassword: !appOnly,
       } as never,
       select: USER_SELECT,
     });
@@ -150,6 +155,9 @@ export class UserService {
     if (!target) throw new NotFoundException('Usuário não encontrado.');
     if (!assignableRoleNames(requester.role).includes(target.role.name)) {
       throw new ForbiddenException('Seu perfil não pode alterar este usuário.');
+    }
+    if (target.role.name === MOTORISTA) {
+      throw new BadRequestException('O motorista entra no aplicativo só com o código da empresa e a matrícula: não tem senha para redefinir.');
     }
     const temporaryPassword = generateTemporaryPassword();
     await this.prisma.$transaction(async (tx) => {

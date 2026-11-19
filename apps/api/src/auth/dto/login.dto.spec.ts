@@ -69,3 +69,31 @@ describe('mensagens do login sem repetição', () => {
     expect((error as { message: string[] }).message).toEqual(['Informe a matrícula.']);
   });
 });
+
+import { IsInt, IsUUID, IsString as IsStr } from 'class-validator';
+class SampleDto {
+  @IsUUID('4') clientId!: string;
+  @IsInt() templateVersion!: number;
+  @IsStr({ message: 'Mensagem própria em português.' }) note!: string;
+}
+describe('tradução global das mensagens em inglês', () => {
+  it('regras sem mensagem própria viram português; as próprias ficam como estão', async () => {
+    const error = await createValidationPipe()
+      .transform({ clientId: 'x', templateVersion: 'a', note: 1 }, { type: 'body', metatype: SampleDto })
+      .catch((e: { getResponse: () => { message: string[] } }) => e.getResponse());
+    const list = (error as { message: string[] }).message;
+    expect(list).toContain('O campo clientId tem um identificador inválido.');
+    expect(list).toContain('O campo templateVersion deve ser um número inteiro.');
+    expect(list).toContain('Mensagem própria em português.');
+    for (const m of list) expect(m).not.toMatch(/\b(must|should)\b/);
+  });
+});
+
+import { IsNotEmpty as NotEmpty } from 'class-validator';
+class BlankDto { @NotEmpty() templateId!: string; }
+it('campo em branco sem mensagem própria também vira português', async () => {
+  const error = await createValidationPipe()
+    .transform({}, { type: 'body', metatype: BlankDto })
+    .catch((e: { getResponse: () => { message: string[] } }) => e.getResponse());
+  expect((error as { message: string[] }).message).toEqual(['Informe o campo templateId.']);
+});

@@ -357,7 +357,7 @@ export default function UsersPage() {
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-primary" onClick={() => { setFormError(''); setEditTarget(u); }}>
                           <Edit2 className="h-4 w-4" />
                         </Button>
-                        <Button
+                        {u.role?.name !== 'MOTORISTA' && <Button
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-slate-400 hover:text-primary"
@@ -369,7 +369,7 @@ export default function UsersPage() {
                           }}
                         >
                           <RotateCcw className="h-4 w-4" />
-                        </Button>
+                        </Button>}
                         <Button
                           variant="ghost"
                           size="icon"

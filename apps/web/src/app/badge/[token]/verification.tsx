@@ -170,9 +170,6 @@ export default function BadgeVerification({ token }: { token: string }) {
                 </div>
                 <h2 className="mt-4 break-words text-lg font-bold leading-tight text-slate-950">{badge.name}</h2>
                 <p className="mt-1 text-sm font-semibold text-emerald-700">{badge.jobTitle || 'Função não informada'}</p>
-                <p className="mt-3 rounded-md bg-slate-100 px-2.5 py-1 font-mono text-xs font-semibold text-slate-700">
-                  Matrícula {badge.matricula || 'não informada'}
-                </p>
               </div>
 
               <div className="min-w-0">

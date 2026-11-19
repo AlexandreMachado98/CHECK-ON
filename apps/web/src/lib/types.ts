@@ -114,7 +114,8 @@ export interface AccessCredentials {
   companyCode: string | null;
   matricula: string | null;
   email: string | null;
-  temporaryPassword: string;
+  /** null para o motorista: no aplicativo ele entra só com código da empresa + matrícula. */
+  temporaryPassword: string | null;
 }
 
 export interface EmployeeAccess {
@@ -204,6 +205,8 @@ export interface Checklist {
   /** Na lista paginada: quantidade de itens não conformes (as respostas vêm só nos detalhes). */
   ncCount?: number;
   templateName?: string | null;
+  /** Aparelho que enviou a inspeção (auditoria do login sem senha do aplicativo). */
+  deviceInfo?: string | null;
 }
 
 /** Resposta das listas paginadas da API (?page=). */
