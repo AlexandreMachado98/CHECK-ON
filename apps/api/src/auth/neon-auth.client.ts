@@ -59,14 +59,12 @@ export class NeonAuthClient {
 
   /**
    * O Neon Auth exige o cabeçalho Origin, e ele precisa estar nos "Trusted domains" do projeto.
-   * Ordem: NEON_AUTH_ORIGIN, o primeiro domínio de CORS_ORIGINS (o painel) e, sem nada, localhost.
+   * Ordem: NEON_AUTH_ORIGIN; o primeiro domínio público (https, não localhost) de CORS_ORIGINS;
+   * e, só sem nada disso (desenvolvimento), localhost. Em produção o "Allow Localhost" fica
+   * desligado no Neon, então localhost seria recusado (INVALID_ORIGIN).
    */
   private origin(): string {
-    const explicit = process.env.NEON_AUTH_ORIGIN?.trim();
-    if (explicit) return explicit.replace(/\/$/, '');
-    const origins = corsOrigins();
-    if (Array.isArray(origins) && origins.length) return origins[0];
-    return 'http://localhost:3000';
+    return pickNeonAuthOrigin(process.env.NEON_AUTH_ORIGIN, corsOrigins());
   }
 
   private async post(path: string, body: Record<string, unknown>): Promise<NeonAuthResult> {
@@ -95,4 +93,14 @@ export class NeonAuthClient {
       throw new ServiceUnavailableException('O serviço de recuperação de senha não respondeu. Tente de novo em instantes.');
     }
   }
+}
+
+const isLocal = (origin: string) => /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i.test(origin);
+
+/** Escolhe o Origin enviado ao Neon Auth (exportado para teste). */
+export function pickNeonAuthOrigin(explicit: string | undefined, origins: string[] | true): string {
+  const fixed = explicit?.trim().replace(/\/$/, '');
+  if (fixed) return fixed;
+  const list = Array.isArray(origins) ? origins : [];
+  return list.find((o) => o.startsWith('https://') && !isLocal(o)) ?? list.find((o) => !isLocal(o)) ?? list[0] ?? 'http://localhost:3000';
 }
