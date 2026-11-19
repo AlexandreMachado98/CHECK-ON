@@ -7,7 +7,7 @@ import type { Vehicle } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
-/** Conteúdo do QR lido pelo aplicativo CHECK-ON (precisa bater com VEHICLE_QR_PREFIX em apps/mobile/src/lib/rules.ts). */
+/** Conteúdo do QR lido pelo aplicativo CHECK-ON (precisa bater com Rules.VEHICLE_QR_PREFIX em apps/android/.../data/Rules.kt). */
 export function vehicleQrValue(vehicleId: string): string {
   return `CHECKON:VEICULO:${vehicleId}`;
 }

@@ -1,0 +1,103 @@
+# Aplicativo Android nativo (apps/android): testes, APK e publicação em "Releases".
+#
+# - Em todo PR que mexe no app: roda os testes e gera o APK de teste (aba Actions → Artifacts).
+# - Na main (ou manual, em Actions → "Aplicativo Android" → Run workflow): publica o APK em Releases.
+#
+# Assinatura (opcional, recomendada para distribuir aos motoristas): salve em Settings → Secrets → Actions
+#   ANDROID_KEYSTORE_BASE64 (arquivo .jks em base64), ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD.
+# Sem esses segredos, a Release leva o APK de teste (assinado com chave temporária).
+name: Aplicativo Android
+
+on:
+  pull_request:
+    paths: ['apps/android/**', '.github/workflows/android.yml']
+  push:
+    branches: [main]
+    paths: ['apps/android/**', '.github/workflows/android.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Testes e APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: apps/android
+    env:
+      HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Testes e APK de teste
+        run: ./gradlew --no-daemon testDebugUnitTest assembleDebug
+
+      - name: Versão do app
+        id: version
+        run: |
+          NAME=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          CODE=$(grep -oP 'versionCode = \K[0-9]+' app/build.gradle.kts)
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          cp app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/checkon-$NAME-teste.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: checkon-apk-teste
+          path: ${{ runner.temp }}/checkon-*-teste.apk
+          retention-days: 14
+
+      - name: APK assinado (com a chave da empresa)
+        if: github.event_name != 'pull_request' && env.HAS_KEYSTORE == 'true'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          CHECKON_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          CHECKON_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          CHECKON_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/checkon.jks"
+          CHECKON_KEYSTORE_FILE="$RUNNER_TEMP/checkon.jks" ./gradlew --no-daemon assembleRelease
+          cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/checkon-${{ steps.version.outputs.name }}.apk"
+          rm -f "$RUNNER_TEMP/checkon.jks"
+
+      - name: Publicar em Releases
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NAME="${{ steps.version.outputs.name }}"
+          TAG="app-v$NAME-${{ steps.version.outputs.code }}"
+          if [ "$HAS_KEYSTORE" = "true" ]; then
+            APK="$RUNNER_TEMP/checkon-$NAME.apk"
+            NOTE="APK assinado com a chave da empresa: as próximas versões instalam por cima, sem perder os dados."
+          else
+            APK="$RUNNER_TEMP/checkon-$NAME-teste.apk"
+            NOTE="Versão de TESTE (sem a chave da empresa). Para instalar uma versão nova, desinstale a anterior antes."
+          fi
+          printf '%s\n\n%s\n%s\n' \
+            "Aplicativo CHECK-ON $NAME (código ${{ steps.version.outputs.code }}) para Android." \
+            "Para instalar: baixe o arquivo .apk no celular e permita a instalação de apps desta fonte." \
+            "$NOTE" > "$RUNNER_TEMP/notes.md"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" --clobber
+            gh release edit "$TAG" --notes-file "$RUNNER_TEMP/notes.md"
+          else
+            gh release create "$TAG" "$APK" --target "${{ github.sha }}" \
+              --title "Aplicativo CHECK-ON $NAME (Android)" --notes-file "$RUNNER_TEMP/notes.md"
+          fi
+          echo "### APK publicado 📱" >> "$GITHUB_STEP_SUMMARY"
+          gh release view "$TAG" --json url -q .url >> "$GITHUB_STEP_SUMMARY"

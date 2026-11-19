@@ -1,0 +1,134 @@
+package com.checkon.app.ui
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Assignment
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.checkon.app.data.Draft
+import com.checkon.app.data.OpenNc
+import com.checkon.app.data.Rules
+import com.checkon.app.data.Template
+import kotlinx.coroutines.launch
+
+@Composable
+fun VehicleScreen(vm: AppViewModel, vehicleId: String, onStart: (vehicleId: String, templateId: String) -> Unit) {
+    val bootstrap by vm.bootstrap.collectAsState()
+    val online by vm.online.collectAsState()
+    val vehicle = bootstrap?.vehicles?.firstOrNull { it.id == vehicleId }
+    var freshNcs by remember { mutableStateOf<List<OpenNc>?>(null) }
+    var pendingDraft by remember { mutableStateOf<Pair<Draft, Template>?>(null) }
+    val scope = rememberCoroutineScope()
+
+    // Com internet, confere as NCs na hora (outro motorista pode ter apontado algo hoje).
+    LaunchedEffect(vehicleId, online) {
+        if (online) freshNcs = runCatching { vm.repository.vehicleNcs(vehicleId) }.getOrNull() ?: freshNcs
+    }
+
+    if (vehicle == null) {
+        CenteredMessage("Veículo não encontrado", "Este veículo não está mais ativo ou ainda não foi baixado. Atualize os dados na tela inicial.")
+        return
+    }
+    val ncs = freshNcs ?: bootstrap?.openNcs?.filter { it.vehicleId == vehicleId } ?: emptyList()
+    val templates = bootstrap?.templates ?: emptyList()
+
+    fun start(template: Template) {
+        scope.launch {
+            val draft = vm.repository.readDraft()
+            if (draft != null && (draft.vehicleId != vehicle.id || draft.templateId != template.id)) {
+                pendingDraft = draft to template
+            } else {
+                onStart(vehicle.id, template.id)
+            }
+        }
+    }
+
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(ScreenPadding),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        AppCard {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text(vehicle.label, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = Palette.Text)
+                StatusTag(vehicle.status)
+            }
+            Muted(vehicle.description.ifBlank { "Sem modelo cadastrado" } + (vehicle.fleet?.let { " · Frota ${it.name}" } ?: ""))
+        }
+        if (vehicle.status == "BLOQUEADO") {
+            Banner("Veículo bloqueado", "Este veículo tem problema crítico em aberto e não deve circular até ser liberado pelo gestor.", Tone.Danger)
+        }
+
+        SectionTitle("NCs em aberto (${ncs.size})")
+        if (ncs.isEmpty()) Muted("Nenhuma não conformidade em aberto neste veículo.")
+        ncs.forEach { nc ->
+            AppCard(accent = if (nc.severity == "CRITICAL") Palette.Danger else Palette.Warning) {
+                Text(nc.item?.text ?: "Item do checklist", fontWeight = FontWeight.Bold, color = Palette.Text)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Tag("Gravidade ${Rules.SEVERITY_LABEL[nc.severity] ?: nc.severity}", if (nc.severity == "CRITICAL") Tone.Danger else Tone.Warning)
+                    Tag(if (nc.status == "IN_PROGRESS") "Em tratamento" else "Aberta", Tone.Info)
+                    if (nc.occurrences > 1) Tag("${nc.occurrences}x apontada")
+                }
+                nc.notes?.takeIf { it.isNotBlank() }?.let { Muted(it) }
+                Muted("Desde ${formatDateTime(nc.createdAt)}")
+            }
+        }
+
+        SectionTitle("Escolha o checklist")
+        if (templates.isEmpty()) Muted("A empresa ainda não tem checklists ativos.")
+        templates.forEach { template ->
+            AppCard(onClick = { start(template) }) {
+                IconRow(Icons.AutoMirrored.Filled.Assignment, Palette.Primary) {
+                    Column {
+                        Text(template.name, fontWeight = FontWeight.Bold, color = Palette.Text)
+                        Muted("${template.allItems.size} itens" + (template.description?.let { " · $it" } ?: ""))
+                    }
+                }
+            }
+        }
+    }
+
+    pendingDraft?.let { (draft, template) ->
+        AlertDialog(
+            onDismissRequest = { pendingDraft = null },
+            title = { Text("Inspeção em andamento") },
+            text = { Text("Você começou uma inspeção do veículo ${draft.vehicleLabel} (${draft.templateName}) e não concluiu. O que deseja fazer?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingDraft = null
+                    onStart(draft.vehicleId, draft.templateId)
+                }) { Text("Continuar a anterior") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    pendingDraft = null
+                    scope.launch {
+                        draft.answers.values.forEach { vm.repository.photos.delete(it.localPhoto) }
+                        vm.repository.saveDraft(null)
+                        onStart(vehicle.id, template.id)
+                    }
+                }) { Text("Descartar e começar esta", color = Palette.Danger) }
+            },
+        )
+    }
+}
