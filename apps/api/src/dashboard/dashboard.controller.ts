@@ -11,4 +11,9 @@ export class DashboardController {
   getSummary() {
     return this.dashboardService.getSummary();
   }
+
+  @Get('report')
+  getReport() {
+    return this.dashboardService.getReport();
+  }
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { matchesSearch } from '@/lib/search';
 import api from '@/lib/api';
 import { apiErrorMessage, type Vehicle, type VehicleStatus } from '@/lib/types';
 import { VEHICLE_STATUS, VehicleStatusBadge } from '@/lib/status';
@@ -65,9 +66,9 @@ export default function VehiclesPage() {
   }, [vehicles]);
 
   const filtered = vehicles.filter(v => {
-    const term = search.trim().toLowerCase();
-    const haystack = [v.plate, v.prefix, v.brand, v.model, v.fleet?.name].filter(Boolean).join(' ').toLowerCase();
-    return (!term || haystack.includes(term)) && (statusFilter === 'ALL' || (v.status ?? 'LIBERADO') === statusFilter);
+    // Placa sem hífen no cadastro: "abc-1234" também encontra "ABC1234".
+    const found = matchesSearch(search, v.plate, v.prefix, v.brand, v.model, v.fleet?.name) || matchesSearch(search.replace(/[^a-zA-Z0-9]/g, ''), v.plate);
+    return found && (statusFilter === 'ALL' || (v.status ?? 'LIBERADO') === statusFilter);
   });
 
   return (
@@ -145,10 +146,10 @@ export default function VehiclesPage() {
                 <TableHeader className="bg-slate-50/50">
                   <TableRow>
                     <TableHead>Placa</TableHead>
-                    <TableHead>Veículo</TableHead>
-                    <TableHead>Frota</TableHead>
+                    <TableHead className="hidden md:table-cell">Veículo</TableHead>
+                    <TableHead className="hidden lg:table-cell">Frota</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="text-center">NCs ativas</TableHead>
+                    <TableHead className="text-center hidden sm:table-cell">NCs ativas</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -162,13 +163,13 @@ export default function VehiclesPage() {
                           <span className="font-bold tracking-wide text-slate-900">{v.plate}</span>
                           {v.prefix && <span className="block text-xs text-slate-500">Prefixo {v.prefix}</span>}
                         </TableCell>
-                        <TableCell className="text-sm text-slate-700">
+                        <TableCell className="text-sm text-slate-700 hidden md:table-cell">
                           {[v.brand, v.model].filter(Boolean).join(' ') || '—'}{v.year ? ` (${v.year})` : ''}
                           {!v.isActive && <span className="block text-xs text-slate-500">Inativo</span>}
                         </TableCell>
-                        <TableCell className="text-sm text-slate-700">{v.fleet?.name ?? '—'}</TableCell>
+                        <TableCell className="text-sm text-slate-700 hidden lg:table-cell">{v.fleet?.name ?? '—'}</TableCell>
                         <TableCell><VehicleStatusBadge status={status} /></TableCell>
-                        <TableCell className="text-center">
+                        <TableCell className="text-center hidden sm:table-cell">
                           {activeNcs > 0 ? (
                             <Link href="/dashboard/ncs" className="inline-flex items-center gap-1 font-semibold text-rose-700 hover:underline">
                               <AlertOctagon className="h-3.5 w-3.5" />{activeNcs}

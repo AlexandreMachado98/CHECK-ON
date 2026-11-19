@@ -14,18 +14,26 @@ export default function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [ncs, setNcs] = useState<NC[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [activeNcTotal, setActiveNcTotal] = useState(0);
 
   useEffect(() => {
     async function loadData() {
       try {
         setLoading(true);
+        // Só as NCs ativas, já paginadas: a tela mostra as 3 mais graves e o total.
         const [sumRes, ncsRes] = await Promise.allSettled([
           api.get<DashboardSummary>('/dashboard/summary'),
-          api.get<NC[]>('/ncs')
+          api.get<{ items: NC[]; total: number }>('/ncs', { params: { page: 1, pageSize: 100, status: 'ACTIVE' } }),
         ]);
-        
+
         if (sumRes.status === 'fulfilled') setSummary(sumRes.value.data);
-        if (ncsRes.status === 'fulfilled') setNcs(ncsRes.value.data);
+        if (ncsRes.status === 'fulfilled') {
+          setNcs(ncsRes.value.data.items);
+          setActiveNcTotal(ncsRes.value.data.total);
+        }
+        // Falha na API não pode aparecer como "tudo certo" (zeros e "100% conforme").
+        setLoadFailed(sumRes.status === 'rejected' || ncsRes.status === 'rejected');
       } catch (err) {
         console.error('Erro ao carregar dados do dashboard:', err);
       } finally {
@@ -56,6 +64,13 @@ export default function DashboardPage() {
           </Badge>
         </div>
       </div>
+
+      {loadFailed && (
+        <div role="alert" className="mb-4 flex flex-col gap-2 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 sm:flex-row sm:items-center sm:justify-between">
+          <p><strong>Não foi possível carregar os dados da operação.</strong> Os números abaixo podem estar incompletos.</p>
+          <Button size="sm" variant="outline" className="shrink-0 bg-white" onClick={() => window.location.reload()}>Tentar de novo</Button>
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card className="border-slate-200 shadow-sm">
@@ -114,7 +129,7 @@ export default function DashboardPage() {
             ) : (
               <div className="text-2xl font-bold text-slate-900">{summary?.activeUsers ?? 0}</div>
             )}
-            <p className="text-xs text-muted-foreground mt-1">Usuários de painel ativos</p>
+            <p className="text-xs text-muted-foreground mt-1">Gestores e administradores com acesso ao painel</p>
           </CardContent>
         </Card>
       </div>
@@ -195,7 +210,7 @@ export default function DashboardPage() {
           {openNcs.length > 0 && (
             <Link href="/dashboard/ncs">
               <Button variant="ghost" size="sm" className="text-xs text-primary font-medium">
-                Ver todas ({openNcs.length})
+                Ver todas ({activeNcTotal})
                 <ArrowRight className="h-3.5 w-3.5 ml-1" />
               </Button>
             </Link>
@@ -206,6 +221,12 @@ export default function DashboardPage() {
           <div className="mt-4 p-8 bg-white border rounded-lg text-center text-sm text-slate-500 animate-pulse">
             Carregando ocorrências...
           </div>
+        ) : loadFailed ? (
+          <Card className="border-rose-200 bg-rose-50/40 shadow-sm">
+            <CardContent className="py-8 text-center text-sm text-rose-800">
+              Não foi possível consultar as não conformidades agora.
+            </CardContent>
+          </Card>
         ) : openNcs.length === 0 ? (
           <div className="mt-4 bg-white border rounded-lg p-8 text-center">
             <div className="flex justify-center mb-3">

@@ -75,7 +75,8 @@ export class MobileService {
         },
       }),
       this.prisma.vehicle.findMany({
-        where: { isActive: true },
+        // Veículo de frota inativa (arquivada) não aparece no app.
+        where: { isActive: true, fleet: { isActive: true } },
         orderBy: { plate: 'asc' },
         select: VEHICLE_SELECT,
       }),
@@ -92,7 +93,7 @@ export class MobileService {
   /** Veículo lido pelo QR Code, com as NCs ativas para o alerta antes do checklist. */
   async findVehicleByQrCode(qrCode: string) {
     const vehicle = await this.prisma.vehicle.findFirst({
-      where: { qrCode, isActive: true },
+      where: { qrCode, isActive: true, fleet: { isActive: true } },
       select: VEHICLE_SELECT,
     });
     if (!vehicle) throw new NotFoundException('Veículo não encontrado para este QR Code.');

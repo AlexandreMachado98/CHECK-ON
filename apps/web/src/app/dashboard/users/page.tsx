@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { matchesSearch } from '@/lib/search';
 import api, { ensureList } from '@/lib/api';
 import { apiErrorMessage, type Employee, type User, type Role } from '@/lib/types';
 import { roleLabel } from '@/lib/roles';
@@ -206,6 +207,10 @@ export default function UsersPage() {
   }
 
   async function handleToggle(user: User) {
+    const question = user.isActive
+      ? `Bloquear o acesso de ${user.name}? A pessoa sai do painel e do aplicativo na hora.`
+      : `Desbloquear o acesso de ${user.name}?`;
+    if (!window.confirm(question)) return;
     try {
       setActionError('');
       await api.patch(`/users/${user.id}`, { isActive: !user.isActive });
@@ -215,9 +220,8 @@ export default function UsersPage() {
     }
   }
 
-  const filteredUsers = users.filter(u => 
-    u.name.toLowerCase().includes(search.toLowerCase()) ||
-    u.email.toLowerCase().includes(search.toLowerCase())
+  const filteredUsers = users.filter(u =>
+    matchesSearch(search, u.name, u.email, u.employee?.name)
   );
 
   return (

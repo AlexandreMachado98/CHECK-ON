@@ -37,18 +37,23 @@ export class AuthService {
   ) {}
 
   async login(loginDto: LoginDto) {
-    const user = await this.prisma.user.findUnique({
-      where: { email: loginDto.email },
+    // E-mail sem diferença de maiúsculas: no celular o teclado costuma pôr a primeira letra em maiúscula.
+    const user = await this.prisma.user.findFirst({
+      where: { email: { equals: loginDto.email.trim(), mode: 'insensitive' } },
       include: { tenant: true, role: true },
     });
 
-    if (!user || !user.isActive || !user.tenant.isActive) {
-      throw new UnauthorizedException('Credenciais inválidas ou conta inativa');
+    // A senha é conferida antes de dizer que a conta está bloqueada: assim ninguém descobre
+    // quais e-mails existem testando senhas erradas.
+    const isPasswordValid = user ? await bcrypt.compare(loginDto.password, user.passwordHash) : false;
+    if (!user || !isPasswordValid) {
+      throw new UnauthorizedException('E-mail ou senha incorretos.');
     }
-
-    const isPasswordValid = await bcrypt.compare(loginDto.password, user.passwordHash);
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Credenciais inválidas');
+    if (!user.tenant.isActive) {
+      throw new UnauthorizedException('A empresa desta conta está desativada. Procure o suporte do CHECK-ON.');
+    }
+    if (!user.isActive) {
+      throw new UnauthorizedException('Seu acesso está bloqueado. Procure o administrador da sua empresa.');
     }
 
     return this.issueTokens(user, randomUUID());

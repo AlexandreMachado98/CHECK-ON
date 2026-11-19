@@ -1,6 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ACTIVE_NC_STATUSES, escalateVehicleStatus, vehicleStatusFromActiveNcs } from '../checklist/checklist-rules';
+import { autoBlockCriticalNc } from '../company/company-settings';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 
@@ -10,6 +11,7 @@ export class VehicleService {
 
   async create(createDto: CreateVehicleDto) {
     await this.assertFleet(createDto.fleetId);
+    await this.assertPlateAvailable(createDto.plate);
     return this.prisma.vehicle.create({ data: createDto as any });
   }
 
@@ -32,13 +34,14 @@ export class VehicleService {
   async update(id: string, updateDto: UpdateVehicleDto) {
     await this.findOne(id);
     if (updateDto.fleetId) await this.assertFleet(updateDto.fleetId);
+    if (updateDto.plate) await this.assertPlateAvailable(updateDto.plate, id);
 
     if (updateDto.status) {
       const activeNcs = await this.prisma.nonConformity.findMany({
         where: { vehicleId: id, status: { in: ACTIVE_NC_STATUSES } },
         select: { severity: true },
       });
-      const minimum = vehicleStatusFromActiveNcs(activeNcs.map((nc) => nc.severity));
+      const minimum = vehicleStatusFromActiveNcs(activeNcs.map((nc) => nc.severity), await autoBlockCriticalNc(this.prisma));
       if (escalateVehicleStatus(updateDto.status, minimum) !== updateDto.status) {
         throw new ConflictException(
           minimum === 'BLOQUEADO'
@@ -49,6 +52,15 @@ export class VehicleService {
     }
 
     return this.prisma.vehicle.update({ where: { id }, data: updateDto as any });
+  }
+
+  /** Placa é única por empresa. A extensão do Prisma limita a busca à empresa de quem está logado. */
+  private async assertPlateAvailable(plate: string, exceptId?: string) {
+    const existing = await this.prisma.vehicle.findFirst({
+      where: { plate, ...(exceptId ? { NOT: { id: exceptId } } : {}) },
+      select: { id: true },
+    });
+    if (existing) throw new ConflictException(`A placa ${plate} já está cadastrada.`);
   }
 
   /** A frota precisa existir na mesma empresa (o filtro de tenant é aplicado pelo Prisma). */

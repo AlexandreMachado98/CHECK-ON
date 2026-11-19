@@ -176,6 +176,17 @@ export interface Checklist {
   driver?: Employee;
   template?: Template;
   answers?: ChecklistAnswer[];
+  /** Na lista paginada: quantidade de itens não conformes (as respostas vêm só nos detalhes). */
+  ncCount?: number;
+  templateName?: string | null;
+}
+
+/** Resposta das listas paginadas da API (?page=). */
+export interface PageResult<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 export type NCStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';

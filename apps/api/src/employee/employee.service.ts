@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
 import { ClsServiceManager } from 'nestjs-cls';
 import { PrismaService } from '../prisma/prisma.service';
@@ -30,6 +30,7 @@ export class EmployeeService {
 
   async create(createDto: CreateEmployeeDto) {
     await this.assertSupervisor(createDto.supervisorId);
+    await this.assertMatriculaAvailable(createDto.matricula);
     const { trainings, ...employee } = createDto;
     const tenantId = ClsServiceManager.getClsService()?.get<string>('tenantId');
     if (!tenantId) throw new UnauthorizedException('Sessão sem empresa associada.');
@@ -77,6 +78,7 @@ export class EmployeeService {
   async update(id: string, updateDto: UpdateEmployeeDto) {
     await this.findOne(id);
     await this.assertSupervisor(updateDto.supervisorId, id);
+    if (updateDto.matricula !== undefined) await this.assertMatriculaAvailable(updateDto.matricula, id);
     const { trainings, ...employee } = updateDto;
     return this.prisma.employee.update({
       where: { id },
@@ -162,6 +164,17 @@ export class EmployeeService {
   async remove(id: string) {
     await this.findOne(id);
     return this.prisma.employee.delete({ where: { id } });
+  }
+
+  /** Matrícula é única por empresa (vazia pode repetir). A extensão do Prisma limita à empresa logada. */
+  private async assertMatriculaAvailable(matricula?: string | null, exceptId?: string) {
+    const value = matricula?.trim();
+    if (!value) return;
+    const existing = await this.prisma.employee.findFirst({
+      where: { matricula: { equals: value, mode: 'insensitive' }, ...(exceptId ? { NOT: { id: exceptId } } : {}) },
+      select: { name: true },
+    });
+    if (existing) throw new ConflictException(`A matrícula ${value} já pertence a ${existing.name}.`);
   }
 
   private async assertSupervisor(supervisorId?: string | null, employeeId?: string) {

@@ -17,7 +17,7 @@ describe('MobileService', () => {
     const result = await service.bootstrap();
 
     expect(prisma.template.findMany.mock.calls[0][0].where).toEqual({ isActive: true });
-    expect(prisma.vehicle.findMany.mock.calls[0][0].where).toEqual({ isActive: true });
+    expect(prisma.vehicle.findMany.mock.calls[0][0].where).toEqual({ isActive: true, fleet: { isActive: true } });
     expect(prisma.nonConformity.findMany.mock.calls[0][0].where).toEqual({
       status: { in: ACTIVE_NC_STATUSES },
       vehicle: { isActive: true },
@@ -45,7 +45,7 @@ describe('MobileService', () => {
 
     const result = await service.findVehicleByQrCode('QR-123');
 
-    expect(prisma.vehicle.findFirst.mock.calls[0][0].where).toEqual({ qrCode: 'QR-123', isActive: true });
+    expect(prisma.vehicle.findFirst.mock.calls[0][0].where).toEqual({ qrCode: 'QR-123', isActive: true, fleet: { isActive: true } });
     expect(prisma.nonConformity.findMany.mock.calls[0][0].where).toEqual({
       vehicleId: 'v1',
       status: { in: ACTIVE_NC_STATUSES },

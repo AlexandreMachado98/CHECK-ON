@@ -1,8 +1,10 @@
+import { PlateField } from '../plate';
 import { IsOptional, IsBoolean, IsString, IsNumber, IsIn } from 'class-validator';
 
 export class UpdateVehicleDto {
   @IsOptional()
   @IsString()
+  @PlateField()
   plate?: string;
 
   @IsOptional()

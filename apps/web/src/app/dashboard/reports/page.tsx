@@ -6,63 +6,48 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { BarChart3, AlertOctagon, ClipboardCheck, Activity, Truck, ArrowRight, ShieldCheck } from 'lucide-react';
 import api from '@/lib/api';
-import type { Checklist, NC } from '@/lib/types';
+import { apiErrorMessage } from '@/lib/types';
+
+type Report = {
+  inspections: { total: number; completed: number; withNc: number; compliant: number };
+  complianceRate: number | null;
+  ncs: { total: number; active: number; bySeverity: Record<string, number> };
+  topVehicles: { vehicleId: string; plate: string; count: number }[];
+};
 
 export default function ReportsPage() {
-  const [checklists, setChecklists] = useState<Checklist[]>([]);
-  const [ncs, setNcs] = useState<NC[]>([]);
+  const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+
+  async function fetchReport() {
+    try {
+      setLoading(true);
+      setLoadError('');
+      // Calculado no servidor: a tela não baixa mais todas as inspeções e NCs.
+      const res = await api.get<Report>('/dashboard/report');
+      setReport(res.data);
+    } catch (error) {
+      setLoadError(apiErrorMessage(error, 'Não foi possível carregar os relatórios.'));
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    async function fetchReportsData() {
-      try {
-        setLoading(true);
-        const [chkRes, ncRes] = await Promise.allSettled([
-          api.get<Checklist[]>('/checklists'),
-          api.get<NC[]>('/ncs'),
-        ]);
-
-        if (chkRes.status === 'fulfilled') setChecklists(chkRes.value.data);
-        if (ncRes.status === 'fulfilled') setNcs(ncRes.value.data);
-      } catch (err) {
-        console.error('Erro ao buscar dados dos relatórios:', err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchReportsData();
+    fetchReport();
   }, []);
 
-  // Compute stats
-  const totalInspections = checklists.length;
-  const totalNcs = ncs.length;
-  const completedInspections = checklists.filter(c => c.status === 'COMPLETED' || c.status === 'SYNCED').length;
-  const complianceRate = totalInspections > 0 
-    ? Math.round((completedInspections / totalInspections) * 100) 
-    : 100;
-
-  // Inspections by Vehicle
-  const vehicleCountMap = checklists.reduce((acc, c) => {
-    if (c.vehicle?.plate) {
-      acc[c.vehicle.plate] = (acc[c.vehicle.plate] || 0) + 1;
-    }
-    return acc;
-  }, {} as Record<string, number>);
-
-  const topVehicles = Object.entries(vehicleCountMap)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([plate, count]) => ({
-      plate,
-      count,
-      pct: totalInspections > 0 ? Math.round((count / totalInspections) * 100) : 0,
-    }));
-
-  // NCs by Severity
-  const severityCount = ncs.reduce((acc, nc) => {
-    acc[nc.severity] = (acc[nc.severity] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
+  const totalInspections = report?.inspections.total ?? 0;
+  const completedInspections = report?.inspections.completed ?? 0;
+  const totalNcs = report?.ncs.total ?? 0;
+  const complianceRate = report?.complianceRate ?? null;
+  const severityCount = report?.ncs.bySeverity ?? {};
+  const topVehicles = (report?.topVehicles ?? []).map((v) => ({
+    plate: v.plate,
+    count: v.count,
+    pct: totalInspections > 0 ? Math.round((v.count / totalInspections) * 100) : 0,
+  }));
 
   return (
     <>
@@ -80,6 +65,11 @@ export default function ReportsPage() {
           <Activity className="h-8 w-8 animate-pulse text-emerald-600 mb-2" />
           Consolidando métricas operacionais...
         </div>
+      ) : loadError ? (
+        <div role="alert" className="p-10 text-center text-sm">
+          <p className="text-rose-700 mb-3">{loadError}</p>
+          <Button variant="outline" size="sm" onClick={fetchReport}>Tentar de novo</Button>
+        </div>
       ) : (
         <>
           <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 xl:gap-5">
@@ -91,7 +81,7 @@ export default function ReportsPage() {
               <CardContent>
                 <div className="text-2xl font-bold text-slate-900 sm:text-3xl">{totalInspections}</div>
                 <p className="mt-1 break-words text-xs leading-5 text-slate-500">
-                  {completedInspections} finalizadas com sucesso
+                  {completedInspections} finalizada{completedInspections === 1 ? '' : 's'}
                 </p>
               </CardContent>
             </Card>
@@ -104,7 +94,7 @@ export default function ReportsPage() {
               <CardContent>
                 <div className="text-2xl font-bold text-slate-900 sm:text-3xl">{totalNcs}</div>
                 <p className="mt-1 break-words text-xs leading-5 text-slate-500">
-                  Falhas apontadas em checklists
+                  {report?.ncs.active ?? 0} ainda ativa{(report?.ncs.active ?? 0) === 1 ? '' : 's'} (abertas ou em tratativa)
                 </p>
               </CardContent>
             </Card>
@@ -115,9 +105,11 @@ export default function ReportsPage() {
                 <BarChart3 className="h-4 w-4 text-blue-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-slate-900 sm:text-3xl">{complianceRate}%</div>
+                <div className="text-2xl font-bold text-slate-900 sm:text-3xl">{complianceRate === null ? '—' : `${complianceRate}%`}</div>
                 <p className="mt-1 break-words text-xs leading-5 text-slate-500">
-                  {complianceRate >= 90 ? 'Excelente índice de conformidade' : 'Atenção aos itens reprovados'}
+                  {complianceRate === null
+                    ? 'Sem inspeções finalizadas ainda'
+                    : `${report?.inspections.compliant ?? 0} de ${completedInspections} inspeções sem nenhum item reprovado`}
                 </p>
               </CardContent>
             </Card>

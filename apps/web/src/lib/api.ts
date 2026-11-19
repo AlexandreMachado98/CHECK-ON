@@ -1,5 +1,5 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
-import { isImpersonating, returnToPlatform } from './session';
+import { clearSession, isImpersonating, returnToPlatform, setLoginNotice } from './session';
 
 /**
  * Endereço base da API.
@@ -49,6 +49,16 @@ api.interceptors.response.use(undefined, async (error: AxiosError) => {
       window.location.assign('/dashboard/tenants?acesso=expirado');
       return new Promise(() => {}); // a página vai recarregar; não mostra erro na tela
     }
+  }
+  // Login expirado (1 dia), usuário bloqueado ou sessões revogadas: volta para o login explicando o motivo,
+  // em vez de deixar o painel aberto com telas vazias. A própria tentativa de login não entra aqui.
+  if (error.response?.status === 401 && typeof window !== 'undefined' && !error.config?.url?.includes('/auth/login')) {
+    const apiMessage = (error.response.data as { message?: unknown } | undefined)?.message;
+    const reason = typeof apiMessage === 'string' && apiMessage !== 'Unauthorized' ? apiMessage : 'Sua sessão expirou. Entre novamente para continuar.';
+    clearSession();
+    setLoginNotice(reason);
+    if (!window.location.pathname.startsWith('/login')) window.location.assign('/login');
+    return new Promise(() => {}); // a página vai para o login; não mostra erro na tela
   }
   if (!isRetryable(error)) throw error;
   const config = error.config as RetryableConfig;
