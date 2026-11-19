@@ -13,6 +13,8 @@ import { uniqueCompanyCode } from '../company/company-code';
 export const TENANT_ACCESS_TTL_SECONDS = 60 * 60;
 
 export type PlatformAdmin = { id: string; email: string };
+/** Dados de assinatura gravados junto na criação (vindos do DDS Master). */
+export type TenantExtraData = { billingCycle?: string; subscriptionEndsAt?: Date | null; graceDays?: number; masterNotes?: string | null };
 export type AccessContext = { ip?: string; userAgent?: string };
 
 const TENANT_SELECT = {
@@ -40,7 +42,7 @@ export class TenantAdminService {
   /**
    * Cria a empresa já pronta para uso: perfis padrão e o primeiro administrador, tudo ou nada.
    */
-  async create(dto: CreateTenantDto) {
+  async create(dto: CreateTenantDto, extra: TenantExtraData = {}) {
     if (dto.cnpj) {
       const existing = await this.prisma.tenant.findUnique({ where: { cnpj: dto.cnpj }, select: { id: true } });
       if (existing) throw new ConflictException('Este CNPJ já está cadastrado em outra empresa.');
@@ -57,7 +59,7 @@ export class TenantAdminService {
 
     const tenant = await this.prisma.$transaction(async (tx) => {
       const created = await tx.tenant.create({
-        data: { name: dto.name, code, cnpj: dto.cnpj, plan: dto.plan ?? 'STARTER' },
+        data: { name: dto.name, code, cnpj: dto.cnpj, plan: dto.plan ?? 'STARTER', ...extra },
         select: { id: true },
       });
 

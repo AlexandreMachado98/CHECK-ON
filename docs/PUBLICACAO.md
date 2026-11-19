@@ -128,3 +128,21 @@ Localmente, `vercel dev` na raiz sobe os dois serviços com o mesmo roteamento.
 
 Sem `NEON_AUTH_URL`, a tela "Esqueci minha senha" avisa para pedir uma senha nova à empresa.
 
+
+## Integração com o DDS Master (assinaturas)
+
+O DDS Master controla os clientes do CHECK-ON: assinatura (teste, mensal ou anual) e vencimento, código de acesso do aplicativo, suspensão e senha do administrador da empresa. Ele chama a API do CHECK-ON em `/api/master/*`, servidor a servidor.
+
+1. Gere uma chave aleatória com 32 caracteres ou mais. Exemplo no PowerShell: `-join ((48..57)+(65..90)+(97..122) | Get-Random -Count 48 | % {[char]$_})`.
+2. Na Vercel do **CHECK-ON**, crie a variável `CHECKON_MASTER_TOKEN` com essa chave e publique de novo.
+3. Na Vercel do **DDS Master**, use **a mesma chave** e o endereço `https://<dominio-do-check-on>/api`.
+
+Teste: `GET /api/master/ping` com o cabeçalho `Authorization: Bearer <chave>` deve responder `{"ok":true,...}`. Sem a variável, a API responde 503 e a integração fica desligada. Dez chaves erradas seguidas, vindas do mesmo IP, bloqueiam esse IP por 15 minutos.
+
+**Regras da assinatura:**
+- **Sem vencimento:** a empresa nunca é bloqueada. Esse é o caso das empresas criadas antes da integração e da empresa da plataforma.
+- **Até o vencimento:** tudo funciona. Nos últimos 7 dias, o portal mostra um aviso.
+- **Carência** (padrão de 5 dias após o vencimento): tudo funciona, e o portal mostra um aviso em vermelho.
+- **Vencida:** o login no portal e no aplicativo é recusado e os acessos abertos caem em até 30 segundos. Nada é apagado: as inspeções guardadas no celular são enviadas depois da renovação.
+- **Suspensa** (no Master): o bloqueio é imediato.
+- O super admin continua entrando em qualquer empresa pelo "Acessar empresa".
