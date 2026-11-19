@@ -92,3 +92,22 @@ describe('falha no envio do código', () => {
     await expect(service.request('u11', { newEmail: 'novo@x.com', currentPassword: 'x' })).rejects.toThrow('motivo: INVALID_ORIGIN');
   });
 });
+
+describe('limite de pedidos da troca de e-mail', () => {
+  it('falha de configuração do Neon não gasta tentativa', async () => {
+    compare.mockResolvedValue(true);
+    const { service, neon } = setup();
+    neon.ensureUser.mockResolvedValue({ ok: false, status: 403, code: 'INVALID_ORIGIN', message: '' });
+    for (let i = 0; i < 5; i++) {
+      await expect(service.request('u20', { newEmail: 'n@x.com', currentPassword: 'x' })).rejects.toThrow('INVALID_ORIGIN');
+    }
+    neon.ensureUser.mockResolvedValue({ ok: true });
+    await expect(service.request('u20', { newEmail: 'n@x.com', currentPassword: 'x' })).resolves.toMatchObject({ requiresCode: true });
+  });
+  it('3 senhas erradas: o 4º pedido é barrado e diz quantos minutos esperar', async () => {
+    compare.mockResolvedValue(false);
+    const { service } = setup();
+    for (let i = 0; i < 3; i++) await expect(service.request('u21', { newEmail: 'n@x.com', currentPassword: 'e' })).rejects.toThrow('senha atual');
+    await expect(service.request('u21', { newEmail: 'n@x.com', currentPassword: 'e' })).rejects.toThrow(/Aguarde 1[45] minutos/);
+  });
+});

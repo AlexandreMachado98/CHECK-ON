@@ -98,8 +98,25 @@ export class NeonAuthClient {
 const isLocal = (origin: string) => /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i.test(origin);
 
 /** Escolhe o Origin enviado ao Neon Auth (exportado para teste). */
+/**
+ * Deixa o valor no formato que o Neon exige ("https://dominio", sem caminho):
+ * "check-on.vercel.app" ou "http://check-on.vercel.app/painel" viram "https://check-on.vercel.app".
+ * localhost continua http. Valor que não é um endereço: undefined (cai no padrão).
+ */
+export function normalizeOrigin(value: string | undefined): string | undefined {
+  const raw = value?.trim();
+  if (!raw) return undefined;
+  try {
+    const url = new URL(/^[a-z]+:\/\//i.test(raw) ? raw : `https://${raw}`);
+    if (url.protocol === 'http:' && !isLocal(url.origin)) url.protocol = 'https:';
+    return url.origin;
+  } catch {
+    return undefined;
+  }
+}
+
 export function pickNeonAuthOrigin(explicit: string | undefined, origins: string[] | true): string {
-  const fixed = explicit?.trim().replace(/\/$/, '');
+  const fixed = normalizeOrigin(explicit);
   if (fixed) return fixed;
   const list = Array.isArray(origins) ? origins : [];
   return list.find((o) => o.startsWith('https://') && !isLocal(o)) ?? list.find((o) => !isLocal(o)) ?? list[0] ?? 'http://localhost:3000';
