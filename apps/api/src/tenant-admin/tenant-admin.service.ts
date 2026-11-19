@@ -7,6 +7,7 @@ import { CreateTenantDto } from './dto/create-tenant.dto';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
 import { ADMIN_EMPRESA, DEFAULT_TENANT_ROLES } from '../role/role-definitions';
 import { SessionGuardCache } from '../auth/session-guard.cache';
+import { uniqueCompanyCode } from '../company/company-code';
 
 /** Validade do acesso do super admin a uma empresa. Sem refresh: expirou, volta para a plataforma. */
 export const TENANT_ACCESS_TTL_SECONDS = 60 * 60;
@@ -17,6 +18,7 @@ export type AccessContext = { ip?: string; userAgent?: string };
 const TENANT_SELECT = {
   id: true,
   name: true,
+  code: true,
   cnpj: true,
   plan: true,
   isActive: true,
@@ -47,11 +49,15 @@ export class TenantAdminService {
     const emailTaken = await this.prisma.$queryRaw<{ id: string }[]>`SELECT id FROM "User" WHERE email = ${dto.adminEmail} LIMIT 1`;
     if (emailTaken.length > 0) throw new ConflictException('O e-mail do administrador já está em uso.');
 
+    const isCodeTaken = async (code: string) => !!(await this.prisma.tenant.findUnique({ where: { code }, select: { id: true } }));
+    if (dto.code && (await isCodeTaken(dto.code))) throw new ConflictException('Este código já é usado por outra empresa.');
+    const code = dto.code ?? (await uniqueCompanyCode(dto.name, isCodeTaken));
+
     const passwordHash = await bcrypt.hash(dto.adminPassword, 10);
 
     const tenant = await this.prisma.$transaction(async (tx) => {
       const created = await tx.tenant.create({
-        data: { name: dto.name, cnpj: dto.cnpj, plan: dto.plan ?? 'STARTER' },
+        data: { name: dto.name, code, cnpj: dto.cnpj, plan: dto.plan ?? 'STARTER' },
         select: { id: true },
       });
 
@@ -69,7 +75,8 @@ export class TenantAdminService {
         const adminRole = await tx.role.findFirst({ where: { name: ADMIN_EMPRESA }, select: { id: true } });
         if (!adminRole) throw new Error('Perfil ADMIN_EMPRESA não foi criado.');
         await tx.user.create({
-          data: { name: dto.adminName, email: dto.adminEmail, passwordHash, roleId: adminRole.id } as never,
+          // Senha definida pelo super admin: provisória, o administrador troca no primeiro login.
+          data: { name: dto.adminName, email: dto.adminEmail, passwordHash, roleId: adminRole.id, mustChangePassword: true } as never,
         });
       });
 

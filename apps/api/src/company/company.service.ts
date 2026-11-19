@@ -7,6 +7,7 @@ import { SessionGuardCache } from '../auth/session-guard.cache';
 const COMPANY_SELECT = {
   id: true,
   name: true,
+  code: true,
   cnpj: true,
   plan: true,
   isActive: true,
@@ -44,6 +45,10 @@ export class CompanyService {
     if (dto.cnpj) {
       const other = await this.prisma.tenant.findFirst({ where: { cnpj: dto.cnpj, NOT: { id } }, select: { id: true } });
       if (other) throw new ConflictException('Este CNPJ já está cadastrado em outra empresa.');
+    }
+    if (dto.code) {
+      const other = await this.prisma.tenant.findFirst({ where: { code: dto.code, NOT: { id } }, select: { id: true } });
+      if (other) throw new ConflictException('Este código já é usado por outra empresa.');
     }
     return this.prisma.tenant.update({ where: { id }, data: dto, select: COMPANY_SELECT });
   }

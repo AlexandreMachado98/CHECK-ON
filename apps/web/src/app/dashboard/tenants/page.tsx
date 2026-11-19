@@ -30,13 +30,14 @@ function formatCnpj(cnpj: string | null) {
 
 type TenantForm = {
   name: string;
+  code: string;
   cnpj: string;
   plan: string;
   adminName: string;
   adminEmail: string;
   adminPassword: string;
 };
-const EMPTY_FORM: TenantForm = { name: '', cnpj: '', plan: 'STARTER', adminName: '', adminEmail: '', adminPassword: '' };
+const EMPTY_FORM: TenantForm = { name: '', code: '', cnpj: '', plan: 'STARTER', adminName: '', adminEmail: '', adminPassword: '' };
 
 export default function TenantsPage() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -122,6 +123,7 @@ export default function TenantsPage() {
       setFormError('');
       await api.post('/admin/tenants', {
         name: form.name,
+        code: form.code || undefined,
         cnpj: form.cnpj || undefined,
         plan: form.plan,
         adminName: form.adminName,
@@ -253,7 +255,7 @@ export default function TenantsPage() {
                           {t.isPlatform && <span className="ml-2 text-[11px] font-semibold text-emerald-700">plataforma</span>}
                         </p>
                         <p className="text-xs text-slate-500">
-                          CNPJ {formatCnpj(t.cnpj)} · desde {format(new Date(t.createdAt), 'dd/MM/yyyy')}
+                          {t.code ? <>Código <span className="font-mono font-semibold text-slate-700">{t.code}</span> · </> : null}CNPJ {formatCnpj(t.cnpj)} · desde {format(new Date(t.createdAt), 'dd/MM/yyyy')}
                         </p>
                       </TableCell>
                       <TableCell className="hidden md:table-cell text-sm text-slate-700">{planLabel(t.plan)}</TableCell>
@@ -358,6 +360,17 @@ export default function TenantsPage() {
             <div className="space-y-2">
               <Label htmlFor="t-name">Nome da empresa *</Label>
               <Input id="t-name" value={form.name} onChange={field('name')} required placeholder="Ex: Transportes Silva" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="t-code">Código da empresa (login por matrícula)</Label>
+              <Input
+                id="t-code"
+                value={form.code}
+                onChange={(e) => setForm((prev) => ({ ...prev, code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '') }))}
+                maxLength={12}
+                placeholder="Em branco: gerado a partir do nome"
+                className="font-mono uppercase"
+              />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">

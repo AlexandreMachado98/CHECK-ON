@@ -1,4 +1,5 @@
 import { Transform } from 'class-transformer';
+import { CompanyCodeField } from '../company-code';
 import { IsBoolean, IsEmail, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, ValidateIf } from 'class-validator';
 
 const trimmed = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
@@ -41,4 +42,9 @@ export class UpdateCompanyDto {
   @IsOptional()
   @IsBoolean()
   autoBlockCriticalNc?: boolean;
+
+  /** Código usado no login por matrícula (aplicativo e portal). */
+  @IsOptional()
+  @CompanyCodeField()
+  code?: string;
 }

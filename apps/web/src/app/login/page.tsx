@@ -21,6 +21,9 @@ export default function LoginPage() {
     setNotice(takeLoginNotice());
   }, []);
 
+  const [mode, setMode] = useState<'email' | 'matricula'>('email');
+  const [companyCode, setCompanyCode] = useState('');
+  const [matricula, setMatricula] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -31,18 +34,22 @@ export default function LoginPage() {
     setError('');
     
     try {
-      const response = await api.post('/auth/login', { email: email.trim(), password });
+      const credentials = mode === 'email'
+        ? { email: email.trim(), password }
+        : { companyCode: companyCode.trim(), matricula: matricula.trim(), password };
+      const response = await api.post('/auth/login', credentials);
       const { access_token, user } = response.data;
       
       clearSession(); // descarta sessão antiga, inclusive uma guardada de "Acessar empresa"
       localStorage.setItem('token', access_token);
       localStorage.setItem('user', JSON.stringify(user));
       
-      router.push(homePathFor());
+      // Senha provisória (criada pela empresa): primeiro define a senha própria.
+      router.push(user?.mustChangePassword ? '/trocar-senha' : homePathFor());
     } catch (err: unknown) {
       const axiosErr = err as { response?: { status?: number; data?: { message?: string | string[] } } };
       const apiMessage = axiosErr.response?.data?.message;
-      if (axiosErr.response?.status === 401) {
+      if (axiosErr.response?.status === 401 || axiosErr.response?.status === 429) {
         // A API diferencia senha errada, acesso bloqueado e empresa desativada.
         setError(typeof apiMessage === 'string' ? apiMessage : 'E-mail ou senha incorretos. Verifique os dados e tente novamente.');
       } else if (axiosErr.response?.status === 400 && apiMessage) {
@@ -120,19 +127,67 @@ export default function LoginPage() {
           </div>
 
           <form onSubmit={onSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-slate-700">E-mail corporativo</Label>
-              <Input 
-                id="email" 
-                type="email" 
-                placeholder="seu.email@empresa.com.br" 
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoFocus
-                className="h-11 bg-slate-50 border-slate-200 focus:bg-white text-slate-900"
-              />
+            <div role="tablist" aria-label="Forma de entrar" className="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1 text-sm">
+              {([['email', 'E-mail'], ['matricula', 'Empresa + matrícula']] as const).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="tab"
+                  aria-selected={mode === value}
+                  onClick={() => { setMode(value); setError(''); }}
+                  className={`rounded-md px-3 py-1.5 font-medium transition-colors ${mode === value ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
+
+            {mode === 'email' ? (
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-slate-700">E-mail corporativo</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="seu.email@empresa.com.br"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoFocus
+                  autoCapitalize="none"
+                  className="h-11 bg-slate-50 border-slate-200 focus:bg-white text-slate-900"
+                />
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="companyCode" className="text-slate-700">Código da empresa</Label>
+                  <Input
+                    id="companyCode"
+                    placeholder="EX: GAMA"
+                    value={companyCode}
+                    onChange={(e) => setCompanyCode(e.target.value.toUpperCase())}
+                    required
+                    autoFocus
+                    autoCapitalize="characters"
+                    autoComplete="organization"
+                    className="h-11 bg-slate-50 border-slate-200 focus:bg-white text-slate-900 uppercase"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="matricula" className="text-slate-700">Matrícula</Label>
+                  <Input
+                    id="matricula"
+                    placeholder="Sua matrícula"
+                    value={matricula}
+                    onChange={(e) => setMatricula(e.target.value)}
+                    required
+                    autoCapitalize="none"
+                    autoComplete="username"
+                    className="h-11 bg-slate-50 border-slate-200 focus:bg-white text-slate-900"
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="password" className="text-slate-700">Senha</Label>
@@ -162,7 +217,7 @@ export default function LoginPage() {
             <Button 
               type="submit" 
               className="w-full h-11 text-base font-semibold shadow-md bg-emerald-600 hover:bg-emerald-700 text-white" 
-              disabled={loading || !email || !password}
+              disabled={loading || !password || (mode === 'email' ? !email : !companyCode || !matricula)}
             >
               {loading ? (
                 'Entrando...'

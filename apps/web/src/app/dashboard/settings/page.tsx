@@ -14,6 +14,7 @@ import { clearSession, getStoredUser, setLoginNotice } from '@/lib/session';
 type Company = {
   id: string;
   name: string;
+  code: string | null;
   cnpj: string | null;
   plan: string;
   address: string | null;
@@ -26,7 +27,7 @@ type Company = {
   _count: { users: number; vehicles: number; employees: number; checklists: number };
 };
 
-type CompanyForm = { name: string; cnpj: string; address: string; contactEmail: string; phone: string };
+type CompanyForm = { name: string; code: string; cnpj: string; address: string; contactEmail: string; phone: string };
 
 const PLAN_LABELS: Record<string, string> = { STARTER: 'Starter', PRO: 'Pro', ENTERPRISE: 'Enterprise' };
 const TABS = [
@@ -51,6 +52,7 @@ function formatBytes(value: string | number) {
 function toForm(company: Company): CompanyForm {
   return {
     name: company.name,
+    code: company.code ?? '',
     cnpj: formatCnpj(company.cnpj),
     address: company.address ?? '',
     contactEmail: company.contactEmail ?? '',
@@ -61,7 +63,7 @@ function toForm(company: Company): CompanyForm {
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<(typeof TABS)[number]['id']>('company');
   const [company, setCompany] = useState<Company | null>(null);
-  const [form, setForm] = useState<CompanyForm>({ name: '', cnpj: '', address: '', contactEmail: '', phone: '' });
+  const [form, setForm] = useState<CompanyForm>({ name: '', code: '', cnpj: '', address: '', contactEmail: '', phone: '' });
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -112,7 +114,7 @@ export default function SettingsPage() {
   function handleSaveCompany(e: React.FormEvent) {
     e.preventDefault();
     save(
-      { name: form.name, cnpj: form.cnpj || null, address: form.address, contactEmail: form.contactEmail, phone: form.phone },
+      { name: form.name, code: form.code || undefined, cnpj: form.cnpj || null, address: form.address, contactEmail: form.contactEmail, phone: form.phone },
       'Dados da empresa salvos.',
     );
   }
@@ -209,6 +211,18 @@ export default function SettingsPage() {
                       <div className="space-y-2">
                         <Label htmlFor="companyName">Nome da empresa *</Label>
                         <Input id="companyName" value={form.name} onChange={field('name')} className="bg-slate-50" required maxLength={120} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="companyCode">Código da empresa (login por matrícula) *</Label>
+                        <Input
+                          id="companyCode"
+                          value={form.code}
+                          onChange={(e) => setForm((prev) => ({ ...prev, code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '') }))}
+                          className="bg-slate-50 font-mono uppercase"
+                          maxLength={12}
+                          required
+                        />
+                        <p className="text-xs text-slate-500">Colaboradores entram com este código + matrícula. Ao mudar, avise a equipe.</p>
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="cnpj">CNPJ</Label>

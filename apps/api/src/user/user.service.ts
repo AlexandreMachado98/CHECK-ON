@@ -5,6 +5,8 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ROLE_LABELS, assignableRoleNames } from '../role/role-definitions';
 import { SessionGuardCache } from '../auth/session-guard.cache';
+import { generateTemporaryPassword } from '../auth/password';
+import { CreateAccessDto } from './dto/create-access.dto';
 
 /** Quem faz a alteração (vem do token). */
 export type Requester = { id: string; role: string };
@@ -18,6 +20,8 @@ const USER_SELECT = {
   role: { select: { id: true, name: true } },
   employeeId: true,
   employee: { select: { id: true, name: true, matricula: true } },
+  mustChangePassword: true,
+  lockedUntil: true,
 } as const;
 
 type UserRow = { role: { id: string; name: string } } & Record<string, unknown>;
@@ -45,7 +49,8 @@ export class UserService {
     const passwordHash = await bcrypt.hash(dto.password, 10);
     const user = await this.prisma.user.create({
       // O tenantId é preenchido pela extensão do Prisma com a empresa de quem está logado.
-      data: { name: dto.name.trim(), email: dto.email, passwordHash, roleId: dto.roleId, employeeId: dto.employeeId || null } as never,
+      // A senha definida por outra pessoa é provisória: troca obrigatória no primeiro login.
+      data: { name: dto.name.trim(), email: dto.email, passwordHash, roleId: dto.roleId, employeeId: dto.employeeId || null, mustChangePassword: true } as never,
       select: USER_SELECT,
     });
     return withRoleLabel(user);
@@ -71,12 +76,18 @@ export class UserService {
     if (dto.roleId) await this.assertAssignableRole(dto.roleId, requester);
     if (dto.employeeId) await this.assertEmployeeAvailable(dto.employeeId, id);
 
-    const data: { name?: string; roleId?: string; isActive?: boolean; passwordHash?: string; employeeId?: string | null } = {};
+    const data: {
+      name?: string; roleId?: string; isActive?: boolean; passwordHash?: string; employeeId?: string | null;
+      mustChangePassword?: boolean; passwordChangedAt?: Date; failedLoginCount?: number; lockedUntil?: Date | null;
+    } = {};
     if (dto.employeeId !== undefined) data.employeeId = dto.employeeId || null;
     if (dto.name !== undefined) data.name = dto.name.trim();
     if (dto.roleId !== undefined) data.roleId = dto.roleId;
     if (dto.isActive !== undefined) data.isActive = dto.isActive;
-    if (dto.password) data.passwordHash = await bcrypt.hash(dto.password, 10);
+    if (dto.password) {
+      // Senha definida pelo administrador: provisória, e os logins abertos com a senha antiga caem.
+      Object.assign(data, await this.temporaryPasswordData(dto.password));
+    }
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const user = await tx.user.update({ where: { id }, data, select: USER_SELECT });
@@ -88,6 +99,82 @@ export class UserService {
     });
     this.sessionCache.invalidateUser(id);
     return withRoleLabel(updated);
+  }
+
+  /**
+   * "Criar acesso" a partir de um colaborador: login por código da empresa + matrícula (e e-mail, se informado),
+   * com senha provisória mostrada uma única vez para a empresa entregar à pessoa.
+   */
+  async createAccess(dto: CreateAccessDto, requester: Requester) {
+    await this.assertAssignableRole(dto.roleId, requester);
+    const employee = await this.prisma.employee.findFirst({
+      where: { id: dto.employeeId },
+      select: { id: true, name: true, matricula: true, isActive: true, tenant: { select: { code: true } } },
+    });
+    if (!employee) throw new BadRequestException('Colaborador não encontrado.');
+    if (!employee.isActive) throw new BadRequestException('Reative o colaborador antes de criar o acesso.');
+    if (!employee.matricula?.trim()) {
+      throw new BadRequestException('Cadastre a matrícula do colaborador: ela é o login dele no aplicativo e no portal.');
+    }
+    await this.assertEmployeeAvailable(employee.id);
+    if (dto.email) {
+      const taken = await this.prisma.$queryRaw<{ id: string }[]>`SELECT id FROM "User" WHERE lower(email) = ${dto.email} LIMIT 1`;
+      if (taken.length > 0) throw new ConflictException('Este e-mail já está em uso.');
+    }
+
+    const temporaryPassword = generateTemporaryPassword();
+    const user = await this.prisma.user.create({
+      data: {
+        name: employee.name,
+        email: dto.email ?? null,
+        passwordHash: await bcrypt.hash(temporaryPassword, 10),
+        roleId: dto.roleId,
+        employeeId: employee.id,
+        mustChangePassword: true,
+      } as never,
+      select: USER_SELECT,
+    });
+    return {
+      user: withRoleLabel(user),
+      credentials: { companyCode: employee.tenant.code, matricula: employee.matricula, email: dto.email ?? null, temporaryPassword },
+    };
+  }
+
+  /** Nova senha provisória gerada pelo sistema (para quem esqueceu a senha). Os logins abertos caem. */
+  async resetPassword(id: string, requester: Requester) {
+    if (id === requester.id) throw new BadRequestException('Para a sua própria senha, use "Alterar senha".');
+    const target = await this.prisma.user.findFirst({
+      where: { id },
+      select: { id: true, email: true, role: { select: { name: true } }, employee: { select: { matricula: true } }, tenant: { select: { code: true } } },
+    });
+    if (!target) throw new NotFoundException('Usuário não encontrado.');
+    if (!assignableRoleNames(requester.role).includes(target.role.name)) {
+      throw new ForbiddenException('Seu perfil não pode alterar este usuário.');
+    }
+    const temporaryPassword = generateTemporaryPassword();
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({ where: { id }, data: await this.temporaryPasswordData(temporaryPassword) });
+      await tx.refreshToken.updateMany({ where: { userId: id, revokedAt: null }, data: { revokedAt: new Date() } });
+    });
+    this.sessionCache.invalidateUser(id);
+    return {
+      credentials: {
+        companyCode: target.tenant.code,
+        matricula: target.employee?.matricula ?? null,
+        email: target.email,
+        temporaryPassword,
+      },
+    };
+  }
+
+  private async temporaryPasswordData(password: string) {
+    return {
+      passwordHash: await bcrypt.hash(password, 10),
+      mustChangePassword: true,
+      passwordChangedAt: new Date(),
+      failedLoginCount: 0,
+      lockedUntil: null,
+    };
   }
 
   /** O colaborador precisa ser da mesma empresa e não ter outro login vinculado. */

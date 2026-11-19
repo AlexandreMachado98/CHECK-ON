@@ -5,7 +5,7 @@ import { UpdateFleetDto } from './dto/update-fleet.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { PANEL_ROLES } from '../role/role-definitions';
+import { OPERATION_ROLES, PANEL_ROLES } from '../role/role-definitions';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(...PANEL_ROLES)
@@ -17,9 +17,11 @@ export class FleetController {
   create(@Body() createDto: CreateFleetDto) { return this.service.create(createDto); }
 
   @Get()
+  @Roles(...OPERATION_ROLES)
   findAll() { return this.service.findAll(); }
 
   @Get(':id')
+  @Roles(...OPERATION_ROLES)
   findOne(@Param('id') id: string) { return this.service.findOne(id); }
 
   @Patch(':id')

@@ -56,6 +56,8 @@ export class EmployeeService {
     return this.prisma.employee.findMany({
       include: {
         tenant: { select: { name: true } },
+        // Situação do acesso (aplicativo / portal) mostrada na tela Colaboradores.
+        user: { select: { id: true, email: true, isActive: true, mustChangePassword: true, lockedUntil: true, role: { select: { name: true } } } },
         trainings: { orderBy: { expiresAt: 'asc' } },
         supervisor: { select: { id: true, name: true, jobTitle: true } },
       },

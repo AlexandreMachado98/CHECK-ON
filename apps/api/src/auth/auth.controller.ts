@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Post, HttpCode, HttpStatus, Req, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Post, HttpCode, HttpStatus, Req, UseGuards } from '@nestjs/common';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import type { Request } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -11,8 +12,20 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
+  login(@Body() loginDto: LoginDto, @Req() req: Request) {
+    return this.authService.login(loginDto, req.ip);
+  }
+
+  /** O próprio usuário troca a senha (obrigatório depois de uma senha provisória). */
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  changePassword(@Body() dto: ChangePasswordDto, @Req() req: Request) {
+    const user = req.user as { id: string; impersonatedBy?: string | null };
+    if (user.impersonatedBy) {
+      throw new BadRequestException('Volte à plataforma para alterar a sua senha.');
+    }
+    return this.authService.changePassword(user.id, dto);
   }
 
   /** Troca o refresh token por um novo par de tokens. O token enviado deixa de valer. */

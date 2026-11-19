@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService, REFRESH_REUSE_WINDOW_MS, hashRefreshToken } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { SessionGuardCache } from './session-guard.cache';
 import { JwtService } from '@nestjs/jwt';
 import { NotFoundException, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
@@ -17,7 +18,10 @@ const activeUser = {
   tenantId: 't1',
   employeeId: 'emp-1',
   passwordHash: 'hash',
-  tenant: { isActive: true, name: 'Empresa A' },
+  failedLoginCount: 0,
+  lockedUntil: null as Date | null,
+  mustChangePassword: false,
+  tenant: { isActive: true, name: 'Empresa A', code: 'EMPA' },
   role: { name: 'MOTORISTA', permissions: ['vehicle:read'] },
 };
 
@@ -41,7 +45,10 @@ describe('AuthService', () => {
     user: {
       findUnique: vi.fn(),
       findFirst: vi.fn(),
+      findMany: vi.fn(),
+      update: vi.fn().mockResolvedValue({}),
     },
+    tenant: { findFirst: vi.fn() },
     refreshToken: {
       create: vi.fn(),
       findUnique: vi.fn(),
@@ -59,6 +66,7 @@ describe('AuthService', () => {
         AuthService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: JwtService, useValue: mockJwt },
+        { provide: SessionGuardCache, useValue: { invalidateUser: vi.fn(), invalidateTenant: vi.fn() } },
       ],
     }).compile();
 
@@ -77,7 +85,7 @@ describe('AuthService', () => {
       mockPrisma.user.findFirst.mockResolvedValue(null);
 
       await expect(authService.login({ email: 'x@x.com', password: '123' }))
-        .rejects.toThrow(new UnauthorizedException('E-mail ou senha incorretos.'));
+        .rejects.toThrow(new UnauthorizedException('Login ou senha incorretos.'));
     });
 
     it('procura o e-mail sem diferenciar maiúsculas', async () => {
@@ -88,12 +96,47 @@ describe('AuthService', () => {
       );
     });
 
+    it('entra com código da empresa + matrícula', async () => {
+      mockPrisma.tenant.findFirst.mockResolvedValue({ id: 't1' });
+      mockPrisma.user.findMany.mockResolvedValue([activeUser]);
+      compareMock.mockResolvedValue(true);
+
+      const result = await authService.login({ companyCode: 'EMPA', matricula: 'M-1', password: 'x' });
+      expect(result.access_token).toBe('jwt_token');
+      expect(mockPrisma.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { tenantId: 't1', employee: { matricula: { equals: 'M-1', mode: 'insensitive' } } } }),
+      );
+      expect(result.user).toMatchObject({ tenantCode: 'EMPA', mustChangePassword: false });
+    });
+
+    it('código de empresa inexistente responde igual a senha errada', async () => {
+      mockPrisma.tenant.findFirst.mockResolvedValue(null);
+      await expect(authService.login({ companyCode: 'XX', matricula: '1', password: 'x' }))
+        .rejects.toThrow(new UnauthorizedException('Login ou senha incorretos.'));
+    });
+
+    it('na 5ª senha errada seguida bloqueia o login por 15 minutos', async () => {
+      mockPrisma.user.findFirst.mockResolvedValue({ ...activeUser, failedLoginCount: 4 });
+      compareMock.mockResolvedValue(false);
+      await expect(authService.login({ email: 'x@x.com', password: 'errada' })).rejects.toThrow(UnauthorizedException);
+      const data = mockPrisma.user.update.mock.calls.at(-1)[0].data;
+      expect(data.failedLoginCount).toBe(0);
+      expect(data.lockedUntil.getTime()).toBeGreaterThan(Date.now() + 14 * 60 * 1000);
+    });
+
+    it('com o login bloqueado, nem confere a senha', async () => {
+      mockPrisma.user.findFirst.mockResolvedValue({ ...activeUser, lockedUntil: new Date(Date.now() + 5 * 60 * 1000) });
+      compareMock.mockClear();
+      await expect(authService.login({ email: 'x@x.com', password: 'certa' })).rejects.toThrow(/Muitas tentativas/);
+      expect(compareMock).not.toHaveBeenCalled();
+    });
+
     it('com senha errada não revela se a conta está bloqueada', async () => {
       mockPrisma.user.findFirst.mockResolvedValue({ ...activeUser, isActive: false });
       compareMock.mockResolvedValue(false);
 
       await expect(authService.login({ email: 'x@x.com', password: 'errada' }))
-        .rejects.toThrow(new UnauthorizedException('E-mail ou senha incorretos.'));
+        .rejects.toThrow(new UnauthorizedException('Login ou senha incorretos.'));
     });
 
     it('com a senha certa, avisa que o acesso está bloqueado', async () => {
@@ -117,7 +160,7 @@ describe('AuthService', () => {
       compareMock.mockResolvedValue(false);
 
       await expect(authService.login({ email: 'x@x.com', password: 'wrong' }))
-        .rejects.toThrow(new UnauthorizedException('E-mail ou senha incorretos.'));
+        .rejects.toThrow(new UnauthorizedException('Login ou senha incorretos.'));
       expect(mockPrisma.refreshToken.create).not.toHaveBeenCalled();
     });
 
