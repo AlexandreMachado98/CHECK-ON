@@ -1,0 +1,124 @@
+package com.checkon.app.data
+
+import java.text.Normalizer
+
+/**
+ * Regras da inspeção, iguais às da API (apps/api/src/checklist/checklist-rules.ts),
+ * para avisar o motorista antes de salvar, mesmo sem internet. Quem decide é a API.
+ */
+object Rules {
+
+    /** Prefixo do QR Code impresso pelo portal (Veículos → QR Code). */
+    const val VEHICLE_QR_PREFIX = "CHECKON:VEICULO:"
+
+    fun hasPhoto(answer: Answer?): Boolean = !answer?.photoUrl.isNullOrBlank() || !answer?.localPhoto.isNullOrBlank()
+
+    fun isAnswered(item: TemplateItem, answer: Answer?): Boolean {
+        if (answer == null) return false
+        return when (item.type) {
+            "TEXT" -> !answer.textValue.isNullOrBlank()
+            "NUMBER" -> answer.numberValue?.isFinite() == true
+            "PHOTO" -> hasPhoto(answer)
+            else -> answer.isCompliant != null
+        }
+    }
+
+    fun isCompliant(item: TemplateItem, answer: Answer?): Boolean =
+        if (item.type == "PASS_FAIL") answer?.isCompliant == true else answer?.isCompliant != false
+
+    /** Item que pede foto agora: item de foto, foto sempre exigida ou apontado como não conforme. */
+    fun showsPhoto(item: TemplateItem, answer: Answer?): Boolean =
+        item.type == "PHOTO" || item.photoRequirement == "ALWAYS" ||
+            (item.photoRequirement == "ON_NON_COMPLIANCE" && answer?.isCompliant == false)
+
+    private fun photoRequired(item: TemplateItem, compliant: Boolean): Boolean {
+        if (item.type == "PHOTO") return false // a própria foto é a resposta
+        if (item.photoRequirement == "ALWAYS") return true
+        return item.photoRequirement == "ON_NON_COMPLIANCE" && !compliant
+    }
+
+    data class Pendency(val itemId: String, val message: String)
+
+    /** O que falta para concluir a inspeção. */
+    fun pendingItems(template: Template, answers: Map<String, Answer>): List<Pendency> {
+        val result = mutableListOf<Pendency>()
+        for (item in template.allItems) {
+            val answer = answers[item.id]
+            if (!isAnswered(item, answer)) {
+                if (item.isRequired) result += Pendency(item.id, "Responda: ${item.text}")
+                if (answer == null || answer.isCompliant != false) continue
+            }
+            if (photoRequired(item, isCompliant(item, answer)) && !hasPhoto(answer)) {
+                result += Pendency(
+                    item.id,
+                    if (item.photoRequirement == "ALWAYS") "Tire a foto: ${item.text}" else "Tire a foto do problema: ${item.text}",
+                )
+            }
+        }
+        return result
+    }
+
+    /** Respostas que vão para a API: só itens respondidos, sem campos vazios. */
+    fun answersToSend(template: Template, answers: Map<String, Answer>): List<Answer> =
+        template.allItems.mapNotNull { item ->
+            val answer = answers[item.id] ?: return@mapNotNull null
+            if (!isAnswered(item, answer) && answer.isCompliant != false) return@mapNotNull null
+            Answer(
+                itemId = item.id,
+                isCompliant = answer.isCompliant,
+                textValue = answer.textValue?.trim()?.takeIf { item.type == "TEXT" && it.isNotEmpty() },
+                numberValue = answer.numberValue?.takeIf { item.type == "NUMBER" },
+                observations = answer.observations?.trim()?.takeIf { it.isNotEmpty() },
+                localPhoto = answer.localPhoto,
+                photoUrl = answer.photoUrl,
+            )
+        }
+
+    /** "12,5" ou "12.5" → 12.5. Texto inválido → null. */
+    fun parseNumber(text: String): Double? {
+        val normalized = text.trim().replace(" ", "").replace(',', '.')
+        if (!Regex("^-?\\d+(\\.\\d+)?$").matches(normalized)) return null
+        return normalized.toDoubleOrNull()?.takeIf { it.isFinite() }
+    }
+
+    /** Placa sem traço, espaço ou diferença de maiúsculas: "abc-1d23" → "ABC1D23". */
+    fun normalizePlate(value: String): String = value.uppercase().filter { it in 'A'..'Z' || it in '0'..'9' }
+
+    /** Código da empresa como a API espera: sem espaços e em maiúsculas. */
+    fun normalizeCompanyCode(value: String): String = value.filterNot { it.isWhitespace() }.uppercase()
+
+    /**
+     * Acha o veículo pelo conteúdo do QR Code, sem internet: aceita o QR do portal,
+     * o código de QR cadastrado no veículo ou a placa/prefixo escritos no QR.
+     */
+    fun findVehicleByQr(vehicles: List<Vehicle>, raw: String): Vehicle? {
+        val data = raw.trim()
+        if (data.isEmpty()) return null
+        if (data.uppercase().startsWith(VEHICLE_QR_PREFIX)) {
+            val id = data.substring(VEHICLE_QR_PREFIX.length).trim()
+            return vehicles.firstOrNull { it.id == id }
+        }
+        vehicles.firstOrNull { it.qrCode != null && it.qrCode == data }?.let { return it }
+        val plate = normalizePlate(data)
+        if (plate.isEmpty()) return null
+        return vehicles.firstOrNull { normalizePlate(it.plate) == plate }
+            ?: vehicles.firstOrNull { it.prefix != null && normalizePlate(it.prefix) == plate }
+    }
+
+    /** Filtro da lista de veículos: placa, prefixo, marca, modelo ou frota. */
+    fun matchesVehicle(vehicle: Vehicle, query: String): Boolean {
+        val q = query.trim().lowercase()
+        if (q.isEmpty()) return true
+        val plate = normalizePlate(q)
+        if (plate.isNotEmpty() && normalizePlate(vehicle.plate).contains(plate)) return true
+        return listOfNotNull(vehicle.prefix, vehicle.brand, vehicle.model, vehicle.fleet?.name)
+            .any { it.lowercase().contains(q) }
+    }
+
+    val STATUS_LABEL = mapOf("LIBERADO" to "Liberado", "ATENCAO" to "Atenção", "BLOQUEADO" to "Bloqueado")
+    val SEVERITY_LABEL = mapOf("LOW" to "Baixa", "MEDIUM" to "Média", "HIGH" to "Alta", "CRITICAL" to "Crítica")
+
+    /** Texto do aparelho só com ASCII (o cabeçalho HTTP não aceita acentos). */
+    fun asciiOnly(text: String): String =
+        Normalizer.normalize(text, Normalizer.Form.NFD).filter { it.code in 0x20..0x7e }.take(200)
+}
