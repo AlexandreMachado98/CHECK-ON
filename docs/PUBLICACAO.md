@@ -146,3 +146,7 @@ Teste: `GET /api/master/ping` com o cabeçalho `Authorization: Bearer <chave>` d
 - **Vencida:** o login no portal e no aplicativo é recusado e os acessos abertos caem em até 30 segundos. Nada é apagado: as inspeções guardadas no celular são enviadas depois da renovação.
 - **Suspensa** (no Master): o bloqueio é imediato.
 - O super admin continua entrando em qualquer empresa pelo "Acessar empresa".
+
+**Excluir empresa (pelo DDS Master), em duas fases:**
+1. **Excluir = arquivar:** a empresa some das listas e ninguém entra. As sessões abertas caem na hora e **nada é apagado**. "Restaurar" volta à situação de antes (ativa ou suspensa).
+2. **Excluir definitivamente:** só funciona para empresa arquivada e pede o nome da empresa digitado. Apaga a empresa, os logins, os colaboradores, os veículos, as inspeções, as NCs e a pasta de fotos dela, sem volta. O registro da exclusão continua no histórico do Master.

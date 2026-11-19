@@ -133,3 +133,11 @@ export class ResetAdminPasswordDto {
   @IsString()
   userId?: string;
 }
+
+/** Confirmação de "Excluir definitivamente": o nome da empresa digitado. */
+export class DeleteMasterCompanyDto {
+  @IsString({ message: 'Digite o nome da empresa para confirmar.' })
+  @IsNotEmpty({ message: 'Digite o nome da empresa para confirmar.' })
+  @MaxLength(120)
+  confirmName: string;
+}
