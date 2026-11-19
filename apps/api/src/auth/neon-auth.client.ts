@@ -37,6 +37,16 @@ export class NeonAuthClient {
     return this.post('/email-otp/request-password-reset', { email });
   }
 
+  /** Neon envia por e-mail um código para confirmar que o endereço é da pessoa (troca de e-mail). */
+  sendEmailVerificationCode(email: string): Promise<NeonAuthResult> {
+    return this.post('/email-otp/send-verification-otp', { email, type: 'email-verification' });
+  }
+
+  /** Confere e consome o código de confirmação de e-mail. */
+  verifyEmailCode(email: string, otp: string): Promise<NeonAuthResult> {
+    return this.post('/email-otp/verify-email', { email, otp });
+  }
+
   /**
    * Confere e CONSOME o código (não pode ser reutilizado). A senha gravada no Neon é aleatória:
    * a senha nova do usuário fica só no CHECK-ON.

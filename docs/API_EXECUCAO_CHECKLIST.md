@@ -195,3 +195,7 @@ Duas formas (o aplicativo deve oferecer as duas):
 - `POST /auth/reset-password-code` `{ email, code, newPassword }`: troca a senha com o código, encerra os outros logins e desbloqueia a conta. Código errado ou expirado: **400** "Código inválido ou expirado".
 - Sem e-mail cadastrado (motorista que entra por matrícula), quem gera a nova senha é a empresa.
 
+### Trocar o próprio e-mail
+- `POST /auth/change-email` `{ newEmail, currentPassword }`: confere a senha. Com o Neon Auth configurado, envia um código para o **novo** e-mail e responde `{ requiresCode: true }`. Sem o Neon, troca na hora (`{ requiresCode: false, email }`).
+- `POST /auth/change-email/confirm` `{ newEmail, code }`: confirma o código (válido por 15 min) e troca o e-mail. O e-mail antigo continua valendo até a confirmação.
+

@@ -67,27 +67,30 @@ model Role {
 }
 
 model User {
-  id                 String    @id @default(uuid())
-  tenantId           String
-  tenant             Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id                      String    @id @default(uuid())
+  tenantId                String
+  tenant                  Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   // Opcional: quem não tem e-mail (ex.: motorista) entra com código da empresa + matrícula
-  email              String?   @unique
-  passwordHash       String
+  email                   String?   @unique
+  passwordHash            String
   // Senha provisória (criada ou redefinida pela empresa): troca obrigatória no próximo login
-  mustChangePassword Boolean   @default(false)
+  mustChangePassword      Boolean   @default(false)
   // Tokens emitidos antes da última troca de senha deixam de valer
-  passwordChangedAt  DateTime?
+  passwordChangedAt       DateTime?
   // Limite de tentativas: após 5 erros seguidos, login bloqueado até lockedUntil
-  failedLoginCount   Int       @default(0)
-  lockedUntil        DateTime?
-  name               String
-  isActive           Boolean   @default(true)
-  roleId             String
-  role               Role      @relation(fields: [roleId], references: [id])
-  employeeId         String?   @unique
-  employee           Employee? @relation(fields: [employeeId], references: [id])
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  // Troca do próprio e-mail: o novo só vale depois de confirmado por código (válido por 15 min)
+  pendingEmail            String?
+  pendingEmailRequestedAt DateTime?
+  failedLoginCount        Int       @default(0)
+  lockedUntil             DateTime?
+  name                    String
+  isActive                Boolean   @default(true)
+  roleId                  String
+  role                    Role      @relation(fields: [roleId], references: [id])
+  employeeId              String?   @unique
+  employee                Employee? @relation(fields: [employeeId], references: [id])
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
 
   refreshTokens RefreshToken[]
   accessLogs    AdminAccessLog[]

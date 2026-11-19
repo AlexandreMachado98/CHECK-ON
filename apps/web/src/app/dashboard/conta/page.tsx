@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChangePasswordForm } from '@/components/change-password-form';
+import { ChangeEmailForm } from '@/components/change-email-form';
 import { getStoredUser } from '@/lib/session';
 import { roleLabel } from '@/lib/roles';
 import type { AuthUser } from '@/lib/types';
@@ -11,6 +12,14 @@ import type { AuthUser } from '@/lib/types';
 export default function AccountPage() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [changed, setChanged] = useState(false);
+  const [emailChanged, setEmailChanged] = useState('');
+
+  function onEmailChanged(email: string) {
+    const updated = { ...(getStoredUser() ?? user), email } as AuthUser;
+    localStorage.setItem('user', JSON.stringify(updated));
+    setUser(updated);
+    setEmailChanged(email);
+  }
 
   useEffect(() => {
     setUser(getStoredUser());
@@ -34,6 +43,23 @@ export default function AccountPage() {
             <p><span className="text-slate-500">Perfil:</span> {roleLabel(user.role)}</p>
             {user.email && <p><span className="text-slate-500">E-mail:</span> {user.email}</p>}
             {user.tenantName && <p><span className="text-slate-500">Empresa:</span> {user.tenantName}{user.tenantCode ? ` (código ${user.tenantCode})` : ''}</p>}
+          </CardContent>
+        </Card>
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader className="border-b border-slate-100 pb-4">
+            <CardTitle className="text-lg text-slate-800">E-mail de acesso</CardTitle>
+            <CardDescription>Use um e-mail que você abre: é para ele que vai o código de &quot;Esqueci minha senha&quot;.</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-5">
+            {user.impersonating ? (
+              <p className="text-sm text-slate-600">Você está dentro de uma empresa. Volte à plataforma para alterar o seu e-mail.</p>
+            ) : emailChanged ? (
+              <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+                E-mail alterado para <strong>{emailChanged}</strong>. Use-o no próximo login.
+              </p>
+            ) : (
+              <ChangeEmailForm currentEmail={user.email} onChanged={onEmailChanged} />
+            )}
           </CardContent>
         </Card>
         <Card className="border-slate-200 shadow-sm">
