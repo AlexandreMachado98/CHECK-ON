@@ -1,4 +1,5 @@
 import { Transform } from 'class-transformer';
+import { CompanyCodeField } from '../../company/company-code';
 import { IsEmail, IsIn, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
 
 export const TENANT_PLANS = ['STARTER', 'PRO', 'ENTERPRISE'] as const;
@@ -22,6 +23,11 @@ export class CreateTenantDto {
   @IsOptional()
   @IsIn(TENANT_PLANS, { message: 'Plano inválido.' })
   plan?: string;
+
+  /** Código no login por matrícula. Sem ele, é gerado a partir do nome. */
+  @IsOptional()
+  @CompanyCodeField()
+  code?: string;
 
   // Primeiro usuário da empresa: o administrador que cadastra os demais.
   @Transform(trimmed)

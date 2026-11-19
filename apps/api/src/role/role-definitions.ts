@@ -15,6 +15,12 @@ export const MOTORISTA = 'MOTORISTA';
  */
 export const PANEL_ROLES = [SUPER_ADMIN, 'ADMIN_EMPRESA', 'GESTOR'];
 
+/**
+ * Quem opera pelo portal: os perfis acima e o supervisor. O supervisor consulta a operação, trata NCs
+ * e libera/bloqueia veículos; não cadastra, não cria acessos e não mexe em modelos nem em configurações.
+ */
+export const OPERATION_ROLES = [...PANEL_ROLES, 'SUPERVISOR'];
+
 export const DEFAULT_TENANT_ROLES: ReadonlyArray<{ name: string; label: string; permissions: string[] }> = [
   { name: ADMIN_EMPRESA, label: 'Administrador da empresa', permissions: ['*'] },
   { name: GESTOR, label: 'Gestor', permissions: ['fleet:*', 'checklist:*', 'nc:*', 'employees:*', 'users:*'] },

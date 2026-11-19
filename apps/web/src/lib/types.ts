@@ -45,11 +45,14 @@ export interface User {
   /** Colaborador vinculado ao login (o motorista precisa dele para registrar checklist no app). */
   employeeId?: string | null;
   employee?: { id: string; name: string; matricula?: string | null } | null;
+  mustChangePassword?: boolean;
+  lockedUntil?: string | null;
 }
 
 export interface Tenant {
   id: string;
   name: string;
+  code?: string | null;
   cnpj: string | null;
   plan: string;
   isActive: boolean;
@@ -79,7 +82,8 @@ export interface Employee {
   trainings?: EmployeeTraining[];
   isActive: boolean;
   userId?: string;
-  user?: User;
+  /** Login do colaborador (aplicativo / portal), se a empresa criou. */
+  user?: EmployeeAccess | null;
 }
 
 export interface EmployeeTraining {
@@ -99,6 +103,27 @@ export interface AuthUser {
   role?: string;
   /** Super admin dentro do painel de uma empresa ("Acessar empresa"). */
   impersonating?: boolean;
+  /** Código da empresa (login por matrícula). */
+  tenantCode?: string | null;
+  /** Senha provisória: precisa trocar antes de usar o portal. */
+  mustChangePassword?: boolean;
+}
+
+/** Login gerado para um colaborador, mostrado uma única vez para a empresa entregar à pessoa. */
+export interface AccessCredentials {
+  companyCode: string | null;
+  matricula: string | null;
+  email: string | null;
+  temporaryPassword: string;
+}
+
+export interface EmployeeAccess {
+  id: string;
+  email: string | null;
+  isActive: boolean;
+  mustChangePassword: boolean;
+  lockedUntil: string | null;
+  role: { name: string };
 }
 
 export interface AdminAccessLog {

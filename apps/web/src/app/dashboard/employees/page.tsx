@@ -4,7 +4,10 @@ import { ChangeEvent, useEffect, useMemo, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { matchesSearch } from '@/lib/search';
 import api from '@/lib/api';
-import { apiErrorMessage, type Employee, type EmployeeTraining } from '@/lib/types';
+import { apiErrorMessage, type AccessCredentials, type Employee, type EmployeeTraining } from '@/lib/types';
+import { AccessBadge, CreateAccessDialog, CredentialsDialog, resetAccessPassword, toggleAccess } from '@/components/employee-access';
+import { canManage } from '@/lib/roles';
+import { getStoredUser } from '@/lib/session';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -15,7 +18,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Activity, AlertTriangle, BriefcaseBusiness, Building2, CalendarDays, Camera, Check, CheckCircle2,
-  Clock3, Copy, Edit2, ExternalLink, GraduationCap, Hash, Plus, QrCode, Search,
+  Clock3, Copy, Edit2, ExternalLink, GraduationCap, Hash, KeyRound, Plus, QrCode, RotateCcw, Search,
   ShieldCheck, ShieldOff, Trash2, User, Users,
 } from 'lucide-react';
 
@@ -326,10 +329,12 @@ function BadgeDialog({
   employee,
   onClose,
   onEmployeeUpdate,
+  canRotate = true,
 }: {
   employee: Employee;
   onClose: () => void;
   onEmployeeUpdate: (employee: Employee) => void;
+  canRotate?: boolean;
 }) {
   const [origin, setOrigin] = useState('');
   const [token, setToken] = useState(employee.badgeToken || '');
@@ -487,10 +492,10 @@ function BadgeDialog({
                 </Button>
               </>
             )}
-            <Button type="button" onClick={rotateToken} disabled={working}>
+            {canRotate && <Button type="button" onClick={rotateToken} disabled={working}>
               <QrCode className="mr-2 h-4 w-4" />
               {working ? 'Gerando…' : token ? 'Revogar e gerar QR' : 'Gerar QR do crachá'}
-            </Button>
+            </Button>}
           </div>
         </DialogFooter>
       </DialogContent>
@@ -548,8 +553,15 @@ export default function EmployeesPage() {
   const [badgeTarget, setBadgeTarget] = useState<Employee | null>(null);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('ALL');
+  const [accessTarget, setAccessTarget] = useState<Employee | null>(null);
+  const [issued, setIssued] = useState<{ name: string; credentials: AccessCredentials } | null>(null);
+  // Supervisor consulta: não cadastra, não edita e não cria acessos.
+  const [manager, setManager] = useState(false);
 
-  useEffect(() => { void fetchEmployees(); }, []);
+  useEffect(() => {
+    setManager(canManage(getStoredUser()?.role));
+    void fetchEmployees();
+  }, []);
 
   async function fetchEmployees() {
     try {
@@ -660,7 +672,7 @@ export default function EmployeesPage() {
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Colaboradores</h1>
           <p className="mt-1 text-sm text-slate-500">Cadastros, treinamentos e crachás digitais com validade conferível por QR.</p>
         </div>
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        {manager && <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger>
             <Button className="w-full shrink-0 shadow-sm sm:w-auto">
               <Plus className="mr-2 h-4 w-4" aria-hidden="true" /> Cadastrar colaborador
@@ -679,7 +691,7 @@ export default function EmployeesPage() {
               onCancel={() => setCreateOpen(false)}
             />
           </DialogContent>
-        </Dialog>
+        </Dialog>}
       </div>
 
       <Card className="border-slate-200 shadow-sm">
@@ -731,8 +743,9 @@ export default function EmployeesPage() {
                   <TableHead className="min-w-56">Colaborador</TableHead>
                   <TableHead>Matrícula</TableHead>
                   <TableHead>Função / setor</TableHead>
-                  <TableHead>Validade</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead className="hidden lg:table-cell">Validade</TableHead>
+                  <TableHead className="hidden sm:table-cell">Status</TableHead>
+                  <TableHead>Acesso</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -769,7 +782,7 @@ export default function EmployeesPage() {
                           <p className="text-xs text-slate-500">{employee.departmentName || 'Setor não informado'}</p>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden lg:table-cell">
                         {hasExpiredIntegration ? (
                           <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-700"><AlertTriangle className="h-3.5 w-3.5" /> Integração vencida</span>
                         ) : hasExpiringIntegration ? (
@@ -778,17 +791,53 @@ export default function EmployeesPage() {
                           <span className="inline-flex items-center gap-1.5 text-xs text-slate-500"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> {employee.companyIntegrationExpiresAt || employee.clientIntegrationExpiresAt ? 'Em dia' : 'Sem validade'}</span>
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         <Badge className={employee.isActive ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-100 text-slate-500'}>
                           {employee.isActive ? 'Ativo' : 'Inativo'}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <AccessBadge access={employee.user} />
+                        {manager && (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {!employee.user ? (
+                              employee.isActive && (
+                                <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setAccessTarget(employee)}>
+                                  <KeyRound className="mr-1 h-3 w-3" /> Criar acesso
+                                </Button>
+                              )
+                            ) : (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs text-slate-600"
+                                  onClick={async () => {
+                                    const credentials = await resetAccessPassword(employee.user!.id, employee.name);
+                                    if (credentials) { setIssued({ name: employee.name, credentials }); void fetchEmployees(); }
+                                  }}
+                                >
+                                  <RotateCcw className="mr-1 h-3 w-3" /> Nova senha
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className={`h-7 px-2 text-xs ${employee.user.isActive ? 'text-rose-700' : 'text-emerald-700'}`}
+                                  onClick={async () => { if (await toggleAccess(employee.user!, employee.name)) void fetchEmployees(); }}
+                                >
+                                  {employee.user.isActive ? 'Bloquear' : 'Liberar'}
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
                           <Button variant="ghost" size="icon" className="h-9 w-9 text-emerald-700 hover:bg-emerald-50" aria-label={`Abrir crachá de ${employee.name}`} onClick={() => setBadgeTarget(employee)}>
                             <QrCode className="h-4 w-4" aria-hidden="true" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-500" aria-label={`Editar ${employee.name}`} onClick={() => setEditTarget(employee)}>
+                          {manager && <><Button variant="ghost" size="icon" className="h-9 w-9 text-slate-500" aria-label={`Editar ${employee.name}`} onClick={() => setEditTarget(employee)}>
                             <Edit2 className="h-4 w-4" aria-hidden="true" />
                           </Button>
                           <Button
@@ -799,7 +848,7 @@ export default function EmployeesPage() {
                             onClick={() => handleToggleActive(employee)}
                           >
                             {employee.isActive ? <ShieldOff className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
-                          </Button>
+                          </Button></>}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -810,6 +859,19 @@ export default function EmployeesPage() {
           )}
         </CardContent>
       </Card>
+
+      {accessTarget && (
+        <CreateAccessDialog
+          employee={accessTarget}
+          onClose={() => setAccessTarget(null)}
+          onCreated={(credentials) => {
+            setIssued({ name: accessTarget.name, credentials });
+            setAccessTarget(null);
+            void fetchEmployees();
+          }}
+        />
+      )}
+      <CredentialsDialog name={issued?.name ?? ''} credentials={issued?.credentials ?? null} onClose={() => setIssued(null)} />
 
       {editTarget && (
         <Dialog open onOpenChange={(open) => !open && setEditTarget(null)}>
@@ -834,6 +896,7 @@ export default function EmployeesPage() {
       {badgeTarget && (
         <BadgeDialog
           employee={badgeTarget}
+          canRotate={manager}
           onClose={() => setBadgeTarget(null)}
           onEmployeeUpdate={(updated) => {
             setBadgeTarget(updated);

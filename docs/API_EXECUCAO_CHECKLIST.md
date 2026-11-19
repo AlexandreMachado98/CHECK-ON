@@ -164,3 +164,29 @@ O gestor pode editar o modelo enquanto há checklists feitos offline esperando s
 - `PATCH /company` (administrador): nome, CNPJ, endereço, e-mail e telefone de contato e `autoBlockCriticalNc`. Com `autoBlockCriticalNc: false`, NC crítica deixa o veículo em `ATENCAO` em vez de `BLOQUEADO`.
 - `POST /company/revoke-sessions` (administrador): encerra todos os logins da empresa, no painel e no app. Os acessos abertos caem em até 30 segundos.
 
+## Login e senhas
+
+**Quem entra onde:** motorista só no aplicativo; supervisor, gestor e administrador no portal e no aplicativo.
+O acesso é criado pela empresa em **Colaboradores → Criar acesso**, com uma senha provisória.
+
+### POST /auth/login
+Duas formas (o aplicativo deve oferecer as duas):
+
+```json
+{ "companyCode": "GAMA", "matricula": "M1234", "password": "..." }
+{ "email": "pessoa@empresa.com.br", "password": "..." }
+```
+
+- Código da empresa e matrícula não diferenciam maiúsculas.
+- A resposta traz `user.mustChangePassword`. Se `true`, o app deve abrir a tela de criar senha antes de qualquer outra coisa: até a troca, as outras rotas respondem **403** com `code: "PASSWORD_CHANGE_REQUIRED"`.
+- 5 senhas erradas seguidas bloqueiam o login por 15 minutos (**429**, com a mensagem pronta para mostrar). A empresa desbloqueia gerando uma nova senha provisória.
+- Mensagens de **401** para mostrar ao usuário: login/senha incorretos, acesso bloqueado, empresa desativada, sessão encerrada, senha alterada.
+
+### POST /auth/change-password
+`{ "currentPassword": "...", "newPassword": "..." }` (mínimo 8 caracteres). Devolve **tokens novos** (`access_token`, `refresh_token`): o app deve trocar os guardados. Os logins em outros aparelhos caem.
+
+### Empresa
+- `POST /users/access` `{ employeeId, roleId, email? }`: cria o login do colaborador e devolve `credentials { companyCode, matricula, email, temporaryPassword }` (mostrada uma única vez).
+- `POST /users/:id/reset-password`: nova senha provisória (também desbloqueia após tentativas erradas).
+- `GET /company` traz `code`, editável em `PATCH /company` (3 a 12 letras/números).
+

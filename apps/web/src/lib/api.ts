@@ -60,6 +60,12 @@ api.interceptors.response.use(undefined, async (error: AxiosError) => {
     if (!window.location.pathname.startsWith('/login')) window.location.assign('/login');
     return new Promise(() => {}); // a página vai para o login; não mostra erro na tela
   }
+  // Senha provisória: a API só libera a troca de senha. Leva para a tela de troca.
+  const body = error.response?.data as { code?: string } | undefined;
+  if (error.response?.status === 403 && body?.code === 'PASSWORD_CHANGE_REQUIRED' && typeof window !== 'undefined') {
+    if (!window.location.pathname.startsWith('/trocar-senha')) window.location.assign('/trocar-senha');
+    return new Promise(() => {});
+  }
   if (!isRetryable(error)) throw error;
   const config = error.config as RetryableConfig;
   config.__retryCount = (config.__retryCount ?? 0) + 1;

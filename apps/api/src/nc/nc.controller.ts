@@ -5,7 +5,7 @@ import { UpdateNcDto } from './dto/update-nc.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { PANEL_ROLES } from '../role/role-definitions';
+import { OPERATION_ROLES, PANEL_ROLES } from '../role/role-definitions';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(...PANEL_ROLES)
@@ -15,11 +15,13 @@ export class NcController {
 
   /** Com ?page=, devolve { items, total, page, pageSize, counts }. Sem, a lista completa de antes. */
   @Get()
+  @Roles(...OPERATION_ROLES)
   findAll(@Query() query: NcPageQueryDto) {
     return query.page ? this.ncService.findPage(query) : this.ncService.findAll();
   }
 
   @Patch(':id')
+  @Roles(...OPERATION_ROLES)
   update(@Param('id') id: string, @Body() updateNcDto: UpdateNcDto) {
     return this.ncService.update(id, updateNcDto);
   }

@@ -1,8 +1,11 @@
-import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { createHash, randomBytes, randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { LOCK_MINUTES, MAX_FAILED_LOGINS, ipIsBlocked, registerIpFailure } from './password';
+import { SessionGuardCache } from './session-guard.cache';
 import { refreshTokenTtlDays } from '../config/env';
 import * as bcrypt from 'bcrypt';
 
@@ -17,13 +20,16 @@ const INVALID_SESSION = 'Sessão expirada. Faça login novamente.';
 type UserWithAccess = {
   id: string;
   name: string;
-  email: string;
+  email: string | null;
   isActive: boolean;
   tenantId: string;
   employeeId?: string | null;
-  tenant: { name: string; isActive: boolean };
+  mustChangePassword?: boolean;
+  tenant: { name: string; isActive: boolean; code?: string | null };
   role: { name: string; permissions: unknown };
 };
+
+const WRONG_CREDENTIALS = 'Login ou senha incorretos.';
 
 export function hashRefreshToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
@@ -34,20 +40,28 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
+    private readonly sessionCache: SessionGuardCache,
   ) {}
 
-  async login(loginDto: LoginDto) {
-    // E-mail sem diferença de maiúsculas: no celular o teclado costuma pôr a primeira letra em maiúscula.
-    const user = await this.prisma.user.findFirst({
-      where: { email: { equals: loginDto.email.trim(), mode: 'insensitive' } },
-      include: { tenant: true, role: true },
-    });
+  async login(loginDto: LoginDto, ip?: string) {
+    if (ipIsBlocked(ip)) {
+      throw new HttpException('Muitas tentativas de login a partir desta rede. Aguarde 15 minutos.', HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    const user = await this.findLoginUser(loginDto);
+
+    if (user?.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
+      const minutes = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60000);
+      throw new HttpException(`Muitas tentativas com senha errada. Tente de novo em ${minutes} minuto${minutes === 1 ? '' : 's'}.`, HttpStatus.TOO_MANY_REQUESTS);
+    }
 
     // A senha é conferida antes de dizer que a conta está bloqueada: assim ninguém descobre
-    // quais e-mails existem testando senhas erradas.
+    // quais logins existem testando senhas erradas.
     const isPasswordValid = user ? await bcrypt.compare(loginDto.password, user.passwordHash) : false;
     if (!user || !isPasswordValid) {
-      throw new UnauthorizedException('E-mail ou senha incorretos.');
+      registerIpFailure(ip);
+      if (user) await this.registerFailedLogin(user.id, user.failedLoginCount);
+      throw new UnauthorizedException(WRONG_CREDENTIALS);
     }
     if (!user.tenant.isActive) {
       throw new UnauthorizedException('A empresa desta conta está desativada. Procure o suporte do CHECK-ON.');
@@ -56,7 +70,74 @@ export class AuthService {
       throw new UnauthorizedException('Seu acesso está bloqueado. Procure o administrador da sua empresa.');
     }
 
+    if (user.failedLoginCount > 0 || user.lockedUntil) {
+      await this.prisma.user.update({ where: { id: user.id }, data: { failedLoginCount: 0, lockedUntil: null } });
+    }
     return this.issueTokens(user, randomUUID());
+  }
+
+  /**
+   * E-mail (sem diferenciar maiúsculas: no celular o teclado costuma pôr a primeira letra em maiúscula)
+   * ou código da empresa + matrícula. Sem empresa no contexto ainda: as buscas não passam pelo filtro de tenant.
+   */
+  private async findLoginUser(dto: LoginDto) {
+    const include = { tenant: true, role: true } as const;
+    if (dto.email) {
+      return this.prisma.user.findFirst({ where: { email: { equals: dto.email.trim(), mode: 'insensitive' } }, include });
+    }
+    const tenant = await this.prisma.tenant.findFirst({ where: { code: { equals: dto.companyCode!, mode: 'insensitive' } }, select: { id: true } });
+    if (!tenant) return null;
+    const matches = await this.prisma.user.findMany({
+      where: { tenantId: tenant.id, employee: { matricula: { equals: dto.matricula!, mode: 'insensitive' } } },
+      include,
+      take: 2,
+    });
+    // Matrícula repetida (cadastro antigo): não dá para saber quem é. A empresa precisa corrigir o cadastro.
+    if (matches.length > 1) {
+      throw new BadRequestException('Há mais de um colaborador com esta matrícula. Peça à empresa para corrigir o cadastro.');
+    }
+    return matches[0] ?? null;
+  }
+
+  private async registerFailedLogin(userId: string, previousFailures: number) {
+    const failures = previousFailures + 1;
+    const lock = failures >= MAX_FAILED_LOGINS;
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: lock
+        ? { failedLoginCount: 0, lockedUntil: new Date(Date.now() + LOCK_MINUTES * 60 * 1000) }
+        : { failedLoginCount: failures },
+    });
+  }
+
+  /**
+   * O próprio usuário troca a senha (inclusive a provisória). Encerra os outros logins dele,
+   * no painel e no aplicativo, e devolve tokens novos para este aparelho continuar conectado.
+   */
+  async changePassword(userId: string, dto: ChangePasswordDto) {
+    // Sem filtro de tenant: o usuário é o do token. Inclui o caso do super admin dentro de outra empresa.
+    const [user] = await this.prisma.$queryRaw<{ id: string; passwordHash: string }[]>`
+      SELECT id, "passwordHash" FROM "User" WHERE id = ${userId}`;
+    if (!user) throw new NotFoundException('Usuário não encontrado.');
+    if (!(await bcrypt.compare(dto.currentPassword, user.passwordHash))) {
+      throw new BadRequestException('A senha atual não confere.');
+    }
+    if (dto.currentPassword === dto.newPassword) {
+      throw new BadRequestException('A nova senha precisa ser diferente da atual.');
+    }
+    const now = new Date();
+    await this.prisma.$transaction([
+      this.prisma.$executeRaw`
+        UPDATE "User" SET "passwordHash" = ${await bcrypt.hash(dto.newPassword, 10)}, "mustChangePassword" = false,
+          "passwordChangedAt" = ${now}, "failedLoginCount" = 0, "lockedUntil" = NULL, "updatedAt" = ${now}
+        WHERE id = ${userId}`,
+      this.prisma.$executeRaw`UPDATE "RefreshToken" SET "revokedAt" = ${now} WHERE "userId" = ${userId} AND "revokedAt" IS NULL`,
+    ]);
+    this.sessionCache.invalidateUser(userId);
+    // O token novo precisa ser de um segundo depois da troca (o "iat" do JWT é em segundos).
+    await new Promise((resolve) => setTimeout(resolve, Math.max(0, 1000 - (Date.now() % 1000))));
+    const fresh = await this.prisma.user.findFirstOrThrow({ where: { id: userId }, include: { tenant: true, role: true } });
+    return this.issueTokens(fresh, randomUUID());
   }
 
   /**
@@ -167,8 +248,10 @@ export class AuthService {
       email: user.email,
       tenantId: user.tenantId,
       tenantName: user.tenant.name,
+      tenantCode: user.tenant.code ?? null,
       role: user.role.name,
       employeeId: user.employeeId ?? null,
+      mustChangePassword: user.mustChangePassword ?? false,
     };
   }
 

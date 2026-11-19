@@ -196,7 +196,7 @@ export default function NCsPage() {
                     <TableHead className="hidden md:table-cell">Abertura</TableHead>
                     <TableHead>Item apontado</TableHead>
                     <TableHead>Veículo</TableHead>
-                    <TableHead>Severidade</TableHead>
+                    <TableHead className="hidden sm:table-cell">Severidade</TableHead>
                     <TableHead className="text-center hidden lg:table-cell">Ocorrências</TableHead>
                     <TableHead className="hidden sm:table-cell">Status</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
@@ -238,7 +238,7 @@ export default function NCsPage() {
                             </div>
                           ) : <span className="text-sm text-slate-400">—</span>}
                         </TableCell>
-                        <TableCell><NcSeverityBadge severity={nc.severity} /></TableCell>
+                        <TableCell className="hidden sm:table-cell"><NcSeverityBadge severity={nc.severity} /></TableCell>
                         <TableCell className="text-center hidden lg:table-cell">
                           <span className={`text-lg font-bold ${nc.occurrences > 1 ? 'text-amber-700' : 'text-slate-700'}`}>{nc.occurrences}</span>
                           {nc.lastOccurrenceAt && nc.occurrences > 1 && (
@@ -253,8 +253,9 @@ export default function NCsPage() {
                             className="h-8 text-xs font-medium text-slate-700 bg-white"
                             onClick={(event) => { event.stopPropagation(); startTreatment(nc); }}
                           >
-                            {nc.status === 'CLOSED' ? <Lock className="h-3.5 w-3.5 mr-1.5" /> : <Wrench className="h-3.5 w-3.5 mr-1.5 text-primary" />}
-                            {nc.status === 'CLOSED' ? 'Ver' : 'Tratar'}
+                            {nc.status === 'CLOSED' ? <Lock className="h-3.5 w-3.5 sm:mr-1.5" /> : <Wrench className="h-3.5 w-3.5 sm:mr-1.5 text-primary" />}
+                            <span className="hidden sm:inline">{nc.status === 'CLOSED' ? 'Ver' : 'Tratar'}</span>
+                            <span className="sr-only sm:hidden">{nc.status === 'CLOSED' ? 'Ver' : 'Tratar'}</span>
                           </Button>
                         </TableCell>
                       </TableRow>

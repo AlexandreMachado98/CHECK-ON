@@ -22,7 +22,8 @@ import {
   Menu,
   X,
   FolderTree,
-  Building2
+  Building2,
+  KeyRound
 } from 'lucide-react';
 
 const MENU_GROUPS = [
@@ -94,7 +95,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const hasPanelAccess = !!user && PANEL_ROLES.includes(user.role ?? '');
   const pathAllowed = !!user && canAccessPath(user.role, pathname);
   useEffect(() => {
-    if (user && hasPanelAccess && !pathAllowed) router.replace(homePathFor());
+    // Senha provisória: primeiro define a senha própria (o super admin dentro de uma empresa não entra aqui).
+    if (user?.mustChangePassword && !user.impersonating) router.replace('/trocar-senha');
+    else if (user && hasPanelAccess && !pathAllowed) router.replace(homePathFor());
   }, [user, hasPanelAccess, pathAllowed, router]);
 
   function handleLogout() {
@@ -113,9 +116,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <div className="min-h-screen w-full flex items-center justify-center bg-slate-900 p-6 text-white">
         <div className="max-w-sm text-center">
           <ShieldCheck className="mx-auto mb-3 h-8 w-8 text-emerald-500" />
-          <h1 className="text-lg font-semibold">O painel é para gestores</h1>
+          <h1 className="text-lg font-semibold">Seu acesso é pelo aplicativo</h1>
           <p className="mt-2 text-sm text-slate-400">
-            Seu perfil ({roleLabel(user.role)}) usa o aplicativo CHECK-ON no celular. Se precisar do painel, peça ao administrador da sua empresa.
+            O perfil {roleLabel(user.role)} usa o aplicativo CHECK-ON no celular. O portal é para supervisores e responsáveis pela empresa.
           </p>
           <Button variant="outline" className="mt-5 bg-transparent text-white hover:bg-slate-800" onClick={handleLogout}>
             <LogOut className="mr-2 h-4 w-4" />
@@ -208,6 +211,13 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             {user.tenantName && <p className="text-[11px] text-slate-500 truncate">{user.tenantName}</p>}
           </div>
         </div>
+        <Link
+          href="/dashboard/conta"
+          className="mb-1 flex h-9 w-full items-center rounded-md px-4 text-xs text-slate-400 hover:bg-slate-900 hover:text-white"
+        >
+          <KeyRound className="mr-2 h-4 w-4" />
+          Minha conta e senha
+        </Link>
         <Button 
           variant="ghost" 
           className="w-full justify-start text-slate-400 hover:text-rose-400 hover:bg-rose-950/20 h-9 text-xs" 
@@ -263,7 +273,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             {/* Context Breadcrumb / Section Name */}
             <div className="flex items-center text-sm font-medium text-slate-700">
               <span className="text-slate-400 hidden sm:inline">CHECK-ON /</span>
-              <span className="max-w-[48vw] truncate font-semibold text-slate-900 sm:ml-1.5">{currentItem?.name || 'Operação'}</span>
+              <span className="max-w-[48vw] truncate font-semibold text-slate-900 sm:ml-1.5">{currentItem?.name || (pathname === '/dashboard/conta' ? 'Minha conta' : 'Operação')}</span>
             </div>
           </div>
 

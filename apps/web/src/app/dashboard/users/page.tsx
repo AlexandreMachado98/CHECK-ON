@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { matchesSearch } from '@/lib/search';
 import api, { ensureList } from '@/lib/api';
-import { apiErrorMessage, type Employee, type User, type Role } from '@/lib/types';
+import { apiErrorMessage, type AccessCredentials, type Employee, type User, type Role } from '@/lib/types';
+import { CredentialsDialog, resetAccessPassword } from '@/components/employee-access';
 import { roleLabel } from '@/lib/roles';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ShieldCheck, Plus, Search, Edit2, ShieldOff, CheckCircle2, Activity, Key } from 'lucide-react';
+import { ShieldCheck, Plus, Search, Edit2, ShieldOff, CheckCircle2, Activity, Key, RotateCcw } from 'lucide-react';
 
 interface UserFormData {
   name: string;
@@ -56,7 +57,7 @@ function UserForm({ initial = EMPTY_FORM, roles, employees, onSubmit, onCancel, 
 
       <div className="space-y-2">
         <Label htmlFor="u-password">
-          {mode === 'edit' ? 'Nova senha (deixe em branco para manter; mín. 8 caracteres)' : 'Senha inicial * (mín. 8 caracteres)'}
+          {mode === 'edit' ? 'Nova senha provisória (deixe em branco para manter; mín. 8)' : 'Senha provisória * (mín. 8; a pessoa troca no 1º acesso)'}
         </Label>
         <Input
           id="u-password"
@@ -123,6 +124,7 @@ export default function UsersPage() {
   const [loadError, setLoadError] = useState('');
   const [formError, setFormError] = useState('');
   const [actionError, setActionError] = useState('');
+  const [issued, setIssued] = useState<{ name: string; credentials: AccessCredentials } | null>(null);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createSub, setCreateSub] = useState(false);
@@ -328,8 +330,8 @@ export default function UsersPage() {
                   <TableRow key={u.id} className="hover:bg-slate-50/50 transition-colors">
                     <TableCell className="font-medium text-slate-900">{u.name}</TableCell>
                     <TableCell className="text-slate-600 hidden sm:table-cell">
-                      {u.email}
-                      {u.employee && <span className="block text-xs text-slate-400">Colaborador: {u.employee.name}</span>}
+                      {u.email || <span className="text-slate-400">Sem e-mail</span>}
+                      {u.employee && <span className="block text-xs text-slate-400">Colaborador: {u.employee.name}{u.employee.matricula ? ` · matrícula ${u.employee.matricula}` : ''}</span>}
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
                       <div className="inline-flex items-center text-sm font-medium text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
@@ -341,7 +343,7 @@ export default function UsersPage() {
                       {u.isActive ? (
                         <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200 font-medium">
                           <CheckCircle2 className="mr-1 h-3 w-3 text-emerald-500" />
-                          Permitido
+                          {u.mustChangePassword ? 'Aguardando 1º acesso' : 'Permitido'}
                         </Badge>
                       ) : (
                         <Badge variant="secondary" className="bg-slate-100 text-slate-500 hover:bg-slate-200 border-slate-200 font-medium">
@@ -354,6 +356,19 @@ export default function UsersPage() {
                       <div className="flex justify-end gap-2">
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-primary" onClick={() => { setFormError(''); setEditTarget(u); }}>
                           <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-slate-400 hover:text-primary"
+                          title="Gerar nova senha provisória"
+                          aria-label={`Gerar nova senha provisória para ${u.name}`}
+                          onClick={async () => {
+                            const credentials = await resetAccessPassword(u.id, u.name);
+                            if (credentials) { setIssued({ name: u.name, credentials }); fetchUsers(); }
+                          }}
+                        >
+                          <RotateCcw className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
@@ -373,6 +388,8 @@ export default function UsersPage() {
           )}
         </CardContent>
       </Card>
+
+      <CredentialsDialog name={issued?.name ?? ''} credentials={issued?.credentials ?? null} onClose={() => setIssued(null)} />
 
       {editTarget && (
         <Dialog open={!!editTarget} onOpenChange={(open) => !open && setEditTarget(null)}>

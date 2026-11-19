@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { canManage } from '@/lib/roles';
+import { getStoredUser } from '@/lib/session';
 import api from '@/lib/api';
 import { matchesSearch } from '@/lib/search';
 import { apiErrorMessage, type Fleet, type Vehicle } from '@/lib/types';
@@ -15,6 +17,9 @@ import { VehicleStatusBadge } from '@/lib/status';
 import { FolderOpen, Plus, Search, Edit2, Archive, Activity, Truck } from 'lucide-react';
 
 export default function FleetsPage() {
+  // Supervisor consulta as frotas, mas não cadastra nem altera.
+  const [manager, setManager] = useState(false);
+  useEffect(() => { setManager(canManage(getStoredUser()?.role)); }, []);
   const [fleets, setFleets] = useState<Fleet[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -156,7 +161,7 @@ export default function FleetsPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        {manager && <div className="flex items-center gap-2">
           <Button 
             variant="outline" 
             className="shrink-0 shadow-xs" 
@@ -180,7 +185,7 @@ export default function FleetsPage() {
             <Truck className="mr-2 h-4 w-4" />
             Cadastrar Veículo
           </Button>
-        </div>
+        </div>}
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent>
@@ -293,7 +298,7 @@ export default function FleetsPage() {
                             <Truck className="h-3 w-3 mr-1" />
                             {vCount} {vCount === 1 ? 'veículo' : 'veículos'}
                           </Badge>
-                          {fleet.isActive && <Button
+                          {manager && fleet.isActive && <Button
                             variant="ghost"
                             size="sm"
                             className="h-7 text-xs text-primary hover:bg-primary/10 px-2 font-medium"
@@ -323,7 +328,7 @@ export default function FleetsPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex justify-end gap-1.5">
+                        {manager && <div className="flex justify-end gap-1.5">
                           <Button 
                             variant="ghost" 
                             size="icon" 
@@ -342,7 +347,7 @@ export default function FleetsPage() {
                           >
                             <Archive className="h-4 w-4" />
                           </Button>
-                        </div>
+                        </div>}
                       </TableCell>
                     </TableRow>
                   );

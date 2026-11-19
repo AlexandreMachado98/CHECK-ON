@@ -1,5 +1,6 @@
 import { jwtSecret } from '../../config/env';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import type { Request } from 'express';
 import { PassportStrategy } from '@nestjs/passport';
 import { Injectable } from '@nestjs/common';
 import { SessionGuardCache } from '../session-guard.cache';
@@ -11,12 +12,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       secretOrKey: jwtSecret(),
+      passReqToCallback: true,
     });
   }
 
-  async validate(payload: any) {
-    // Bloqueio de usuário, empresa desativada ou sessões revogadas valem antes de o token expirar.
-    await this.sessionGuard.assertValid(payload);
+  async validate(req: Request, payload: any) {
+    // Bloqueio de usuário, empresa desativada, sessões revogadas ou senha trocada valem antes de o token expirar.
+    await this.sessionGuard.assertValid(payload, req.originalUrl ?? req.url);
     // Retorna o contexto seguro validado para o req.user
     return {
       id: payload.sub,

@@ -11,7 +11,7 @@ import { ChecklistPageQueryDto } from '../common/pagination';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { PANEL_ROLES } from '../role/role-definitions';
+import { OPERATION_ROLES, PANEL_ROLES } from '../role/role-definitions';
 
 /** Perfis que executam checklists em campo (app) ou registram pelo painel. */
 const EXECUTION_ROLES = ['ADMIN_EMPRESA', 'GESTOR', 'SUPERVISOR', 'MOTORISTA'];
@@ -66,11 +66,13 @@ export class ChecklistController {
 
   /** Com ?page=, devolve { items, total, page, pageSize } (tela de Inspeções). Sem, a lista completa de antes. */
   @Get()
+  @Roles(...OPERATION_ROLES)
   findAll(@Query() query: ChecklistPageQueryDto) {
     return query.page ? this.service.findPage(query) : this.service.findAll();
   }
 
   @Get(':id')
+  @Roles(...OPERATION_ROLES)
   findOne(@Param('id') id: string) { return this.service.findOne(id); }
 
   @Patch(':id')

@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { matchesSearch } from '@/lib/search';
+import { canManage } from '@/lib/roles';
+import { getStoredUser } from '@/lib/session';
 import api from '@/lib/api';
 import { apiErrorMessage, type Vehicle, type VehicleStatus } from '@/lib/types';
 import { VEHICLE_STATUS, VehicleStatusBadge } from '@/lib/status';
@@ -19,6 +21,8 @@ const TILES: { status: VehicleStatus; icon: React.ElementType; tone: string }[] 
 ];
 
 export default function VehiclesPage() {
+  const [manager, setManager] = useState(false);
+  useEffect(() => { setManager(canManage(getStoredUser()?.role)); }, []);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -80,9 +84,9 @@ export default function VehiclesPage() {
             Situação operacional de cada veículo, calculada pelas não conformidades ativas.
           </p>
         </div>
-        <Link href="/dashboard/fleets">
+        {manager && <Link href="/dashboard/fleets">
           <Button variant="outline"><Truck className="h-4 w-4 mr-2" />Cadastrar em Frotas</Button>
-        </Link>
+        </Link>}
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3 mb-6">
