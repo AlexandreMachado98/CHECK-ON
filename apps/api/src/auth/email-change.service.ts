@@ -1,0 +1,102 @@
+import { BadRequestException, ConflictException, HttpException, HttpStatus, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
+import { PrismaService } from '../prisma/prisma.service';
+import { NeonAuthClient } from './neon-auth.client';
+import { ConfirmEmailChangeDto, RequestEmailChangeDto } from './dto/change-email.dto';
+
+/** O código de confirmação vale por este tempo depois do pedido. */
+const PENDING_TTL_MS = 15 * 60 * 1000;
+const WINDOW_MS = 15 * 60 * 1000;
+const MAX_REQUESTS = 3;
+
+type Row = { id: string; name: string; email: string | null; passwordHash: string; pendingEmail: string | null; pendingEmailRequestedAt: Date | null };
+
+/**
+ * A pessoa troca o próprio e-mail de acesso (inclusive o super admin). Exige a senha atual e,
+ * com o Neon Auth configurado, um código enviado ao NOVO e-mail: a recuperação de senha
+ * sempre vai para uma caixa que a pessoa abre.
+ */
+@Injectable()
+export class EmailChangeService {
+  private readonly logger = new Logger(EmailChangeService.name);
+  private readonly hits = new Map<string, number[]>();
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly neon: NeonAuthClient,
+  ) {}
+
+  async request(userId: string, dto: RequestEmailChangeDto) {
+    this.limit(userId);
+    const user = await this.load(userId);
+    if (!(await bcrypt.compare(dto.currentPassword, user.passwordHash))) {
+      throw new BadRequestException('A senha atual não confere.');
+    }
+    if (user.email && user.email.toLowerCase() === dto.newEmail) {
+      throw new BadRequestException('Este já é o seu e-mail de acesso.');
+    }
+    await this.assertEmailFree(dto.newEmail, userId);
+
+    // Sem Neon Auth: troca direto (a senha atual já foi conferida).
+    if (!this.neon.isConfigured()) {
+      const updated = await this.apply(userId, dto.newEmail);
+      return { requiresCode: false, email: updated };
+    }
+
+    const mirror = await this.neon.ensureUser(dto.newEmail, user.name);
+    const sent = mirror.ok ? await this.neon.sendEmailVerificationCode(dto.newEmail) : mirror;
+    if (!sent.ok) {
+      this.logger.warn(`Neon Auth não enviou o código de troca de e-mail (${sent.status} ${sent.code}): ${sent.message}`);
+      throw new HttpException('Não foi possível enviar o código para o novo e-mail. Tente de novo em instantes.', HttpStatus.BAD_GATEWAY);
+    }
+    await this.prisma.$executeRaw`
+      UPDATE "User" SET "pendingEmail" = ${dto.newEmail}, "pendingEmailRequestedAt" = ${new Date()} WHERE id = ${userId}`;
+    return { requiresCode: true, message: `Enviamos um código para ${dto.newEmail}. Confira também a caixa de spam.` };
+  }
+
+  async confirm(userId: string, dto: ConfirmEmailChangeDto) {
+    const user = await this.load(userId);
+    const expired = !user.pendingEmailRequestedAt || Date.now() - user.pendingEmailRequestedAt.getTime() > PENDING_TTL_MS;
+    if (!user.pendingEmail || user.pendingEmail !== dto.newEmail || expired) {
+      throw new BadRequestException('Pedido de troca de e-mail expirado. Comece de novo.');
+    }
+    const result = await this.neon.verifyEmailCode(dto.newEmail, dto.code);
+    if (!result.ok) {
+      if (/TOO_MANY/i.test(result.code)) throw new BadRequestException('Muitas tentativas com este código. Comece de novo.');
+      throw new BadRequestException('Código inválido ou expirado.');
+    }
+    await this.assertEmailFree(dto.newEmail, userId);
+    return { email: await this.apply(userId, dto.newEmail) };
+  }
+
+  private async apply(userId: string, email: string): Promise<string> {
+    await this.prisma.$executeRaw`
+      UPDATE "User" SET email = ${email}, "pendingEmail" = NULL, "pendingEmailRequestedAt" = NULL, "updatedAt" = ${new Date()}
+      WHERE id = ${userId}`;
+    this.hits.delete(userId);
+    return email;
+  }
+
+  // SQL direto: o usuário é o do token (inclui o super admin, cuja empresa é a da plataforma).
+  private async load(userId: string): Promise<Row> {
+    const rows = await this.prisma.$queryRaw<Row[]>`
+      SELECT id, name, email, "passwordHash", "pendingEmail", "pendingEmailRequestedAt" FROM "User" WHERE id = ${userId}`;
+    if (!rows[0]) throw new NotFoundException('Usuário não encontrado.');
+    return rows[0];
+  }
+
+  private async assertEmailFree(email: string, userId: string) {
+    const rows = await this.prisma.$queryRaw<{ id: string }[]>`SELECT id FROM "User" WHERE lower(email) = ${email} AND id <> ${userId} LIMIT 1`;
+    if (rows.length) throw new ConflictException('Este e-mail já é usado por outro acesso.');
+  }
+
+  private limit(key: string) {
+    const now = Date.now();
+    const recent = (this.hits.get(key) ?? []).filter((at) => now - at < WINDOW_MS);
+    if (recent.length >= MAX_REQUESTS) {
+      throw new HttpException('Muitos pedidos seguidos. Aguarde alguns minutos.', HttpStatus.TOO_MANY_REQUESTS);
+    }
+    recent.push(now);
+    this.hits.set(key, recent);
+  }
+}

@@ -2,6 +2,8 @@ import { BadRequestException, Body, Controller, Get, Post, HttpCode, HttpStatus,
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { ForgotPasswordDto, ResetPasswordWithCodeDto } from './dto/forgot-password.dto';
 import { PasswordRecoveryService } from './password-recovery.service';
+import { EmailChangeService } from './email-change.service';
+import { ConfirmEmailChangeDto, RequestEmailChangeDto } from './dto/change-email.dto';
 import type { Request } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -13,6 +15,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly recovery: PasswordRecoveryService,
+    private readonly emailChange: EmailChangeService,
   ) {}
 
   /** Esqueci minha senha: envia um código para o e-mail (resposta igual exista ou não o e-mail). */
@@ -33,6 +36,29 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   login(@Body() loginDto: LoginDto, @Req() req: Request) {
     return this.authService.login(loginDto, req.ip);
+  }
+
+  /** Troca do próprio e-mail, passo 1: senha atual + novo e-mail (código vai para o novo e-mail). */
+  @Post('change-email')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  requestEmailChange(@Body() dto: RequestEmailChangeDto, @Req() req: Request) {
+    return this.emailChange.request(this.selfId(req), dto);
+  }
+
+  /** Troca do próprio e-mail, passo 2: código recebido no novo e-mail. */
+  @Post('change-email/confirm')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  confirmEmailChange(@Body() dto: ConfirmEmailChangeDto, @Req() req: Request) {
+    return this.emailChange.confirm(this.selfId(req), dto);
+  }
+
+  /** Dentro de outra empresa ("Acessar empresa"), o super admin não altera o próprio login. */
+  private selfId(req: Request): string {
+    const user = req.user as { id: string; impersonatedBy?: string | null };
+    if (user.impersonatedBy) throw new BadRequestException('Volte à plataforma para alterar o seu acesso.');
+    return user.id;
   }
 
   /** O próprio usuário troca a senha (obrigatório depois de uma senha provisória). */

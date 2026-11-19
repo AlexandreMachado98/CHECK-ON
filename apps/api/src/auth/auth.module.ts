@@ -8,6 +8,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { SessionGuardCache } from './session-guard.cache';
 import { NeonAuthClient } from './neon-auth.client';
 import { PasswordRecoveryService } from './password-recovery.service';
+import { EmailChangeService } from './email-change.service';
 
 @Module({
   imports: [
@@ -19,7 +20,7 @@ import { PasswordRecoveryService } from './password-recovery.service';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, SessionGuardCache, NeonAuthClient, PasswordRecoveryService],
+  providers: [AuthService, JwtStrategy, SessionGuardCache, NeonAuthClient, PasswordRecoveryService, EmailChangeService],
   exports: [AuthService, SessionGuardCache],
 })
 export class AuthModule {}
