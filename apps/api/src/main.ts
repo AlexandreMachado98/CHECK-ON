@@ -1,10 +1,11 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { Logger, ValidationPipe } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import express from 'express';
 import { resolve } from 'node:path';
 import { PrismaExceptionFilter } from './common/prisma-exception.filter';
+import { createValidationPipe } from './common/validation';
 import { corsOrigins, isProduction, storageDriver, validateEnvOnStartup } from './config/env';
 
 // O Prisma devolve BigInt (ex.: Tenant.storageUsed), que o JSON padrão não sabe serializar.
@@ -30,13 +31,7 @@ async function bootstrap() {
 
   app.useGlobalFilters(new PrismaExceptionFilter());
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  );
+  app.useGlobalPipes(createValidationPipe());
 
   const port = Number(process.env.PORT ?? 3333);
   await app.listen(port, '0.0.0.0');
