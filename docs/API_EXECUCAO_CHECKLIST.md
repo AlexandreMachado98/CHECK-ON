@@ -190,3 +190,8 @@ Duas formas (o aplicativo deve oferecer as duas):
 - `POST /users/:id/reset-password`: nova senha provisória (também desbloqueia após tentativas erradas).
 - `GET /company` traz `code`, editável em `PATCH /company` (3 a 12 letras/números).
 
+### Esqueci minha senha (e-mail)
+- `POST /auth/forgot-password` `{ email }`: envia um código para o e-mail. A resposta é sempre a mesma, exista ou não o e-mail. Limite: 3 pedidos por e-mail a cada 15 min (**429**).
+- `POST /auth/reset-password-code` `{ email, code, newPassword }`: troca a senha com o código, encerra os outros logins e desbloqueia a conta. Código errado ou expirado: **400** "Código inválido ou expirado".
+- Sem e-mail cadastrado (motorista que entra por matrícula), quem gera a nova senha é a empresa.
+
