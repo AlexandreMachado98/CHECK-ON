@@ -27,9 +27,11 @@ export class EmailChangeService {
   ) {}
 
   async request(userId: string, dto: RequestEmailChangeDto) {
-    this.limit(userId);
+    // Contam no limite só senha errada e código enviado: falha de configuração não gasta tentativa.
+    this.assertUnderLimit(userId);
     const user = await this.load(userId);
     if (!(await bcrypt.compare(dto.currentPassword, user.passwordHash))) {
+      this.record(userId);
       throw new BadRequestException('A senha atual não confere.');
     }
     if (user.email && user.email.toLowerCase() === dto.newEmail) {
@@ -55,6 +57,7 @@ export class EmailChangeService {
       // O código do erro ajuda o suporte a identificar a causa sem acesso aos logs.
       throw new HttpException(`Não foi possível enviar o código para o novo e-mail (motivo: ${sent.code}). Tente de novo em instantes.`, HttpStatus.BAD_GATEWAY);
     }
+    this.record(userId);
     await this.prisma.$executeRaw`
       UPDATE "User" SET "pendingEmail" = ${dto.newEmail}, "pendingEmailRequestedAt" = ${new Date()} WHERE id = ${userId}`;
     return { requiresCode: true, message: `Enviamos um código para ${dto.newEmail}. Confira também a caixa de spam.` };
@@ -96,13 +99,25 @@ export class EmailChangeService {
     if (rows.length) throw new ConflictException('Este e-mail já é usado por outro acesso.');
   }
 
-  private limit(key: string) {
+  private recent(key: string): number[] {
     const now = Date.now();
-    const recent = (this.hits.get(key) ?? []).filter((at) => now - at < WINDOW_MS);
-    if (recent.length >= MAX_REQUESTS) {
-      throw new HttpException('Muitos pedidos seguidos. Aguarde alguns minutos.', HttpStatus.TOO_MANY_REQUESTS);
+    const list = (this.hits.get(key) ?? []).filter((at) => now - at < WINDOW_MS);
+    this.hits.set(key, list);
+    return list;
+  }
+
+  private assertUnderLimit(key: string) {
+    const list = this.recent(key);
+    if (list.length >= MAX_REQUESTS) {
+      const minutes = Math.max(1, Math.ceil((list[0] + WINDOW_MS - Date.now()) / 60000));
+      throw new HttpException(
+        `Muitos pedidos seguidos. Aguarde ${minutes} minuto${minutes === 1 ? '' : 's'} e tente de novo.`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
-    recent.push(now);
-    this.hits.set(key, recent);
+  }
+
+  private record(key: string) {
+    this.recent(key).push(Date.now());
   }
 }
