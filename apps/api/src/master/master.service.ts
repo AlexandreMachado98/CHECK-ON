@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
+import { StorageService } from '../storage/storage.service';
 import { SessionGuardCache } from '../auth/session-guard.cache';
 import { generateTemporaryPassword } from '../auth/password';
 import { TenantAdminService } from '../tenant-admin/tenant-admin.service';
@@ -25,6 +26,7 @@ const COMPANY_SELECT = {
   subscriptionEndsAt: true,
   graceDays: true,
   masterNotes: true,
+  archivedAt: true,
   createdAt: true,
 } as const;
 
@@ -39,6 +41,7 @@ type CompanyRow = {
   subscriptionEndsAt: Date | null;
   graceDays: number;
   masterNotes: string | null;
+  archivedAt: Date | null;
   createdAt: Date;
 };
 
@@ -69,10 +72,11 @@ export class MasterService {
     private readonly prisma: PrismaService,
     private readonly sessionCache: SessionGuardCache,
     private readonly tenantAdmin: TenantAdminService,
+    private readonly storage: StorageService,
   ) {}
 
   async summary() {
-    const companies = await this.listCompanies();
+    const [companies, archived] = await Promise.all([this.listCompanies(), this.listCompanies(true)]);
     const byState: Record<string, number> = { ATIVA: 0, TESTE: 0, CARENCIA: 0, VENCIDA: 0, SUSPENSA: 0 };
     companies.forEach((c) => (byState[c.subscription.state] = (byState[c.subscription.state] ?? 0) + 1));
     const expiringSoon = companies
@@ -81,6 +85,7 @@ export class MasterService {
     return {
       totalCompanies: companies.length,
       byState,
+      archived: archived.length,
       expiringIn7Days: expiringSoon.length,
       expiringSoon: expiringSoon.slice(0, 10).map((c) => ({ id: c.id, name: c.name, code: c.code, subscription: c.subscription })),
       inspections30d: companies.reduce((sum, c) => sum + c.usage.inspections30d, 0),
@@ -88,10 +93,11 @@ export class MasterService {
     };
   }
 
-  async listCompanies() {
+  /** Clientes ativos na lista (padrão) ou só os arquivados. */
+  async listCompanies(archived = false) {
     const platform = await this.platformTenantIds();
     const [rows, usage] = await Promise.all([
-      this.prisma.tenant.findMany({ select: COMPANY_SELECT, orderBy: { name: 'asc' } }),
+      this.prisma.tenant.findMany({ where: { archivedAt: archived ? { not: null } : null }, select: COMPANY_SELECT, orderBy: { name: 'asc' } }),
       this.usageByTenant(),
     ]);
     return rows.filter((row) => !platform.has(row.id)).map((row) => this.view(row, usage.get(row.id)));
@@ -141,7 +147,7 @@ export class MasterService {
   }
 
   async updateCompany(id: string, dto: UpdateMasterCompanyDto, actor?: string) {
-    const current = await this.findCompany(id);
+    const current = this.assertNotArchived(await this.findCompany(id));
     const data: Record<string, unknown> = {};
     const changes: Record<string, { from: unknown; to: unknown }> = {};
     const set = (field: keyof CompanyRow, value: unknown, label: string = field) => {
@@ -187,7 +193,7 @@ export class MasterService {
   }
 
   async renew(id: string, dto: RenewMasterCompanyDto, actor?: string) {
-    const current = await this.findCompany(id);
+    const current = this.assertNotArchived(await this.findCompany(id));
     if (dto.months === undefined && dto.until === undefined && dto.billingCycle === undefined) {
       throw new BadRequestException('Informe por quantos meses renovar ou a data do novo vencimento.');
     }
@@ -214,7 +220,7 @@ export class MasterService {
 
   /** Nova senha provisória para o administrador da empresa (ele troca no primeiro acesso). */
   async resetAdminPassword(id: string, dto: ResetAdminPasswordDto, actor?: string) {
-    await this.findCompany(id);
+    this.assertNotArchived(await this.findCompany(id));
     const admin = await this.prisma.user.findFirst({
       where: { tenantId: id, role: { name: ADMIN_EMPRESA }, ...(dto.userId ? { id: dto.userId } : { isActive: true }) },
       select: { id: true, email: true, name: true },
@@ -239,6 +245,111 @@ export class MasterService {
     this.sessionCache.invalidateUser(admin.id);
     await this.audit(id, 'ADMIN_PASSWORD_RESET', actor, { adminEmail: admin.email });
     return { credentials: { adminName: admin.name, adminEmail: admin.email, temporaryPassword } };
+  }
+
+  /**
+   * "Excluir" no Master: arquiva. Some das listas, ninguém entra (sessões abertas caem), dados preservados.
+   */
+  async archive(id: string, actor?: string) {
+    const current = await this.findCompany(id);
+    if (current.archivedAt) return this.getCompany(id);
+    const now = new Date();
+    await this.prisma.$transaction([
+      this.prisma.tenant.update({ where: { id }, data: { archivedAt: now, isActive: false, sessionsRevokedAt: now } }),
+      this.prisma.refreshToken.updateMany({ where: { revokedAt: null, user: { tenantId: id } }, data: { revokedAt: now } }),
+    ]);
+    this.sessionCache.invalidateTenant(id);
+    await this.audit(id, 'COMPANY_ARCHIVED', actor, { name: current.name, code: current.code, wasActive: current.isActive });
+    return this.getCompany(id);
+  }
+
+  /** Desfaz o arquivamento: volta à situação de antes (ativa ou suspensa). */
+  async restore(id: string, actor?: string) {
+    const current = await this.findCompany(id);
+    if (!current.archivedAt) return this.getCompany(id);
+    const last = await this.prisma.masterAuditLog.findFirst({
+      where: { tenantId: id, action: 'COMPANY_ARCHIVED' },
+      orderBy: { createdAt: 'desc' },
+      select: { details: true },
+    });
+    const details = last?.details ? (safeJson(last.details) as { wasActive?: boolean }) : {};
+    const isActive = details?.wasActive !== false;
+    await this.prisma.tenant.update({ where: { id }, data: { archivedAt: null, isActive } });
+    this.sessionCache.invalidateTenant(id);
+    await this.audit(id, 'COMPANY_RESTORED', actor, { isActive });
+    return this.getCompany(id);
+  }
+
+  /** O que será apagado por "Excluir definitivamente" (para a tela de confirmação). */
+  async deletionPreview(id: string) {
+    const company = await this.findCompany(id);
+    return { id, name: company.name, code: company.code, archived: !!company.archivedAt, counts: await this.counts(id) };
+  }
+
+  /**
+   * Apaga a empresa e todos os dados dela, sem volta. Só para empresa já arquivada e com o nome
+   * digitado igual (confirmação). O registro da exclusão fica no histórico do Master.
+   */
+  async deletePermanently(id: string, confirmName: string, actor?: string) {
+    const company = await this.findCompany(id);
+    if (!company.archivedAt) throw new BadRequestException('Arquive a empresa antes de excluir definitivamente.');
+    const typed = (confirmName ?? '').trim().toLocaleLowerCase('pt-BR');
+    if (!typed || typed !== company.name.trim().toLocaleLowerCase('pt-BR')) {
+      throw new BadRequestException('Para confirmar, digite o nome da empresa exatamente como está cadastrado.');
+    }
+    const counts = await this.counts(id);
+    // Fotos no armazenamento: coletadas antes, apagadas depois que o banco confirmar a exclusão.
+    const [answers, employees] = await Promise.all([
+      this.prisma.checklistAnswer.findMany({ where: { tenantId: id, photoUrl: { not: null } }, select: { photoUrl: true } }),
+      this.prisma.employee.findMany({ where: { tenantId: id, photoUrl: { not: null } }, select: { photoUrl: true } }),
+    ]);
+    const photos = [...answers, ...employees].map((row) => row.photoUrl).filter((url): url is string => !!url);
+
+    await this.prisma.$transaction(async (tx) => {
+      // Ordem explícita: registros que apontam para outros da mesma empresa saem primeiro.
+      await tx.nonConformity.deleteMany({ where: { tenantId: id } });
+      await tx.checklistAnswer.deleteMany({ where: { tenantId: id } });
+      await tx.checklist.deleteMany({ where: { tenantId: id } });
+      await tx.tenant.delete({ where: { id } });
+    });
+    this.sessionCache.invalidateTenant(id);
+    await this.audit(null, 'COMPANY_DELETED', actor, { id, name: company.name, code: company.code, cnpj: company.cnpj, counts });
+    this.logger.warn(`DDS Master excluiu definitivamente a empresa "${company.name}" (${id}).`);
+
+    let photosRemoved = 0;
+    // Pasta inteira das fotos de inspeção (inclui fotos enviadas que nunca entraram numa inspeção).
+    try {
+      photosRemoved += await this.storage.deleteTenantChecklistPhotos(id);
+    } catch (error) {
+      this.logger.warn(`Pasta de fotos da empresa ${id} não removida: ${(error as Error).message}`);
+    }
+    // Fotos de crachá dos funcionários ficam numa pasta comum: uma a uma.
+    for (const url of photos.filter((u) => !u.includes(`/checklist-photos/${id}/`))) {
+      try {
+        await this.storage.deleteFile(url);
+        photosRemoved++;
+      } catch (error) {
+        this.logger.warn(`Foto não removida (${url}): ${(error as Error).message}`);
+      }
+    }
+    return { deleted: true, name: company.name, counts, photosRemoved };
+  }
+
+  private async counts(id: string) {
+    const [users, employees, vehicles, checklists, ncs, photos] = await Promise.all([
+      this.prisma.user.count({ where: { tenantId: id } }),
+      this.prisma.employee.count({ where: { tenantId: id } }),
+      this.prisma.vehicle.count({ where: { tenantId: id } }),
+      this.prisma.checklist.count({ where: { tenantId: id } }),
+      this.prisma.nonConformity.count({ where: { tenantId: id } }),
+      this.prisma.checklistAnswer.count({ where: { tenantId: id, photoUrl: { not: null } } }),
+    ]);
+    return { users, employees, vehicles, checklists, ncs, photos };
+  }
+
+  private assertNotArchived(row: CompanyRow): CompanyRow {
+    if (row.archivedAt) throw new BadRequestException('Empresa arquivada. Restaure antes de alterar.');
+    return row;
   }
 
   async history(tenantId?: string, limit = 100) {

@@ -1,8 +1,8 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, Req, UseGuards, DefaultValuePipe } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, Req, UseGuards, DefaultValuePipe } from '@nestjs/common';
 import type { Request } from 'express';
 import { MasterTokenGuard } from './master-token.guard';
 import { MasterService } from './master.service';
-import { CreateMasterCompanyDto, RenewMasterCompanyDto, ResetAdminPasswordDto, UpdateMasterCompanyDto } from './dto/master-company.dto';
+import { CreateMasterCompanyDto, DeleteMasterCompanyDto, RenewMasterCompanyDto, ResetAdminPasswordDto, UpdateMasterCompanyDto } from './dto/master-company.dto';
 
 /** Quem fez a ação no DDS Master (e-mail do administrador mestre), só para o histórico. */
 function actor(req: Request): string | undefined {
@@ -30,9 +30,10 @@ export class MasterController {
     return this.service.summary();
   }
 
+  /** ?archived=true: só os arquivados. */
   @Get('companies')
-  list() {
-    return this.service.listCompanies();
+  list(@Query('archived') archived?: string) {
+    return this.service.listCompanies(archived === 'true');
   }
 
   @Post('companies')
@@ -58,6 +59,28 @@ export class MasterController {
   @Post('companies/:id/admin-password')
   resetAdminPassword(@Param('id') id: string, @Body() dto: ResetAdminPasswordDto, @Req() req: Request) {
     return this.service.resetAdminPassword(id, dto, actor(req));
+  }
+
+  /** "Excluir": arquiva (some das listas, acesso bloqueado, dados preservados). */
+  @Post('companies/:id/archive')
+  archive(@Param('id') id: string, @Req() req: Request) {
+    return this.service.archive(id, actor(req));
+  }
+
+  @Post('companies/:id/restore')
+  restore(@Param('id') id: string, @Req() req: Request) {
+    return this.service.restore(id, actor(req));
+  }
+
+  @Get('companies/:id/deletion-preview')
+  deletionPreview(@Param('id') id: string) {
+    return this.service.deletionPreview(id);
+  }
+
+  /** Exclusão definitiva (só arquivada, com o nome digitado). */
+  @Delete('companies/:id')
+  remove(@Param('id') id: string, @Body() dto: DeleteMasterCompanyDto, @Req() req: Request) {
+    return this.service.deletePermanently(id, dto.confirmName, actor(req));
   }
 
   @Get('history')

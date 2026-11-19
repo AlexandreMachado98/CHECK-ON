@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { mkdir, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, rm, unlink, writeFile } from 'node:fs/promises';
 import { dirname, resolve, sep } from 'node:path';
-import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, DeleteObjectsCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { publicApiUrl, s3Config, storageDriver } from '../config/env';
 
 /** Pastas (prefixos) que a API pode gravar e apagar. */
@@ -14,6 +14,8 @@ interface StorageDriver {
   readonly publicBaseUrl: string;
   put(key: string, body: Buffer, contentType: string): Promise<void>;
   remove(key: string): Promise<void>;
+  /** Apaga tudo o que começa com o prefixo (pasta). Devolve quantos arquivos saíram. */
+  removePrefix(prefix: string): Promise<number>;
 }
 
 /** Desenvolvimento: grava em disco e a API serve os arquivos em /uploads. */
@@ -39,6 +41,13 @@ class LocalDriver implements StorageDriver {
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
     }
+  }
+
+  async removePrefix(prefix: string) {
+    const dir = this.pathFor(prefix.replace(/\/+$/, ''));
+    const count = await readdir(dir).then((files) => files.length).catch(() => 0);
+    await rm(dir, { recursive: true, force: true });
+    return count;
   }
 }
 
@@ -69,6 +78,21 @@ class S3Driver implements StorageDriver {
   async remove(key: string) {
     await this.client.send(new DeleteObjectCommand({ Bucket: this.config.bucket, Key: key }));
   }
+
+  async removePrefix(prefix: string) {
+    let removed = 0;
+    let token: string | undefined;
+    do {
+      const page = await this.client.send(new ListObjectsV2Command({ Bucket: this.config.bucket, Prefix: prefix, ContinuationToken: token }));
+      const keys = (page.Contents ?? []).map((item) => item.Key).filter((key): key is string => !!key);
+      if (keys.length) {
+        await this.client.send(new DeleteObjectsCommand({ Bucket: this.config.bucket, Delete: { Objects: keys.map((Key) => ({ Key })), Quiet: true } }));
+        removed += keys.length;
+      }
+      token = page.IsTruncated ? page.NextContinuationToken : undefined;
+    } while (token);
+    return removed;
+  }
 }
 
 @Injectable()
@@ -85,6 +109,12 @@ export class StorageService {
   async uploadChecklistPhoto(fileBuffer: Buffer, mimetype: string, tenantId: string): Promise<string> {
     if (!/^[A-Za-z0-9-]+$/.test(tenantId)) throw new BadRequestException('Empresa inválida.');
     return this.storeImage(fileBuffer, mimetype, `checklist-photos/${tenantId}`);
+  }
+
+  /** Exclusão definitiva da empresa: apaga a pasta inteira das fotos de inspeção dela. */
+  async deleteTenantChecklistPhotos(tenantId: string): Promise<number> {
+    if (!/^[A-Za-z0-9-]+$/.test(tenantId)) throw new BadRequestException('Empresa inválida.');
+    return this.driver.removePrefix(`checklist-photos/${tenantId}/`);
   }
 
   /** Só aceita fotos enviadas por esta API para a mesma empresa. */

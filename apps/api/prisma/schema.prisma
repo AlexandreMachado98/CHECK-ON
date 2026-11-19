@@ -39,6 +39,9 @@ model Tenant {
   graceDays           Int       @default(5)
   // Anotações internas do DDS Master (não aparecem para a empresa).
   masterNotes         String?
+  // Arquivada pelo DDS Master ("Excluir"): some das listas e ninguém entra, mas os dados ficam.
+  // Restaurar volta ao normal; "Excluir definitivamente" só é aceito para empresa arquivada.
+  archivedAt          DateTime?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
