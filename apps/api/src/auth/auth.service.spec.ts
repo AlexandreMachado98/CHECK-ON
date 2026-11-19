@@ -275,6 +275,34 @@ describe('AuthService', () => {
     });
   });
 
+  describe('assinatura vencida (DDS Master)', () => {
+    const expiredTenant = { isActive: true, name: 'Empresa A', code: 'EMPA', subscriptionEndsAt: new Date(Date.now() - 10 * 86400000), graceDays: 5 };
+    const graceTenant = { ...expiredTenant, subscriptionEndsAt: new Date(Date.now() - 2 * 86400000) };
+
+    it('login no portal: recusa depois da carência (só com a senha certa)', async () => {
+      mockPrisma.user.findFirst.mockResolvedValue({ ...activeUser, tenant: expiredTenant });
+      compareMock.mockResolvedValue(true);
+      await expect(authService.login({ email: 'x@x.com', password: '123' })).rejects.toThrow('assinatura do CHECK-ON da sua empresa venceu');
+      compareMock.mockResolvedValue(false);
+      await expect(authService.login({ email: 'x@x.com', password: 'errada' })).rejects.toThrow('Login ou senha incorretos.');
+    });
+    it('na carência ainda entra', async () => {
+      mockPrisma.user.findFirst.mockResolvedValue({ ...activeUser, tenant: graceTenant });
+      compareMock.mockResolvedValue(true);
+      await expect(authService.login({ email: 'x@x.com', password: '123' })).resolves.toMatchObject({ access_token: 'jwt_token' });
+    });
+    it('login do aplicativo: recusa depois da carência', async () => {
+      mockPrisma.tenant.findFirst.mockResolvedValue({ id: 't1' });
+      mockPrisma.user.findMany.mockResolvedValue([{ ...activeUser, tenant: expiredTenant, employee: { isActive: true } }]);
+      await expect(authService.appLogin({ companyCode: 'EMPA', matricula: 'm-1' })).rejects.toThrow('venceu');
+    });
+    it('renovação de sessão: recusa sem encerrar a sessão (renovou, volta a funcionar)', async () => {
+      mockPrisma.refreshToken.findUnique.mockResolvedValue(storedToken({ user: { ...activeUser, tenant: expiredTenant } }));
+      await expect(authService.refresh('old-token')).rejects.toThrow('venceu');
+      expect(mockPrisma.refreshToken.updateMany).not.toHaveBeenCalledWith(expect.objectContaining({ where: { familyId: 'fam-1', revokedAt: null } }));
+    });
+  });
+
   describe('logout', () => {
     it('revoga o token pelo hash', async () => {
       await authService.logout('old-token');

@@ -18,6 +18,7 @@ import { StorageModule } from './storage/storage.module';
 import { MobileModule } from './mobile/mobile.module';
 import { RoleModule } from './role/role.module';
 import { CompanyModule } from './company/company.module';
+import { MasterModule } from './master/master.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TenantInterceptor } from './tenant/tenant.interceptor';
@@ -44,6 +45,7 @@ import { TenantInterceptor } from './tenant/tenant.interceptor';
     MobileModule,
     RoleModule,
     CompanyModule,
+    MasterModule,
   ],
   controllers: [AppController],
   providers: [

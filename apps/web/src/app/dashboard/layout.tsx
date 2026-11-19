@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import type { AuthUser } from '@/lib/types';
 import { PANEL_ROLES, canAccessPath, homePathFor, roleLabel } from '@/lib/roles';
 import { clearSession, returnToPlatform } from '@/lib/session';
+import { SubscriptionBanner } from '@/components/subscription-banner';
 import { 
   LayoutDashboard, 
   ClipboardCheck,
@@ -307,6 +308,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         {/* Page Content with responsive padding */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
           <div className="mx-auto w-full max-w-7xl">
+            {!user.impersonating && user.role !== 'SUPER_ADMIN' && <SubscriptionBanner />}
             {children}
           </div>
         </main>

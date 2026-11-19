@@ -1,10 +1,11 @@
 import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { SUBSCRIPTION_EXPIRED_MESSAGE, subscriptionExpired } from '../subscription/subscription';
 
 /** Quanto tempo a situação de um usuário/empresa fica em memória antes de ser consultada de novo. */
 const TTL_MS = 30_000;
 
-type TenantState = { isActive: boolean; sessionsRevokedAt: Date | null };
+type TenantState = { isActive: boolean; sessionsRevokedAt: Date | null; subscriptionEndsAt: Date | null; graceDays: number };
 type UserState = { isActive: boolean; mustChangePassword: boolean; passwordChangedAt: Date | null };
 
 /**
@@ -18,7 +19,7 @@ const ALLOWED_WITH_TEMPORARY_PASSWORD = ['/auth/change-password', '/auth/me', '/
 
 /**
  * Confere a cada requisição se o login ainda vale, sem esperar o token expirar (1 dia):
- * usuário bloqueado, empresa desativada ou "Revogar todas as sessões" derrubam o acesso
+ * usuário bloqueado, empresa desativada, assinatura vencida ou "Revogar todas as sessões" derrubam o acesso
  * em até 30 segundos (na hora, na instância que fez a alteração).
  */
 @Injectable()
@@ -32,6 +33,10 @@ export class SessionGuardCache {
     const [user, tenant] = await Promise.all([this.user(payload.sub), this.tenant(payload.tenantId)]);
     if (!user || !user.isActive) throw new UnauthorizedException('Seu acesso foi bloqueado. Procure o administrador da sua empresa.');
     if (!tenant || !tenant.isActive) throw new UnauthorizedException('A empresa desta conta está desativada.');
+    // Assinatura vencida (depois da carência): só o super admin, pelo "Acessar empresa", continua entrando.
+    if (!payload.impersonatedBy && subscriptionExpired(tenant)) {
+      throw new UnauthorizedException({ statusCode: 401, message: SUBSCRIPTION_EXPIRED_MESSAGE, code: 'SUBSCRIPTION_EXPIRED' });
+    }
     // "iat" do JWT é em segundos: compara no mesmo grão (token emitido no mesmo segundo da revogação cai).
     const issuedAt = payload.iat ?? 0;
     if (tenant.sessionsRevokedAt && issuedAt <= Math.floor(tenant.sessionsRevokedAt.getTime() / 1000)) {
@@ -64,7 +69,7 @@ export class SessionGuardCache {
   private async tenant(id: string): Promise<TenantState | null> {
     const hit = this.tenants.get(id);
     if (hit && Date.now() - hit.at < TTL_MS) return hit.value;
-    const rows = await this.prisma.$queryRaw<TenantState[]>`SELECT "isActive", "sessionsRevokedAt" FROM "Tenant" WHERE id = ${id}`;
+    const rows = await this.prisma.$queryRaw<TenantState[]>`SELECT "isActive", "sessionsRevokedAt", "subscriptionEndsAt", "graceDays" FROM "Tenant" WHERE id = ${id}`;
     const value = rows[0] ?? null;
     this.tenants.set(id, { at: Date.now(), value });
     return value;

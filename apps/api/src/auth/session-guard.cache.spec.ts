@@ -54,3 +54,28 @@ describe('sessão do aplicativo (sem senha)', () => {
   });
 });
 
+
+describe('assinatura (DDS Master)', () => {
+  const day = 86400000;
+  const tenant = (endsDaysAgo: number | null, graceDays = 5) => ({
+    isActive: true,
+    sessionsRevokedAt: null,
+    subscriptionEndsAt: endsDaysAgo === null ? null : new Date(Date.now() - endsDaysAgo * day),
+    graceDays,
+  });
+  it('sem vencimento ou dentro do prazo: passa', async () => {
+    await expect(guard(active, tenant(null)).assertValid({ sub: 'u', tenantId: 't', iat: now }, '/api/vehicles')).resolves.toBeUndefined();
+    await expect(guard(active, tenant(-3)).assertValid({ sub: 'u', tenantId: 't', iat: now }, '/api/vehicles')).resolves.toBeUndefined();
+  });
+  it('na carência: passa', async () => {
+    await expect(guard(active, tenant(2)).assertValid({ sub: 'u', tenantId: 't', iat: now }, '/api/vehicles')).resolves.toBeUndefined();
+  });
+  it('vencida: derruba portal e aplicativo com o código SUBSCRIPTION_EXPIRED', async () => {
+    const g = guard(active, tenant(10));
+    await expect(g.assertValid({ sub: 'u', tenantId: 't', iat: now }, '/api/vehicles')).rejects.toMatchObject({ response: { code: 'SUBSCRIPTION_EXPIRED' } });
+    await expect(g.assertValid({ sub: 'u', tenantId: 't', iat: now, channel: 'app' }, '/api/checklists/sync')).rejects.toThrow('venceu');
+  });
+  it('vencida: o super admin pelo "Acessar empresa" continua entrando', async () => {
+    await expect(guard(active, tenant(10)).assertValid({ sub: 'u', tenantId: 't', iat: now, impersonatedBy: 'admin' }, '/api/vehicles')).resolves.toBeUndefined();
+  });
+});

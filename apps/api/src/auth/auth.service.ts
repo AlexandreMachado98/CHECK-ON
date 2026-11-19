@@ -9,6 +9,7 @@ import { LOCK_MINUTES, MAX_FAILED_LOGINS, ipIsBlocked, registerIpFailure } from 
 import { SessionGuardCache } from './session-guard.cache';
 import { refreshTokenTtlDays } from '../config/env';
 import * as bcrypt from 'bcrypt';
+import { SUBSCRIPTION_EXPIRED_MESSAGE, subscriptionExpired, subscriptionInfo } from '../subscription/subscription';
 
 /**
  * Janela em que um refresh token recém-trocado ainda é aceito.
@@ -67,6 +68,7 @@ export class AuthService {
     if (!user.tenant.isActive) {
       throw new UnauthorizedException('A empresa desta conta está desativada. Procure o suporte do CHECK-ON.');
     }
+    if (subscriptionExpired(user.tenant)) throw new UnauthorizedException(SUBSCRIPTION_EXPIRED_MESSAGE);
     if (!user.isActive) {
       throw new UnauthorizedException('Seu acesso está bloqueado. Procure o administrador da sua empresa.');
     }
@@ -103,6 +105,7 @@ export class AuthService {
       throw new UnauthorizedException('Código da empresa ou matrícula não encontrados. Confira com a sua empresa se o seu acesso foi criado.');
     }
     if (!user.tenant.isActive) throw new UnauthorizedException('A empresa desta conta está desativada. Procure o suporte do CHECK-ON.');
+    if (subscriptionExpired(user.tenant)) throw new UnauthorizedException(SUBSCRIPTION_EXPIRED_MESSAGE);
     if (!user.isActive || user.employee?.isActive === false) {
       throw new UnauthorizedException('Seu acesso está bloqueado. Procure o administrador da sua empresa.');
     }
@@ -204,6 +207,8 @@ export class AuthService {
       await this.revokeFamily(record.familyId);
       throw new UnauthorizedException('Conta inativa. Procure o administrador.');
     }
+    // Assinatura vencida: recusa sem encerrar a sessão (renovou, o aplicativo volta a funcionar).
+    if (subscriptionExpired(user.tenant)) throw new UnauthorizedException(SUBSCRIPTION_EXPIRED_MESSAGE);
 
     if (!record.revokedAt) {
       // Só um pedido concorrente consegue revogar; o outro cai na janela de tolerância acima na próxima vez.
@@ -241,6 +246,8 @@ export class AuthService {
 
     return {
       ...this.toUserResponse(user),
+      // Situação da assinatura: o portal mostra o aviso de vencimento e de carência.
+      subscription: subscriptionInfo(user.tenant),
       permissions: user.role.permissions,
       employee: user.employee && user.employee.isActive ? user.employee : null,
     };
