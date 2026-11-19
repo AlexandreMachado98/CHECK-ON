@@ -32,25 +32,36 @@ Os módulos nativos (câmera, localização, armazenamento seguro) exigem um bui
 
 ## Gerar o APK (Android)
 
-O APK é gerado na nuvem da Expo. Não precisa de Android Studio.
+### Automático, pelo GitHub (recomendado)
 
+O workflow `.github/workflows/mobile-apk.yml` gera o APK na nuvem da Expo e publica em **Releases** no GitHub, com um link que o motorista abre direto no celular.
+
+**Configuração (uma vez):**
 1. Crie uma conta gratuita em https://expo.dev (uma conta só do CHECK-ON).
-2. Na primeira vez, entre na conta e ligue o projeto a ela. Esse passo grava o `projectId` no `app.json`:
+2. Em expo.dev, abra Account settings → Access tokens → Create token e copie o token.
+3. No GitHub, abra Settings → Secrets and variables → Actions → New repository secret. Use o nome `EXPO_TOKEN` e cole o token.
 
-   ```bash
-   cd apps/mobile
-   npx eas-cli@latest login
-   npx eas-cli@latest init
-   ```
+**Para gerar:**
+- **Manual:** aba Actions → "APK do aplicativo" → Run workflow.
+- **Automático:** aumente `version` e `android.versionCode` em `app.json` e mescle na `main`.
 
-3. Gere o APK:
+O build leva de 10 a 30 minutos. O APK aparece em Releases como `app-v<versão>-<código>`.
 
-   ```bash
-   npm run build:apk
-   ```
+No primeiro build, a Expo cria a chave de assinatura do app e a guarda na conta. Todos os builds seguintes usam a mesma chave. É isso que permite instalar uma versão nova por cima da anterior sem perder os dados do celular.
 
-   No fim, a Expo mostra um link e um QR Code para baixar o `.apk`. No celular, abra o link e permita a instalação de "fontes desconhecidas".
+O plano gratuito da Expo tem um limite mensal de builds, por isso o APK só é gerado quando você pede ou quando a versão muda.
 
-Para uma versão nova, aumente `version` e `android.versionCode` no `app.json` antes do build. O celular só atualiza o app se o `versionCode` for maior.
+### Pelo computador (alternativa)
 
-O identificador do app é `com.checkon.app` e fica fixo depois da primeira instalação nos celulares.
+```bash
+cd apps/mobile
+npx eas-cli@latest login
+npx eas-cli@latest init
+npm run build:apk
+```
+
+## Versões
+
+Para lançar uma versão nova, aumente `version` (ex.: `1.0.1`) e `android.versionCode` (ex.: `2`) no `app.json`. O celular só aceita a atualização se o `versionCode` for maior que o da versão instalada.
+
+O identificador do app é `com.checkon.app` e não pode mudar depois da primeira instalação nos celulares.
