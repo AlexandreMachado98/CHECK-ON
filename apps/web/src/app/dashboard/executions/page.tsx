@@ -270,7 +270,14 @@ export default function ExecutionsPage() {
                 <div>
                   <span className="text-xs text-slate-500 block">Não conformidades</span>
                   <span className="font-semibold text-slate-800">
-                    {selectedChecklist.answers ? `${selectedChecklist.answers.filter(a => !a.isCompliant).length} de ${selectedChecklist.answers.length} itens` : `${selectedChecklist.ncCount ?? 0} item(ns)`}
+                    {selectedChecklist.answers
+                      ? (() => {
+                          // Itens "não se aplica" ficam fora da conta.
+                          const applicable = selectedChecklist.answers.filter((a) => !a.notApplicable);
+                          const na = selectedChecklist.answers.length - applicable.length;
+                          return `${applicable.filter((a) => !a.isCompliant).length} de ${applicable.length} itens${na ? ` (${na} N/A)` : ''}`;
+                        })()
+                      : `${selectedChecklist.ncCount ?? 0} item(ns)`}
                   </span>
                 </div>
                 <div>
@@ -336,10 +343,13 @@ export default function ExecutionsPage() {
                           )}
                         </div>
                         <div className="text-right shrink-0">
-                          <span className={`inline-flex px-2 py-1 rounded text-xs font-semibold ${
-                            ans.isCompliant ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-                          }`}>
-                            {ans.isCompliant ? 'Conforme' : 'Não conforme'}
+                          <span
+                            title={ans.notApplicable ? 'Não se aplica: o item não existe neste veículo' : undefined}
+                            className={`inline-flex px-2 py-1 rounded text-xs font-semibold ${
+                              ans.notApplicable ? 'bg-slate-100 text-slate-600' : ans.isCompliant ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                            }`}
+                          >
+                            {ans.notApplicable ? 'N/A' : ans.isCompliant ? 'Conforme' : 'Não conforme'}
                           </span>
                         </div>
                       </div>

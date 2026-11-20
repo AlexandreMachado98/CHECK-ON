@@ -27,6 +27,11 @@ export class SubmitAnswerDto {
   @IsBoolean()
   isCompliant?: boolean;
 
+  /** "Não se aplica" (o item não existe neste veículo). Em item crítico, exige observação. */
+  @IsOptional()
+  @IsBoolean()
+  notApplicable?: boolean;
+
   @IsOptional()
   @IsString()
   @MaxLength(2000)

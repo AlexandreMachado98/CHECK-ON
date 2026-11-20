@@ -13,8 +13,11 @@ object Rules {
 
     fun hasPhoto(answer: Answer?): Boolean = !answer?.photoUrl.isNullOrBlank() || !answer?.localPhoto.isNullOrBlank()
 
+    fun isNotApplicable(answer: Answer?): Boolean = answer?.notApplicable == true
+
     fun isAnswered(item: TemplateItem, answer: Answer?): Boolean {
         if (answer == null) return false
+        if (isNotApplicable(answer)) return true
         return when (item.type) {
             "TEXT" -> !answer.textValue.isNullOrBlank()
             "NUMBER" -> answer.numberValue?.isFinite() == true
@@ -28,8 +31,8 @@ object Rules {
 
     /** Item que pede foto agora: item de foto, foto sempre exigida ou apontado como não conforme. */
     fun showsPhoto(item: TemplateItem, answer: Answer?): Boolean =
-        item.type == "PHOTO" || item.photoRequirement == "ALWAYS" ||
-            (item.photoRequirement == "ON_NON_COMPLIANCE" && answer?.isCompliant == false)
+        !isNotApplicable(answer) && (item.type == "PHOTO" || item.photoRequirement == "ALWAYS" ||
+            (item.photoRequirement == "ON_NON_COMPLIANCE" && answer?.isCompliant == false))
 
     private fun photoRequired(item: TemplateItem, compliant: Boolean): Boolean {
         if (item.type == "PHOTO") return false // a própria foto é a resposta
@@ -44,6 +47,13 @@ object Rules {
         val result = mutableListOf<Pendency>()
         for (item in template.allItems) {
             val answer = answers[item.id]
+            // N/A em item crítico: o motivo é obrigatório (mesma regra da API).
+            if (isNotApplicable(answer)) {
+                if (item.isCritical && answer?.observations.isNullOrBlank()) {
+                    result += Pendency(item.id, "Informe o motivo do N/A: ${item.text}")
+                }
+                continue
+            }
             if (!isAnswered(item, answer)) {
                 if (item.isRequired) result += Pendency(item.id, "Responda: ${item.text}")
                 if (answer == null || answer.isCompliant != false) continue
@@ -62,6 +72,9 @@ object Rules {
     fun answersToSend(template: Template, answers: Map<String, Answer>): List<Answer> =
         template.allItems.mapNotNull { item ->
             val answer = answers[item.id] ?: return@mapNotNull null
+            if (isNotApplicable(answer)) {
+                return@mapNotNull Answer(itemId = item.id, notApplicable = true, observations = answer.observations?.trim()?.takeIf { it.isNotEmpty() })
+            }
             if (!isAnswered(item, answer) && answer.isCompliant != false) return@mapNotNull null
             Answer(
                 itemId = item.id,

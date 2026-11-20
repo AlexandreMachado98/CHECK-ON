@@ -30,6 +30,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.AlertDialog
@@ -317,7 +318,8 @@ private fun ItemCard(
     onPhoto: () -> Unit,
     onRemovePhoto: () -> Unit,
 ) {
-    val failed = answer?.isCompliant == false
+    val na = Rules.isNotApplicable(answer)
+    val failed = !na && answer?.isCompliant == false
     var numberText by rememberSaveable(item.id) { mutableStateOf(answer?.numberValue?.toString()?.removeSuffix(".0")?.replace('.', ',') ?: "") }
     var showNotes by rememberSaveable(item.id) { mutableStateOf(!answer?.observations.isNullOrBlank()) }
 
@@ -330,7 +332,21 @@ private fun ItemCard(
             if (hasOpenNc) Tag("NC em aberto", Tone.Warning)
         }
 
-        when (item.type) {
+        // Item de texto, número ou foto: N/A é um botão à parte (no conforme/não conforme é a 3ª opção).
+        if (item.type != "PASS_FAIL") {
+            TextButton(onClick = {
+                if (na) onChange { it.copy(notApplicable = null) }
+                else onChange { it.copy(notApplicable = true, isCompliant = null, textValue = null, numberValue = null) }
+            }) {
+                Icon(Icons.Filled.Block, contentDescription = null, tint = if (na) Palette.Text else Palette.Muted, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(if (na) "Desfazer \"não se aplica\"" else "Não se aplica a este veículo", color = if (na) Palette.Text else Palette.Muted, fontWeight = FontWeight.SemiBold)
+            }
+        }
+
+        if (na && item.type != "PASS_FAIL") {
+            Tag("N/A · não se aplica", Tone.Muted)
+        } else when (item.type) {
             "TEXT" -> OutlinedTextField(
                 value = answer?.textValue ?: "",
                 onValueChange = { text -> onChange { it.copy(textValue = text.take(2000)) } },
@@ -355,12 +371,15 @@ private fun ItemCard(
                 )
             }
             "PHOTO" -> Unit
-            else -> Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Choice("Conforme", Icons.Filled.CheckCircle, answer?.isCompliant == true, Palette.Primary, Modifier.weight(1f)) {
-                    onChange { it.copy(isCompliant = true) }
+            else -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Choice("Conforme", Icons.Filled.CheckCircle, !na && answer?.isCompliant == true, Palette.Primary, Modifier.weight(1f)) {
+                    onChange { it.copy(isCompliant = true, notApplicable = null) }
                 }
                 Choice("Não conforme", Icons.Filled.Cancel, failed, Palette.Danger, Modifier.weight(1f)) {
-                    onChange { it.copy(isCompliant = false) }
+                    onChange { it.copy(isCompliant = false, notApplicable = null) }
+                }
+                Choice("N/A", Icons.Filled.Block, na, Palette.Muted, Modifier.weight(0.8f)) {
+                    onChange { it.copy(notApplicable = true, isCompliant = null) }
                 }
             }
         }
@@ -380,11 +399,22 @@ private fun ItemCard(
             }
         }
 
-        if (failed || showNotes) {
+        if (failed || showNotes || na) {
+            val needsReason = na && item.isCritical
             OutlinedTextField(
                 value = answer?.observations ?: "",
                 onValueChange = { text -> onChange { it.copy(observations = text.take(2000)) } },
-                placeholder = { Text(if (failed) "Descreva o problema (opcional)" else "Observação (opcional)") },
+                placeholder = {
+                    Text(
+                        when {
+                            needsReason -> "Motivo do N/A (obrigatório em item crítico)"
+                            na -> "Motivo do N/A (opcional)"
+                            failed -> "Descreva o problema (opcional)"
+                            else -> "Observação (opcional)"
+                        },
+                    )
+                },
+                isError = needsReason && answer?.observations.isNullOrBlank() && highlighted,
                 minLines = 2,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -405,10 +435,13 @@ private fun Choice(label: String, icon: androidx.compose.ui.graphics.vector.Imag
             containerColor = if (active) color else Color.White,
             contentColor = if (active) Color.White else Palette.Text,
         ),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 8.dp),
     ) {
-        Icon(icon, contentDescription = null, tint = if (active) Color.White else color, modifier = Modifier.size(20.dp))
-        Spacer(Modifier.width(6.dp))
-        Text(label, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+        // Ícone em cima e texto embaixo: as três opções cabem lado a lado em celular pequeno.
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(icon, contentDescription = null, tint = if (active) Color.White else color, modifier = Modifier.size(20.dp))
+            Text(label, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1)
+        }
     }
 }
 

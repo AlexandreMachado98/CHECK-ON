@@ -176,6 +176,8 @@ export interface ChecklistAnswer {
   id: string;
   itemId: string;
   isCompliant: boolean;
+  /** "Não se aplica": o item não existe neste veículo. */
+  notApplicable?: boolean;
   textValue?: string | null;
   numberValue?: number | null;
   photoUrl?: string | null;

@@ -94,4 +94,29 @@ class RulesTest {
         assertEquals("Bloqueado", Api.messageFrom("""{"message":"Bloqueado"}""", "x"))
         assertEquals("x", Api.messageFrom("<html>", "x"))
     }
+
+    @Test fun `N A vale como resposta e nao pede foto`() {
+        val t = template(item("a", photo = "ALWAYS"), item("t", "TEXT"))
+        val answers = mapOf("a" to Answer("a", notApplicable = true), "t" to Answer("t", notApplicable = true, textValue = "lixo"))
+        assertTrue(Rules.pendingItems(t, answers).isEmpty())
+        assertFalse(Rules.showsPhoto(t.allItems[0], answers["a"]))
+        assertEquals(listOf(Answer("a", notApplicable = true), Answer("t", notApplicable = true)), Rules.answersToSend(t, answers))
+    }
+
+    @Test fun `N A em item critico exige o motivo`() {
+        val critico = TemplateItem(id = "f", text = "Freio de mão", isCritical = true)
+        val t = template(critico)
+        assertEquals(listOf("f"), Rules.pendingItems(t, mapOf("f" to Answer("f", notApplicable = true))).map { it.itemId })
+        assertTrue(Rules.pendingItems(t, mapOf("f" to Answer("f", notApplicable = true, observations = "sem freio mecânico"))).isEmpty())
+        assertEquals(
+            listOf(Answer("f", notApplicable = true, observations = "sem freio mecânico")),
+            Rules.answersToSend(t, mapOf("f" to Answer("f", notApplicable = true, observations = " sem freio mecânico ", isCompliant = true))),
+        )
+    }
+
+    @Test fun `JSON do N A so leva o campo quando marcado`() {
+        val json = AppJson.encodeToString(Answer.serializer(), Answer("a", notApplicable = true))
+        assertTrue(json.contains("\"notApplicable\":true"))
+        assertFalse(AppJson.encodeToString(Answer.serializer(), Answer("a", isCompliant = true)).contains("notApplicable"))
+    }
 }
