@@ -2,6 +2,7 @@ package com.checkon.app.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -20,6 +21,9 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -27,6 +31,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -154,14 +159,30 @@ fun StatusTag(status: String) {
     Tag(Rules.STATUS_LABEL[status] ?: status, tone)
 }
 
+/** Aviso colorido. Com [onDismiss], mostra um "x" e fecha com um toque em qualquer parte do aviso. */
 @Composable
-fun Banner(title: String, text: String?, tone: Tone) {
-    Column(
-        Modifier.fillMaxWidth().background(tone.bg, RoundedCornerShape(12.dp)).padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Text(title, color = tone.fg, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-        if (!text.isNullOrBlank()) Text(text, color = Palette.Text, fontSize = 14.sp, lineHeight = 20.sp)
+fun Banner(title: String, text: String?, tone: Tone, onDismiss: (() -> Unit)? = null) {
+    val shape = RoundedCornerShape(12.dp)
+    var modifier = Modifier.fillMaxWidth().clip(shape).background(tone.bg)
+    if (onDismiss != null) modifier = modifier.clickable(onClickLabel = "Fechar aviso", onClick = onDismiss)
+    Row(modifier.padding(start = 12.dp, top = 12.dp, bottom = 12.dp, end = if (onDismiss != null) 4.dp else 12.dp)) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(title, color = tone.fg, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            if (!text.isNullOrBlank()) Text(text, color = Palette.Text, fontSize = 14.sp, lineHeight = 20.sp)
+        }
+        if (onDismiss != null) {
+            IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.Filled.Close, contentDescription = "Fechar aviso", tint = tone.fg, modifier = Modifier.size(18.dp))
+            }
+        }
+    }
+}
+
+/** Aviso do leitor de QR Code: título e texto. */
+data class QrNotice(val title: String, val text: String) {
+    companion object {
+        fun notFound(text: String) = QrNotice("QR Code não reconhecido", text)
+        fun scannerError(text: String) = QrNotice("Leitor de QR Code indisponível", text)
     }
 }
 

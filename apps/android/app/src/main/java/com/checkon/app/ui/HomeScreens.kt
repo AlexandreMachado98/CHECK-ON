@@ -165,7 +165,9 @@ fun HomeScreen(
     val loading by vm.loadingBootstrap.collectAsState()
     val bootstrapError by vm.bootstrapError.collectAsState()
     var confirmLogout by remember { mutableStateOf(false) }
-    var qrMessage by remember { mutableStateOf<String?>(null) }
+    var qrMessage by remember { mutableStateOf<QrNotice?>(null) }
+    // Dados atualizados (ex.: puxou a tela para baixo): o aviso antigo do QR Code perde o sentido.
+    LaunchedEffect(bootstrap?.downloadedAt) { qrMessage = null }
     val context = androidx.compose.ui.platform.LocalContext.current
     val pending = queue.count { it.state == "PENDING" }
     val rejected = queue.count { it.state == "REJECTED" }
@@ -193,7 +195,7 @@ fun HomeScreen(
                     if (bootstrapError != null) Tone.Danger else Tone.Info,
                 )
             }
-            qrMessage?.let { Banner("QR Code não reconhecido", it, Tone.Warning) }
+            qrMessage?.let { Banner(it.title, it.text, Tone.Warning, onDismiss = { qrMessage = null }) }
 
             draft?.takeIf { draftAvailable }?.let { d ->
                 AppCard(accent = Palette.Primary, onClick = { onResumeDraft(d.vehicleId, d.templateId) }) {
@@ -208,15 +210,16 @@ fun HomeScreen(
 
             PrimaryButton("Nova inspeção", onClick = onNewInspection, icon = Icons.AutoMirrored.Filled.Assignment, enabled = bootstrap != null)
             SecondaryButton("Ler QR Code do veículo", icon = Icons.Filled.QrCodeScanner, enabled = bootstrap != null, onClick = {
+                qrMessage = null
                 scanQr(context, onResult = { raw ->
                     val vehicle = Rules.findVehicleByQr(bootstrap?.vehicles ?: emptyList(), raw)
                     if (vehicle != null) {
                         qrMessage = null
                         onVehicle(vehicle.id)
                     } else {
-                        qrMessage = "Este QR Code não é de um veículo ativo da sua empresa. Se o veículo for novo, puxe a tela para baixo para atualizar os dados."
+                        qrMessage = QrNotice.notFound("Este QR Code não é de um veículo ativo da sua empresa. Se o veículo for novo, puxe a tela para baixo para atualizar os dados.")
                     }
-                }, onError = { qrMessage = it })
+                }, onError = { qrMessage = QrNotice.scannerError(it) })
             })
 
             AppCard(onClick = onQueue) {
@@ -301,7 +304,7 @@ fun VehiclesScreen(vm: AppViewModel, onVehicle: (String) -> Unit) {
     val bootstrap by vm.bootstrap.collectAsState()
     var query by rememberSaveable { mutableStateOf("") }
     val context = androidx.compose.ui.platform.LocalContext.current
-    var qrMessage by remember { mutableStateOf<String?>(null) }
+    var qrMessage by remember { mutableStateOf<QrNotice?>(null) }
     val vehicles: List<Vehicle> = (bootstrap?.vehicles ?: emptyList()).filter { Rules.matchesVehicle(it, query) }
     val ncCount = (bootstrap?.openNcs ?: emptyList()).groupingBy { it.vehicleId }.eachCount()
 
@@ -322,13 +325,14 @@ fun VehiclesScreen(vm: AppViewModel, onVehicle: (String) -> Unit) {
         }
         item {
             SecondaryButton("Ler QR Code", icon = Icons.Filled.QrCodeScanner, onClick = {
+                qrMessage = null
                 scanQr(context, onResult = { raw ->
                     val vehicle = Rules.findVehicleByQr(bootstrap?.vehicles ?: emptyList(), raw)
-                    if (vehicle != null) onVehicle(vehicle.id) else qrMessage = "Este QR Code não é de um veículo ativo da sua empresa."
-                }, onError = { qrMessage = it })
+                    if (vehicle != null) onVehicle(vehicle.id) else qrMessage = QrNotice.notFound("Este QR Code não é de um veículo ativo da sua empresa.")
+                }, onError = { qrMessage = QrNotice.scannerError(it) })
             })
         }
-        qrMessage?.let { item { Banner("QR Code não reconhecido", it, Tone.Warning) } }
+        qrMessage?.let { notice -> item(key = "qr-notice") { Banner(notice.title, notice.text, Tone.Warning, onDismiss = { qrMessage = null }) } }
         if (vehicles.isEmpty()) {
             item { Muted(if (query.isBlank()) "A empresa ainda não tem veículos ativos." else "Nenhum veículo encontrado.", Modifier.fillMaxWidth().padding(24.dp)) }
         }
