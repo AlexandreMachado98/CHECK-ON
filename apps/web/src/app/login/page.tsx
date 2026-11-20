@@ -10,7 +10,9 @@ import { clearSession, takeLoginNotice } from '@/lib/session';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { ClipboardCheck, ShieldCheck, CheckCircle2, Truck, AlertOctagon, ArrowRight } from 'lucide-react';
+import { AlertCircle, Loader2 } from 'lucide-react';
+import { AuthHeading, AuthShell } from '@/components/auth-shell';
+import { PasswordInput } from '@/components/password-input';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -63,189 +65,120 @@ export default function LoginPage() {
     }
   }
 
+  const tabs = [['email', 'E-mail'], ['matricula', 'Código da empresa']] as const;
+  const inputClass = 'h-11 text-slate-900';
+
   return (
-    <div className="min-h-screen w-full flex flex-col lg:flex-row bg-slate-950">
-      
-      {/* Área Institucional (Desktop & Tablet) */}
-      <div className="lg:flex-1 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 p-8 sm:p-12 lg:p-16 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-850">
-        <div>
-          {/* Logo / Brand */}
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 bg-emerald-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-600/30">
-              <ClipboardCheck className="h-6 w-6 text-white" />
-            </div>
-            <span className="font-bold text-xl tracking-tight text-white">CHECK-ON</span>
-          </div>
+    <AuthShell>
+      <AuthHeading title="Entrar" />
 
-          {/* Headline & Subtexto */}
-          <div className="mt-10 sm:mt-16 max-w-lg">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold mb-4">
-              <ShieldCheck className="h-3.5 w-3.5" />
-              Gestão Operacional de Frotas & Checklists
-            </div>
-            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
-              Inspeções mais simples. <br className="hidden sm:inline" />
-              <span className="text-emerald-400">Gestão mais segura.</span>
-            </h1>
-            <p className="mt-4 text-slate-400 text-sm sm:text-base leading-relaxed">
-              Digitalize checklists, acompanhe não conformidades em tempo real e mantenha sua operação sob controle total.
-            </p>
-
-            {/* Destaques operacionais */}
-            <div className="mt-8 space-y-3 hidden sm:block">
-              <div className="flex items-center gap-3 text-slate-300 text-sm">
-                <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-                <span>Rastreabilidade completa de vistorias por veículo e condutor</span>
-              </div>
-              <div className="flex items-center gap-3 text-slate-300 text-sm">
-                <AlertOctagon className="h-4 w-4 text-amber-400 shrink-0" />
-                <span>Tratativa ágil de Não Conformidades com níveis de severidade</span>
-              </div>
-              <div className="flex items-center gap-3 text-slate-300 text-sm">
-                <Truck className="h-4 w-4 text-blue-400 shrink-0" />
-                <span>Organização por centros de custo e agrupamentos de frota</span>
-              </div>
-            </div>
-          </div>
+      <form onSubmit={onSubmit} className="space-y-5">
+        <div role="tablist" aria-label="Forma de entrar" className="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1 text-sm">
+          {tabs.map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              role="tab"
+              aria-selected={mode === value}
+              onClick={() => { setMode(value); setError(''); }}
+              className={`whitespace-nowrap rounded-md px-2 py-1.5 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 ${mode === value ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
-        {/* Rodapé institucional */}
-        <div className="mt-8 pt-6 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-500">
-          <span>CHECK-ON Plataforma SaaS</span>
-          <span>© {new Date().getFullYear()} Todos os direitos reservados</span>
-        </div>
-      </div>
-
-      {/* Área de Autenticação */}
-      <div className="w-full lg:w-[480px] xl:w-[520px] bg-white flex flex-col justify-center p-6 sm:p-12">
-        <div className="w-full max-w-sm mx-auto">
-          
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Acesse sua conta</h2>
-            <p className="text-sm text-slate-500 mt-1.5">
-              Entre com suas credenciais para continuar.
-            </p>
+        {mode === 'email' ? (
+          <div className="space-y-2">
+            <Label htmlFor="email" className="text-slate-700">E-mail</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="nome@empresa.com.br"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoFocus
+              autoCapitalize="none"
+              autoComplete="username"
+              className={inputClass}
+            />
           </div>
-
-          <form onSubmit={onSubmit} className="space-y-4">
-            <div role="tablist" aria-label="Forma de entrar" className="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1 text-sm">
-              {([['email', 'E-mail'], ['matricula', 'Empresa + matrícula']] as const).map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  role="tab"
-                  aria-selected={mode === value}
-                  onClick={() => { setMode(value); setError(''); }}
-                  className={`rounded-md px-3 py-1.5 font-medium transition-colors ${mode === value ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            {mode === 'email' ? (
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-slate-700">E-mail corporativo</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="seu.email@empresa.com.br"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  autoFocus
-                  autoCapitalize="none"
-                  className="h-11 bg-slate-50 border-slate-200 focus:bg-white text-slate-900"
-                />
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label htmlFor="companyCode" className="text-slate-700">Código da empresa</Label>
-                  <Input
-                    id="companyCode"
-                    placeholder="EX: GAMA"
-                    value={companyCode}
-                    onChange={(e) => setCompanyCode(e.target.value.toUpperCase())}
-                    required
-                    autoFocus
-                    autoCapitalize="characters"
-                    autoComplete="organization"
-                    className="h-11 bg-slate-50 border-slate-200 focus:bg-white text-slate-900 uppercase"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="matricula" className="text-slate-700">Matrícula</Label>
-                  <Input
-                    id="matricula"
-                    placeholder="Sua matrícula"
-                    value={matricula}
-                    onChange={(e) => setMatricula(e.target.value)}
-                    required
-                    autoCapitalize="none"
-                    autoComplete="username"
-                    className="h-11 bg-slate-50 border-slate-200 focus:bg-white text-slate-900"
-                  />
-                </div>
-              </div>
-            )}
-
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password" className="text-slate-700">Senha</Label>
-                {mode === 'email' ? (
-                  <Link href="/esqueci-senha" className="text-xs font-medium text-emerald-700 hover:underline">Esqueci minha senha</Link>
-                ) : (
-                  <span className="text-xs text-slate-500">Esqueceu? Peça à sua empresa</span>
-                )}
-              </div>
-              <Input 
-                id="password" 
-                type="password" 
-                placeholder="••••••••" 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+              <Label htmlFor="companyCode" className="text-slate-700">Código da empresa</Label>
+              <Input
+                id="companyCode"
+                value={companyCode}
+                onChange={(e) => setCompanyCode(e.target.value.toUpperCase())}
                 required
-                className="h-11 bg-slate-50 border-slate-200 focus:bg-white text-slate-900"
+                autoFocus
+                autoCapitalize="characters"
+                autoComplete="organization"
+                className={`${inputClass} uppercase`}
               />
             </div>
-            
-            {notice && !error && (
-              <div role="status" className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
-                {notice}
-              </div>
-            )}
-            {error && (
-              <div className="text-xs font-medium text-rose-700 bg-rose-50 border border-rose-200 p-3 rounded-lg flex items-start gap-2 animate-in fade-in duration-200">
-                <AlertOctagon className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
-                <span>{error}</span>
-              </div>
-            )}
-
-            <Button 
-              type="submit" 
-              className="w-full h-11 text-base font-semibold shadow-md bg-emerald-600 hover:bg-emerald-700 text-white" 
-              disabled={loading || !password || (mode === 'email' ? !email : !companyCode || !matricula)}
-            >
-              {loading ? (
-                'Entrando...'
-              ) : (
-                <span className="flex items-center justify-center">
-                  Entrar na Plataforma
-                  <ArrowRight className="h-4 w-4 ml-2" />
-                </span>
-              )}
-            </Button>
-          </form>
-
-          <div className="mt-8 pt-6 border-t border-slate-100 text-center">
-            <p className="text-xs text-slate-400">
-              Acesso exclusivo para colaboradores e gestores autorizados.
-            </p>
+            <div className="space-y-2">
+              <Label htmlFor="matricula" className="text-slate-700">Matrícula</Label>
+              <Input
+                id="matricula"
+                value={matricula}
+                onChange={(e) => setMatricula(e.target.value)}
+                required
+                autoCapitalize="none"
+                autoComplete="username"
+                className={inputClass}
+              />
+            </div>
           </div>
-        </div>
-      </div>
+        )}
 
-    </div>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="password" className="text-slate-700">Senha</Label>
+            {mode === 'email' ? (
+              <Link href="/esqueci-senha" className="text-xs font-medium text-emerald-700 hover:text-emerald-800 hover:underline">Esqueci minha senha</Link>
+            ) : (
+              <span className="text-xs text-slate-500">Esqueceu? Fale com a sua empresa</span>
+            )}
+          </div>
+          <PasswordInput
+            id="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            autoComplete="current-password"
+            className={inputClass}
+          />
+        </div>
+
+        {notice && !error && (
+          <p role="status" className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            {notice}
+          </p>
+        )}
+        {error && (
+          <p role="alert" className="flex items-start gap-2 text-sm text-rose-700">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            <span>{error}</span>
+          </p>
+        )}
+
+        <Button
+          type="submit"
+          className="h-11 w-full bg-emerald-600 text-base font-semibold text-white hover:bg-emerald-700 disabled:opacity-70"
+          disabled={loading}
+          aria-busy={loading}
+        >
+          {loading ? (
+            <span className="flex items-center justify-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              Entrando…
+            </span>
+          ) : 'Entrar'}
+        </Button>
+      </form>
+    </AuthShell>
   );
 }
