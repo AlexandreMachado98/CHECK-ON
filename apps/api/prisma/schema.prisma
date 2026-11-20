@@ -57,6 +57,7 @@ model Tenant {
   ncs         NonConformity[]  @relation("TenantToNC")
   accessLogs  AdminAccessLog[]
   masterLogs  MasterAuditLog[]
+  ncActions   NcAction[]
 }
 
 // ---------------------------------------------------------
@@ -435,6 +436,7 @@ model NonConformity {
   resolvedAt       DateTime?
 
   recurrences ChecklistAnswer[] @relation("NcRecurrence")
+  actions     NcAction[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -444,4 +446,24 @@ model NonConformity {
   @@index([tenantId, createdAt])
   @@index([vehicleId])
   @@index([itemId])
+}
+
+/// Tratativa de uma NC: cada registro é uma ação (comentário, mudança de situação), com fotos.
+model NcAction {
+  id         String        @id @default(uuid())
+  tenantId   String
+  tenant     Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ncId       String
+  nc         NonConformity @relation(fields: [ncId], references: [id], onDelete: Cascade)
+  // Quem fez (o nome fica copiado: continua no histórico mesmo se o login for removido).
+  userId     String?
+  userName   String
+  fromStatus String?
+  toStatus   String?
+  text       String?
+  // Até 3 fotos da tratativa (endereço do armazenamento, como nas inspeções).
+  photoUrls  String[]
+  createdAt  DateTime      @default(now())
+
+  @@index([tenantId, ncId, createdAt])
 }

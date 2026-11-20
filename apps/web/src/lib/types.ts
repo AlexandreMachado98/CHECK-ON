@@ -241,6 +241,20 @@ export interface NC {
     item?: TemplateItem;
   };
   _count?: { recurrences: number };
+  /** Só no detalhe (GET /ncs/:id): histórico da tratativa e reincidências. */
+  actions?: NcAction[];
+  recurrences?: Array<{ id: string; photoUrl?: string | null; observations?: string | null; createdAt: string; checklist?: { completedAt?: string | null; driver?: { name: string } | null } | null }>;
+}
+
+/** Registro da tratativa de uma NC. */
+export interface NcAction {
+  id: string;
+  userName: string;
+  fromStatus?: NCStatus | null;
+  toStatus?: NCStatus | null;
+  text?: string | null;
+  photoUrls: string[];
+  createdAt: string;
 }
 
 export interface DashboardSummary {
