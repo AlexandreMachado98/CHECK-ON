@@ -4,15 +4,14 @@ import { useEffect, useState } from 'react';
 import api from '@/lib/api';
 import { Pagination } from '@/components/pagination';
 import { useDebounced } from '@/lib/use-debounced';
-import { apiErrorMessage, type NC, type NCStatus, type PageResult } from '@/lib/types';
-import { NC_STATUS, NcSeverityBadge, NcStatusBadge, VehicleStatusBadge } from '@/lib/status';
+import { apiErrorMessage, type NC, type PageResult } from '@/lib/types';
+import { NcSeverityBadge, NcStatusBadge, VehicleStatusBadge } from '@/lib/status';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { NcTreatmentDialog } from '@/components/nc-treatment-dialog';
 import { AlertOctagon, Activity, Calendar, Camera, Lock, MessageSquare, Repeat, Search, Truck, Wrench } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -41,10 +40,6 @@ export default function NCsPage() {
   const [severityFilter, setSeverityFilter] = useState('ALL');
 
   const [editTarget, setEditTarget] = useState<NC | null>(null);
-  const [editStatus, setEditStatus] = useState<NCStatus>('IN_PROGRESS');
-  const [editNotes, setEditNotes] = useState('');
-  const [editError, setEditError] = useState('');
-  const [editSubmitting, setEditSubmitting] = useState(false);
 
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -85,30 +80,10 @@ export default function NCsPage() {
 
   function startTreatment(nc: NC) {
     setEditTarget(nc);
-    setEditStatus(nc.status === 'OPEN' ? 'IN_PROGRESS' : nc.status);
-    setEditNotes(nc.notes || '');
-    setEditError('');
-  }
-
-  async function handleSaveTreatment(e: React.FormEvent) {
-    e.preventDefault();
-    if (!editTarget) return;
-    try {
-      setEditSubmitting(true);
-      setEditError('');
-      await api.patch(`/ncs/${editTarget.id}`, { status: editStatus, notes: editNotes });
-      setEditTarget(null);
-      fetchNCs();
-    } catch (error) {
-      setEditError(apiErrorMessage(error, 'Não foi possível salvar a tratativa.'));
-    } finally {
-      setEditSubmitting(false);
-    }
   }
 
   const filteredNCs = ncs;
 
-  const isClosed = editTarget?.status === 'CLOSED';
 
   return (
     <>
@@ -271,105 +246,7 @@ export default function NCsPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={!!editTarget} onOpenChange={(open) => !open && setEditTarget(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Tratativa da NC #{editTarget?.id.substring(0, 6).toUpperCase()}</DialogTitle>
-            <DialogDescription>
-              {isClosed
-                ? 'Esta NC foi encerrada e não pode mais ser alterada.'
-                : 'Ao resolver ou encerrar, o status do veículo é recalculado com base nas NCs que continuam ativas.'}
-            </DialogDescription>
-          </DialogHeader>
-
-          {editTarget && (
-            <form onSubmit={handleSaveTreatment} className="space-y-4 pt-2">
-              <dl className="p-3 bg-slate-50 border rounded-md text-xs grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">
-                <dt className="text-slate-500">Item</dt>
-                <dd className="font-semibold text-slate-800">{itemOf(editTarget)?.text ?? '—'}</dd>
-                <dt className="text-slate-500">Veículo</dt>
-                <dd className="font-semibold text-slate-800">{vehicleOf(editTarget)?.plate ?? '—'}</dd>
-                <dt className="text-slate-500">Severidade</dt>
-                <dd><NcSeverityBadge severity={editTarget.severity} /></dd>
-                <dt className="text-slate-500">Ocorrências</dt>
-                <dd className="text-slate-800">
-                  {editTarget.occurrences}{editTarget.occurrences > 1 ? ' (apontada novamente em inspeções seguintes)' : ''}
-                </dd>
-                {editTarget.answer?.checklist?.driver && (
-                  <>
-                    <dt className="text-slate-500">Aberta por</dt>
-                    <dd className="text-slate-800">{editTarget.answer.checklist.driver.name}</dd>
-                  </>
-                )}
-                {editTarget.answer?.observations && (
-                  <>
-                    <dt className="text-slate-500">Relato</dt>
-                    <dd className="text-slate-800">{editTarget.answer.observations}</dd>
-                  </>
-                )}
-              </dl>
-
-              {editTarget.answer?.photoUrl && (
-                <div>
-                  <p className="text-xs font-medium text-slate-500 mb-1.5">Evidência enviada pelo motorista</p>
-                  <a href={editTarget.answer.photoUrl} target="_blank" rel="noreferrer" className="block w-fit" title="Abrir foto em tamanho real">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={editTarget.answer.photoUrl}
-                      alt="Foto da não conformidade"
-                      className="max-h-48 rounded-md border border-slate-200 object-cover"
-                    />
-                  </a>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <Label htmlFor="nc-status">Status da tratativa</Label>
-                <Select value={editStatus} onValueChange={(v) => setEditStatus((v || 'IN_PROGRESS') as NCStatus)} disabled={isClosed}>
-                  <SelectTrigger id="nc-status">
-                    <SelectValue placeholder="Selecione o status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(Object.keys(NC_STATUS) as NCStatus[]).map(status => (
-                      <SelectItem key={status} value={status}>{NC_STATUS[status].label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {editStatus === 'CLOSED' && !isClosed && (
-                  <p className="text-xs text-amber-800">Depois de encerrada, a NC não pode ser reaberta.</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="nc-notes">Parecer técnico</Label>
-                <textarea
-                  id="nc-notes"
-                  value={editNotes}
-                  onChange={(e) => setEditNotes(e.target.value)}
-                  disabled={isClosed}
-                  rows={3}
-                  maxLength={2000}
-                  className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
-                  placeholder="Ex.: pneu trocado e calibrado na borracharia parceira em 06/11"
-                />
-              </div>
-
-              {editError && <p className="text-sm text-rose-700" role="alert">{editError}</p>}
-
-              <DialogFooter className="mt-4">
-                <Button type="button" variant="outline" onClick={() => setEditTarget(null)}>
-                  {isClosed ? 'Fechar' : 'Cancelar'}
-                </Button>
-                {!isClosed && (
-                  <Button type="submit" disabled={editSubmitting}>
-                    {editSubmitting ? 'Salvando...' : 'Salvar tratativa'}
-                  </Button>
-                )}
-              </DialogFooter>
-            </form>
-          )}
-        </DialogContent>
-      </Dialog>
+      <NcTreatmentDialog nc={editTarget} onClose={() => setEditTarget(null)} onSaved={fetchNCs} />
     </>
   );
 }

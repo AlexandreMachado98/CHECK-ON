@@ -1,4 +1,8 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ClsService } from 'nestjs-cls';
+import { StorageService } from '../storage/storage.service';
+import { CreateNcActionDto } from './dto/create-nc-action.dto';
+import { resolutionError } from './nc-rules';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateNcDto } from './dto/update-nc.dto';
 import { itemAsAnswered, withAnsweredItem } from '../checklist/answer-snapshot';
@@ -17,7 +21,110 @@ const NC_INCLUDE = {
 
 @Injectable()
 export class NcService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: StorageService,
+    private readonly cls: ClsService,
+  ) {}
+
+  /** NC com a tratativa completa: foto do problema, histórico de ações e reincidências. */
+  async findOne(id: string) {
+    const nc = await this.prisma.nonConformity.findFirst({
+      where: { id },
+      include: {
+        ...NC_INCLUDE,
+        actions: { orderBy: { createdAt: 'asc' } },
+        recurrences: {
+          select: { id: true, photoUrl: true, observations: true, createdAt: true, checklist: { select: { completedAt: true, driver: { select: { name: true } } } } },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    });
+    if (!nc) throw new NotFoundException('NC não encontrada');
+    return { ...nc, item: itemAsAnswered(nc.item, nc.answer), answer: nc.answer ? withAnsweredItem(nc.answer) : nc.answer };
+  }
+
+  /** Foto da tratativa: guardada na pasta de fotos da empresa (sai junto se a empresa for excluída). */
+  async uploadPhoto(file: { buffer: Buffer; mimetype: string }) {
+    const tenantId = this.cls.get<string>('tenantId');
+    if (!tenantId) throw new ForbiddenException('Contexto de empresa ausente.');
+    return { photoUrl: await this.storage.uploadChecklistPhoto(file.buffer, file.mimetype, tenantId) };
+  }
+
+  /**
+   * Registro da tratativa: texto, fotos e/ou nova situação, com quem fez.
+   * Resolver exige descrever o que foi feito; NC crítica exige foto da correção.
+   */
+  async addAction(id: string, dto: CreateNcActionDto, userId: string) {
+    const tenantId = this.cls.get<string>('tenantId');
+    const record = await this.prisma.nonConformity.findFirst({
+      where: { id },
+      include: { answer: { include: { checklist: { select: { vehicleId: true } } } }, actions: { select: { photoUrls: true } } },
+    });
+    if (!record) throw new NotFoundException('NC não encontrada');
+    if (record.status === 'CLOSED') throw new ConflictException('Esta NC foi encerrada e não pode mais ser alterada.');
+
+    const text = dto.text?.trim() || null;
+    const photos = (dto.photoUrls ?? []).filter(Boolean);
+    for (const url of photos) {
+      if (!this.storage.isChecklistPhotoUrl(url, tenantId)) throw new BadRequestException('Uma das fotos não foi enviada por esta plataforma. Envie a foto de novo.');
+    }
+    const status = dto.status && dto.status !== record.status ? dto.status : null;
+    if (!text && !photos.length && !status) {
+      throw new BadRequestException('Descreva o que foi feito, anexe uma foto ou mude a situação.');
+    }
+    if (status && !canTransitionNc(record.status, status)) {
+      throw new ConflictException('Esta NC já foi encerrada e não pode ser reaberta.');
+    }
+    const error = resolutionError({
+      fromStatus: record.status,
+      toStatus: status,
+      severity: record.severity,
+      text,
+      hasTreatmentPhoto: photos.length > 0 || record.actions.some((a) => a.photoUrls.length > 0),
+    });
+    if (error) throw new BadRequestException(error);
+
+    const user = await this.prisma.user.findFirst({ where: { id: userId }, select: { name: true } });
+    const vehicleId = record.vehicleId ?? record.answer?.checklist?.vehicleId;
+
+    await this.prisma.$transaction(async (tx) => {
+      if (status || text) {
+        const data: { status?: string; notes?: string; resolvedAt?: Date | null } = {};
+        if (text) data.notes = text; // o último parecer continua aparecendo na lista e na busca
+        if (status) {
+          data.status = status;
+          data.resolvedAt = ['RESOLVED', 'CLOSED'].includes(status) ? record.resolvedAt ?? new Date() : null;
+        }
+        await tx.nonConformity.update({ where: { id }, data });
+      }
+      await tx.ncAction.create({
+        data: {
+          ncId: id,
+          userId,
+          userName: user?.name ?? 'Usuário',
+          fromStatus: status ? record.status : null,
+          toStatus: status,
+          text,
+          photoUrls: photos.map((url) => this.storage.canonicalUrl(url)),
+        } as never,
+      });
+      if (status && vehicleId) await this.refreshVehicleStatus(tx, vehicleId);
+    });
+    return this.findOne(id);
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- cliente da transação com a extensão de empresa
+  private async refreshVehicleStatus(tx: any, vehicleId: string) {
+    const activeNcs = await tx.nonConformity.findMany({
+      where: { vehicleId, status: { in: ACTIVE_NC_STATUSES } },
+      select: { severity: true },
+    });
+    await tx.vehicle.update({
+      where: { id: vehicleId },
+      data: { status: vehicleStatusFromActiveNcs(activeNcs.map((nc: { severity: string }) => nc.severity), await autoBlockCriticalNc(tx)) },
+    });
+  }
 
   async findAll() {
     const ncs = await this.prisma.nonConformity.findMany({
@@ -100,16 +207,26 @@ export class NcService {
     return rows.map((row) => row.id);
   }
 
-  async update(id: string, updateNcDto: UpdateNcDto) {
+  async update(id: string, updateNcDto: UpdateNcDto, userId?: string) {
     const record = await this.prisma.nonConformity.findUnique({
       where: { id },
-      include: { answer: { include: { checklist: { select: { vehicleId: true } } } } },
+      include: { answer: { include: { checklist: { select: { vehicleId: true } } } }, actions: { select: { photoUrls: true } } },
     });
     if (!record) throw new NotFoundException('NC não encontrada');
 
     if (updateNcDto.status && !canTransitionNc(record.status, updateNcDto.status)) {
       throw new ConflictException('Esta NC já foi encerrada e não pode ser reaberta.');
     }
+
+    // As mesmas regras da tratativa valem aqui (ninguém resolve NC crítica sem foto por outro caminho).
+    const error = resolutionError({
+      fromStatus: record.status,
+      toStatus: updateNcDto.status,
+      severity: updateNcDto.severity ?? record.severity,
+      text: updateNcDto.notes ?? record.notes,
+      hasTreatmentPhoto: record.actions.some((a) => a.photoUrls.length > 0),
+    });
+    if (error) throw new BadRequestException(error);
 
     const data: { status?: string; severity?: string; notes?: string; resolvedAt?: Date | null } = { ...updateNcDto };
     if (updateNcDto.status === 'RESOLVED' || updateNcDto.status === 'CLOSED') {
@@ -120,8 +237,24 @@ export class NcService {
 
     const vehicleId = record.vehicleId ?? record.answer?.checklist?.vehicleId;
 
+    const user = userId ? await this.prisma.user.findFirst({ where: { id: userId }, select: { name: true } }) : null;
     return this.prisma.$transaction(async (tx) => {
       const updated = await tx.nonConformity.update({ where: { id }, data });
+      const statusChanged = updateNcDto.status && updateNcDto.status !== record.status;
+      const severityChanged = updateNcDto.severity && updateNcDto.severity !== record.severity;
+      if (statusChanged || severityChanged) {
+        await tx.ncAction.create({
+          data: {
+            ncId: id,
+            userId: userId ?? null,
+            userName: user?.name ?? 'Usuário',
+            fromStatus: statusChanged ? record.status : null,
+            toStatus: statusChanged ? updateNcDto.status : null,
+            text: severityChanged ? `Severidade alterada de ${record.severity} para ${updateNcDto.severity}.` : null,
+            photoUrls: [],
+          } as never,
+        });
+      }
 
       // Mudou status ou severidade: o status do veículo passa a refletir as NCs ativas.
       if (vehicleId && (updateNcDto.status || updateNcDto.severity)) {

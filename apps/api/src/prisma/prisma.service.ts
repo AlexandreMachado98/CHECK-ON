@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { ClsServiceManager } from 'nestjs-cls';
 
 // Modelos que possuem tenantId obrigatório
-const MODELS_WITH_TENANT = ['Role', 'User', 'Employee', 'Unit', 'Department', 'Fleet', 'Vehicle', 'Checklist', 'Template', 'TemplateCategory', 'TemplateItem', 'ChecklistAnswer', 'NonConformity'];
+const MODELS_WITH_TENANT = ['Role', 'User', 'Employee', 'Unit', 'Department', 'Fleet', 'Vehicle', 'Checklist', 'Template', 'TemplateCategory', 'TemplateItem', 'ChecklistAnswer', 'NonConformity', 'NcAction'];
 
 // Toda operação que lê ou altera registros existentes recebe o filtro de tenant.
 // groupBy/aggregate e as variantes *OrThrow também, para nenhuma consulta escapar do isolamento.
