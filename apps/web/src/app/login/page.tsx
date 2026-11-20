@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { AlertCircle, Loader2 } from 'lucide-react';
-import { AuthHeading, AuthShell } from '@/components/auth-shell';
+import { AuthHeading, AuthShell, LoginIntro } from '@/components/auth-shell';
 import { PasswordInput } from '@/components/password-input';
 
 export default function LoginPage() {
@@ -69,7 +69,7 @@ export default function LoginPage() {
   const inputClass = 'h-11 text-slate-900';
 
   return (
-    <AuthShell>
+    <AuthShell intro={<LoginIntro />}>
       <AuthHeading title="Entrar" />
 
       <form onSubmit={onSubmit} className="space-y-5">
