@@ -126,31 +126,6 @@ export class NcService {
     });
   }
 
-  async findAll() {
-    const ncs = await this.prisma.nonConformity.findMany({
-      include: {
-        vehicle: true,
-        item: true,
-        answer: {
-          include: {
-            item: true,
-            checklist: {
-              include: { vehicle: true, driver: true }
-            }
-          }
-        },
-        _count: { select: { recurrences: true } },
-      },
-      orderBy: { createdAt: 'desc' }
-    });
-    // A NC mostra a pergunta como estava quando foi aberta.
-    return ncs.map((nc) => ({
-      ...nc,
-      item: itemAsAnswered(nc.item, nc.answer),
-      answer: nc.answer ? withAnsweredItem(nc.answer) : nc.answer,
-    }));
-  }
-
   /**
    * Lista paginada da tela de NCs, já filtrada por status, severidade e busca (placa, item, motorista).
    * Os contadores do topo da tela (ativas, críticas, reincidentes) vêm calculados, independentes do filtro.

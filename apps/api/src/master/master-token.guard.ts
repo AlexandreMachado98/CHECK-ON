@@ -1,6 +1,7 @@
 import { CanActivate, ExecutionContext, HttpException, HttpStatus, Injectable, Logger, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { createHash, timingSafeEqual } from 'crypto';
 import type { Request } from 'express';
+import { clientIp } from '../common/client-ip';
 
 /** Tentativas com chave errada (por IP) antes de bloquear por 15 minutos. */
 const MAX_FAILURES = 10;
@@ -31,7 +32,7 @@ export class MasterTokenGuard implements CanActivate {
     const expected = masterToken();
     if (!expected) throw new ServiceUnavailableException('A integração com o DDS Master não está configurada (CHECKON_MASTER_TOKEN).');
 
-    const ip = request.ip ?? 'desconhecido';
+    const ip = clientIp(request) ?? 'desconhecido';
     const now = Date.now();
     const record = failures.get(ip);
     if (record && record.until > now) {

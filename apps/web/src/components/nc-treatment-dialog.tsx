@@ -31,7 +31,7 @@ function Thumb({ src, alt, onRemove }: { src: string; alt: string; onRemove?: ()
       ) : (
         <a href={src} target="_blank" rel="noreferrer" title="Abrir foto em tamanho real">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={src} alt={alt} onError={() => setBroken(true)} className="h-24 w-24 rounded-md border border-slate-200 object-cover" />
+          <img src={src} alt={alt} loading="lazy" decoding="async" onError={() => setBroken(true)} className="h-24 w-24 rounded-md border border-slate-200 object-cover" />
         </a>
       )}
       {onRemove && (

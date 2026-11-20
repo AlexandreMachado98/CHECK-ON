@@ -1,11 +1,9 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req, Res, Query, HttpCode, HttpStatus, UploadedFile, UseInterceptors, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete, UseGuards, Req, Res, Query, HttpCode, HttpStatus, UploadedFile, UseInterceptors, BadRequestException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { MAX_IMAGE_BYTES } from '../storage/storage.service';
 import type { Request, Response } from 'express';
 import { ChecklistService } from './checklist.service';
 import { ChecklistExecutionService, AuthenticatedUser } from './checklist-execution.service';
-import { CreateChecklistDto } from './dto/create-checklist.dto';
-import { UpdateChecklistDto } from './dto/update-checklist.dto';
 import { SubmitChecklistDto, SyncChecklistsDto } from './dto/submit-checklist.dto';
 import { ChecklistPageQueryDto } from '../common/pagination';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -61,22 +59,20 @@ export class ChecklistController {
     return { results: await this.execution.sync(dto.checklists, withDevice(req)) };
   }
 
-  @Post()
-  create(@Body() createDto: CreateChecklistDto) { return this.service.create(createDto); }
-
-  /** Com ?page=, devolve { items, total, page, pageSize } (tela de Inspeções). Sem, a lista completa de antes. */
+  /**
+   * Lista paginada { items, total, page, pageSize } (tela de Inspeções). Sem ?page= vem a 1ª página:
+   * a lista completa com todas as respostas ficava pesada demais com o tempo.
+   * Inspeções só nascem pelo /submit (app ou painel); não há criação nem edição "solta".
+   */
   @Get()
   @Roles(...OPERATION_ROLES)
   findAll(@Query() query: ChecklistPageQueryDto) {
-    return query.page ? this.service.findPage(query) : this.service.findAll();
+    return this.service.findPage(query);
   }
 
   @Get(':id')
   @Roles(...OPERATION_ROLES)
   findOne(@Param('id') id: string) { return this.service.findOne(id); }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateDto: UpdateChecklistDto) { return this.service.update(id, updateDto); }
 
   @Delete(':id')
   remove(@Param('id') id: string) { return this.service.remove(id); }

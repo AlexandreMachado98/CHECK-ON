@@ -142,6 +142,15 @@ model AdminAccessLog {
 }
 
 // Sessões de longa duração (app mobile offline). Guarda só o hash SHA-256 do token.
+/// Contador de tentativas (login por IP) compartilhado entre as instâncias da API.
+model RateLimit {
+  key         String   @id
+  count       Int      @default(0)
+  windowStart DateTime @default(now())
+
+  @@index([windowStart])
+}
+
 model RefreshToken {
   id        String    @id @default(uuid())
   userId    String

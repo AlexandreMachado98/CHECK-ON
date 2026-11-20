@@ -48,7 +48,7 @@ export class TenantAdminService {
       if (existing) throw new ConflictException('Este CNPJ já está cadastrado em outra empresa.');
     }
     // E-mail é único na plataforma. SQL direto porque a extensão limitaria a busca à empresa do super admin.
-    const emailTaken = await this.prisma.$queryRaw<{ id: string }[]>`SELECT id FROM "User" WHERE email = ${dto.adminEmail} LIMIT 1`;
+    const emailTaken = await this.prisma.$queryRaw<{ id: string }[]>`SELECT id FROM "User" WHERE lower(email) = lower(${dto.adminEmail}) LIMIT 1`;
     if (emailTaken.length > 0) throw new ConflictException('O e-mail do administrador já está em uso.');
 
     const isCodeTaken = async (code: string) => !!(await this.prisma.tenant.findUnique({ where: { code }, select: { id: true } }));

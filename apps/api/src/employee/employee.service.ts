@@ -163,8 +163,11 @@ export class EmployeeService {
   }
 
   async remove(id: string) {
-    await this.findOne(id);
-    return this.prisma.employee.delete({ where: { id } });
+    const employee = await this.findOne(id);
+    const removed = await this.prisma.employee.delete({ where: { id } });
+    // A foto do crachá ia ficar na nuvem sem dono: apaga junto (falha aqui não desfaz a exclusão).
+    if (employee.photoUrl) await this.storage.deleteFile(employee.photoUrl).catch(() => undefined);
+    return removed;
   }
 
   /** Matrícula é única por empresa (vazia pode repetir). A extensão do Prisma limita à empresa logada. */

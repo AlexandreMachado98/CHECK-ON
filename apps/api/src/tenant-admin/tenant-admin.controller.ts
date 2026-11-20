@@ -7,6 +7,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { StorageService } from '../storage/storage.service';
+import { clientIp } from '../common/client-ip';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('SUPER_ADMIN')
@@ -42,7 +43,7 @@ export class TenantAdminController {
   @Post(':id/access')
   access(@Param('id') id: string, @Req() req: Request) {
     return this.tenantAdminService.access(id, req.user as PlatformAdmin, {
-      ip: req.ip,
+      ip: clientIp(req),
       userAgent: req.get('user-agent') ?? undefined,
     });
   }

@@ -41,7 +41,7 @@ export class UserService {
     await this.assertAssignableRole(dto.roleId, requester);
 
     // O e-mail é único em toda a plataforma, não só na empresa.
-    const existing = await this.prisma.$queryRaw<{ id: string }[]>`SELECT id FROM "User" WHERE email = ${dto.email} LIMIT 1`;
+    const existing = await this.prisma.$queryRaw<{ id: string }[]>`SELECT id FROM "User" WHERE lower(email) = lower(${dto.email}) LIMIT 1`;
     if (existing.length > 0) throw new ConflictException('Este e-mail já está em uso.');
 
     if (dto.employeeId) await this.assertEmployeeAvailable(dto.employeeId);
