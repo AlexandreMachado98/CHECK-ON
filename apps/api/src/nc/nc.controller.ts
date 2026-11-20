@@ -17,11 +17,11 @@ import { OPERATION_ROLES, PANEL_ROLES } from '../role/role-definitions';
 export class NcController {
   constructor(private readonly ncService: NcService) {}
 
-  /** Com ?page=, devolve { items, total, page, pageSize, counts }. Sem, a lista completa de antes. */
+  /** Lista paginada { items, total, page, pageSize, counts }. Sem ?page= vem a 1ª página. */
   @Get()
   @Roles(...OPERATION_ROLES)
   findAll(@Query() query: NcPageQueryDto) {
-    return query.page ? this.ncService.findPage(query) : this.ncService.findAll();
+    return this.ncService.findPage(query);
   }
 
   /** Foto da tratativa (multipart "file", JPEG/PNG/WebP até 4 MB). Devolve { photoUrl } para o registro. */

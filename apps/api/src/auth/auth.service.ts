@@ -5,7 +5,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { AppLoginDto } from './dto/app-login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
-import { LOCK_MINUTES, MAX_FAILED_LOGINS, ipIsBlocked, registerIpFailure } from './password';
+import { IP_MAX_FAILURES, IP_WINDOW_MS, LOCK_MINUTES, MAX_FAILED_LOGINS } from './password';
+import { RateLimiter } from '../common/rate-limit';
 import { SessionGuardCache } from './session-guard.cache';
 import { refreshTokenTtlDays } from '../config/env';
 import * as bcrypt from 'bcrypt';
@@ -39,14 +40,26 @@ export function hashRefreshToken(token: string): string {
 
 @Injectable()
 export class AuthService {
+  private readonly ipLimiter: RateLimiter;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly sessionCache: SessionGuardCache,
-  ) {}
+  ) {
+    this.ipLimiter = new RateLimiter(prisma, IP_MAX_FAILURES, IP_WINDOW_MS);
+  }
+
+  private ipBlocked(ip?: string): Promise<boolean> {
+    return ip ? this.ipLimiter.isBlocked(`login-ip:${ip}`) : Promise.resolve(false);
+  }
+
+  private async registerIpFailure(ip?: string): Promise<void> {
+    if (ip) await this.ipLimiter.hit(`login-ip:${ip}`);
+  }
 
   async login(loginDto: LoginDto, ip?: string) {
-    if (ipIsBlocked(ip)) {
+    if (await this.ipBlocked(ip)) {
       throw new HttpException('Muitas tentativas de login a partir desta rede. Aguarde 15 minutos.', HttpStatus.TOO_MANY_REQUESTS);
     }
 
@@ -61,7 +74,7 @@ export class AuthService {
     // quais logins existem testando senhas erradas.
     const isPasswordValid = user ? await bcrypt.compare(loginDto.password, user.passwordHash) : false;
     if (!user || !isPasswordValid) {
-      registerIpFailure(ip);
+      await this.registerIpFailure(ip);
       if (user) await this.registerFailedLogin(user.id, user.failedLoginCount);
       throw new UnauthorizedException(WRONG_CREDENTIALS);
     }
@@ -85,7 +98,7 @@ export class AuthService {
    * para as rotas do aplicativo (inspeção, veículos, NCs, fotos): não abre o portal.
    */
   async appLogin(dto: AppLoginDto, ip?: string) {
-    if (ipIsBlocked(ip)) {
+    if (await this.ipBlocked(ip)) {
       throw new HttpException('Muitas tentativas de login a partir desta rede. Aguarde 15 minutos.', HttpStatus.TOO_MANY_REQUESTS);
     }
     const tenant = await this.prisma.tenant.findFirst({ where: { code: { equals: dto.companyCode, mode: 'insensitive' } }, select: { id: true } });
@@ -101,7 +114,7 @@ export class AuthService {
     }
     const user = matches[0];
     if (!user) {
-      registerIpFailure(ip);
+      await this.registerIpFailure(ip);
       throw new UnauthorizedException('Código da empresa ou matrícula não encontrados. Confira com a sua empresa se o seu acesso foi criado.');
     }
     if (!user.tenant.isActive) throw new UnauthorizedException('A empresa desta conta está desativada. Procure o suporte do CHECK-ON.');

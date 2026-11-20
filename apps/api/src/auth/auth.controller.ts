@@ -1,6 +1,7 @@
 import { BadRequestException, Body, Controller, Get, Post, HttpCode, HttpStatus, Req, UseGuards } from '@nestjs/common';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { AppLoginDto } from './dto/app-login.dto';
+import { clientIp } from '../common/client-ip';
 import { ForgotPasswordDto, ResetPasswordWithCodeDto } from './dto/forgot-password.dto';
 import { PasswordRecoveryService } from './password-recovery.service';
 import { EmailChangeService } from './email-change.service';
@@ -23,7 +24,7 @@ export class AuthController {
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   forgotPassword(@Body() dto: ForgotPasswordDto, @Req() req: Request) {
-    return this.recovery.requestCode(dto, req.ip);
+    return this.recovery.requestCode(dto, clientIp(req));
   }
 
   /** Troca a senha com o código recebido por e-mail. */
@@ -36,7 +37,7 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   login(@Body() loginDto: LoginDto, @Req() req: Request) {
-    return this.authService.login(loginDto, req.ip);
+    return this.authService.login(loginDto, clientIp(req));
   }
 
   /** Troca do próprio e-mail, passo 1: senha atual + novo e-mail (código vai para o novo e-mail). */
@@ -66,7 +67,7 @@ export class AuthController {
   @Post('app-login')
   @HttpCode(HttpStatus.OK)
   appLogin(@Body() dto: AppLoginDto, @Req() req: Request) {
-    return this.authService.appLogin(dto, req.ip);
+    return this.authService.appLogin(dto, clientIp(req));
   }
 
   /** O próprio usuário troca a senha (obrigatório depois de uma senha provisória). */

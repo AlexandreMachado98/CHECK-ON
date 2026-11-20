@@ -20,6 +20,16 @@ async function bootstrap() {
   // Vercel Services forwards the public /api prefix to the Nest runtime.
   if (process.env.VERCEL === '1') app.setGlobalPrefix('api');
   app.set('trust proxy', 1); // atrás do proxy HTTPS do serviço de hospedagem
+  app.disable('x-powered-by'); // não anuncia a tecnologia do servidor
+  // Cabeçalhos de segurança básicos: a API só devolve JSON e fotos, nunca páginas para embutir.
+  app.use((_req: express.Request, res: express.Response, next: express.NextFunction) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin'); // fotos aparecem no portal e no app
+    if (isProduction()) res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    next();
+  });
   app.enableShutdownHooks();
 
   app.enableCors({ origin: corsOrigins(), credentials: true });

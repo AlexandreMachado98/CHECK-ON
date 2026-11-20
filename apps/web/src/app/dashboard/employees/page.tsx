@@ -761,7 +761,7 @@ export default function EmployeesPage() {
                       <TableCell>
                         <div className="flex min-w-0 items-center gap-3">
                           <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100 text-slate-400">
-                            {employee.photoUrl ? <img src={employee.photoUrl} alt="" className="h-full w-full object-cover" /> : <User className="h-5 w-5" aria-hidden="true" />}
+                            {employee.photoUrl ? <img src={employee.photoUrl} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" /> : <User className="h-5 w-5" aria-hidden="true" />}
                           </div>
                           <div className="min-w-0">
                             <p className="truncate font-semibold text-slate-900">{employee.name}</p>
