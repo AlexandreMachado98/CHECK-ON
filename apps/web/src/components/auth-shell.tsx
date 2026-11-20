@@ -73,15 +73,15 @@ export function LoginIntro() {
   const steps = [
     {
       title: 'No pátio',
-      text: 'O motorista lê o QR Code do veículo e responde o checklist no celular, com fotos. Onde não há sinal, a inspeção fica guardada no aparelho e segue sozinha quando a conexão volta.',
+      text: 'O motorista escaneia o QR Code do veículo e faz a inspeção pelo celular, com registro de fotos. Mesmo sem internet, o trabalho continua: os dados ficam salvos no aparelho e são enviados automaticamente quando a conexão volta.',
     },
     {
       title: 'Na oficina',
-      text: 'Cada item reprovado vira uma não conformidade. Se for crítico, o veículo fica bloqueado até alguém registrar a correção, com descrição, foto e nome de quem resolveu.',
+      text: 'Cada item reprovado gera uma não conformidade. Quando a falha é crítica, o veículo permanece bloqueado até o registro da correção, com descrição, foto e identificação de quem realizou o serviço.',
     },
     {
       title: 'No escritório',
-      text: 'Cada veículo guarda o próprio histórico: inspeções, defeitos que voltaram a aparecer e tudo o que foi feito para resolver. Fica fácil explicar uma decisão ou passar por uma auditoria.',
+      text: 'A gestão acompanha o histórico de cada veículo, das inspeções às correções, incluindo falhas recorrentes. Assim, tem informações para decidir o que pode rodar, justificar suas decisões e atender às auditorias.',
     },
   ];
   return (
