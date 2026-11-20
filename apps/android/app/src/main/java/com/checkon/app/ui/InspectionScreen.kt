@@ -213,7 +213,14 @@ fun InspectionScreen(vm: AppViewModel, vehicleId: String, templateId: String, on
                 longitude = location?.longitude,
                 answers = Rules.answersToSend(template, current.answers),
             )
-            vm.enqueue(QueuedInspection(current.clientId, payload, current.vehicleLabel, current.templateName))
+            try {
+                vm.enqueue(QueuedInspection(current.clientId, payload, current.vehicleLabel, current.templateName))
+            } catch (e: Exception) {
+                // Ex.: celular sem espaço. O rascunho continua salvo; o motorista pode tentar de novo.
+                saving = false
+                pendencies = listOf("Não foi possível guardar a inspeção no celular. Libere espaço e toque em \"Concluir inspeção\" de novo.")
+                return@launch
+            }
             repository.saveDraft(null)
             onDone(current.clientId)
         }
@@ -231,7 +238,7 @@ fun InspectionScreen(vm: AppViewModel, vehicleId: String, templateId: String, on
                 color = Palette.Primary,
                 trackColor = Palette.Border,
             )
-            Muted("$answered de ${items.size} respondidos" + (if (nonCompliant.isNotEmpty()) " · ${nonCompliant.size} não conforme(s)" else "") + " · salvo no celular")
+            Muted("$answered de ${items.size} respondidos" + (if (nonCompliant.isNotEmpty()) " · ${Rules.plural(nonCompliant.size, "não conforme", "não conformes")}" else "") + " · salvo no celular")
         }
         LazyColumn(state = listState, modifier = Modifier.weight(1f), contentPadding = ScreenPadding, verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item {
@@ -279,7 +286,7 @@ fun InspectionScreen(vm: AppViewModel, vehicleId: String, templateId: String, on
                 Text(
                     "${vehicle.label} · ${template.name}\n\n" +
                         if (nonCompliant.isEmpty()) "Todos os itens conformes."
-                        else "${nonCompliant.size} item(ns) não conforme(s)" + (if (critical > 0) ", $critical crítico(s)" else "") + ". Vai abrir não conformidade para o gestor.",
+                        else Rules.plural(nonCompliant.size, "item não conforme", "itens não conformes") + (if (critical > 0) ", ${Rules.plural(critical, "crítico", "críticos")}" else "") + ". O gestor vai receber a não conformidade no portal.",
                 )
             },
             confirmButton = { TextButton(onClick = { confirm = false; save() }) { Text("Concluir") } },

@@ -128,6 +128,9 @@ object Rules {
             .any { it.lowercase().contains(q) }
     }
 
+    /** "1 foto" / "3 fotos": número com a palavra no singular ou no plural. */
+    fun plural(count: Int, singular: String, plural: String): String = "$count ${if (count == 1) singular else plural}"
+
     val STATUS_LABEL = mapOf("LIBERADO" to "Liberado", "ATENCAO" to "Atenção", "BLOQUEADO" to "Bloqueado")
     val SEVERITY_LABEL = mapOf("LOW" to "Baixa", "MEDIUM" to "Média", "HIGH" to "Alta", "CRITICAL" to "Crítica")
 

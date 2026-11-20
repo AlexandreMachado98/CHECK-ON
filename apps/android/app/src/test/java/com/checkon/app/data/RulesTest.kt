@@ -119,4 +119,10 @@ class RulesTest {
         assertTrue(json.contains("\"notApplicable\":true"))
         assertFalse(AppJson.encodeToString(Answer.serializer(), Answer("a", isCompliant = true)).contains("notApplicable"))
     }
+
+    @Test fun `plural usa singular so com um`() {
+        assertEquals("1 foto", Rules.plural(1, "foto", "fotos"))
+        assertEquals("0 fotos", Rules.plural(0, "foto", "fotos"))
+        assertEquals("3 inspeções recusadas", Rules.plural(3, "inspeção recusada", "inspeções recusadas"))
+    }
 }
