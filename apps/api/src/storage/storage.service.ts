@@ -1,12 +1,22 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { mkdir, readdir, rm, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, rm, stat, unlink, writeFile } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
+import { Readable } from 'node:stream';
 import { dirname, resolve, sep } from 'node:path';
-import { DeleteObjectCommand, DeleteObjectsCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, DeleteObjectsCommand, GetObjectCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { publicApiUrl, s3Config, storageDriver } from '../config/env';
 
 /** Pastas (prefixos) que a API pode gravar e apagar. */
 const ALLOWED_PREFIXES = ['employee-photos/', 'checklist-photos/'];
+/** Caminho público das fotos na própria API: /fotos/<chave>. */
+export const PHOTO_ROUTE = 'fotos';
+
+/** Chaves que a API entrega: fotos de crachá e de inspeção (nomes UUID, sem subpastas inesperadas). */
+const SERVABLE_KEY = /^(employee-photos\/|checklist-photos\/[A-Za-z0-9-]+\/)[0-9a-f-]{36}\.(jpg|png|webp)$/;
+
+export type StoredFile = { body: Readable; contentType: string; length?: number };
+
 /** Limite das fotos. Abaixo dos 4,5 MB que a Vercel aceita no corpo de uma requisição. */
 export const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 
@@ -14,6 +24,8 @@ interface StorageDriver {
   readonly publicBaseUrl: string;
   put(key: string, body: Buffer, contentType: string): Promise<void>;
   remove(key: string): Promise<void>;
+  /** Lê o arquivo; null se não existir. */
+  get(key: string): Promise<StoredFile | null>;
   /** Apaga tudo o que começa com o prefixo (pasta). Devolve quantos arquivos saíram. */
   removePrefix(prefix: string): Promise<number>;
 }
@@ -40,6 +52,16 @@ class LocalDriver implements StorageDriver {
       await unlink(this.pathFor(key));
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+  }
+
+  async get(key: string): Promise<StoredFile | null> {
+    const path = this.pathFor(key);
+    try {
+      const info = await stat(path);
+      return { body: createReadStream(path), contentType: contentTypeFor(key), length: info.size };
+    } catch {
+      return null;
     }
   }
 
@@ -77,6 +99,18 @@ class S3Driver implements StorageDriver {
 
   async remove(key: string) {
     await this.client.send(new DeleteObjectCommand({ Bucket: this.config.bucket, Key: key }));
+  }
+
+  async get(key: string): Promise<StoredFile | null> {
+    try {
+      const object = await this.client.send(new GetObjectCommand({ Bucket: this.config.bucket, Key: key }));
+      if (!object.Body) return null;
+      return { body: object.Body as Readable, contentType: object.ContentType || contentTypeFor(key), length: object.ContentLength };
+    } catch (error) {
+      const name = (error as { name?: string }).name;
+      if (name === 'NoSuchKey' || name === 'NotFound') return null;
+      throw error;
+    }
   }
 
   async removePrefix(prefix: string) {
@@ -117,6 +151,58 @@ export class StorageService {
     return this.driver.removePrefix(`checklist-photos/${tenantId}/`);
   }
 
+  /**
+   * Teste do armazenamento (super admin): grava, lê e apaga um arquivo pequeno.
+   * Mostra onde a configuração falha em vez de a foto quebrar em silêncio.
+   */
+  async selfTest(): Promise<{ ok: boolean; driver: string; steps: Array<{ step: string; ok: boolean; error?: string }> }> {
+    const key = `checklist-photos/_teste/${randomUUID()}.jpg`;
+    const body = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
+    const steps: Array<{ step: string; ok: boolean; error?: string }> = [];
+    const attempt = async (step: string, fn: () => Promise<unknown>) => {
+      try {
+        await fn();
+        steps.push({ step, ok: true });
+        return true;
+      } catch (error) {
+        steps.push({ step, ok: false, error: (error as Error).message?.slice(0, 300) });
+        return false;
+      }
+    };
+    if (await attempt('gravar', () => this.driver.put(key, body, 'image/jpeg'))) {
+      await attempt('ler', async () => {
+        const file = await this.driver.get(key);
+        if (!file) throw new Error('arquivo gravado não foi encontrado');
+        for await (const _ of file.body) {
+          // consome o conteúdo
+        }
+      });
+      await attempt('apagar', () => this.driver.remove(key));
+    }
+    return { ok: steps.every((s) => s.ok), driver: storageDriver(), steps };
+  }
+
+  /** Lê uma foto para a rota /fotos (só chaves de foto válidas). */
+  async getPhoto(key: string): Promise<StoredFile | null> {
+    if (!SERVABLE_KEY.test(key)) return null;
+    return this.driver.get(key);
+  }
+
+  /**
+   * Endereço que o portal usa para mostrar a foto: a própria API (/fotos/<chave>), lendo do armazenamento.
+   * Funciona com o bucket privado e não depende do endereço público do armazenamento.
+   */
+  displayUrl(url: string, apiBase: string): string {
+    const key = this.keyFromUrl(url);
+    return key && SERVABLE_KEY.test(key) ? `${apiBase}/${PHOTO_ROUTE}/${key}` : url;
+  }
+
+  /** Forma guardada no banco: sempre o endereço do armazenamento (aceita também o endereço /fotos da API). */
+  canonicalUrl(url: string): string {
+    const key = this.keyFromUrl(url);
+    return key ? `${this.driver.publicBaseUrl}/${key}` : url;
+  }
+
   /** Só aceita fotos enviadas por esta API para a mesma empresa. */
   isChecklistPhotoUrl(url: string, tenantId: string): boolean {
     const key = this.keyFromUrl(url);
@@ -141,8 +227,16 @@ export class StorageService {
     } catch {
       return null;
     }
-    if (target.origin !== base.origin || !target.pathname.startsWith(base.pathname)) return null;
-    const key = decodeURIComponent(target.pathname.slice(base.pathname.length));
+    let key: string;
+    if (target.origin === base.origin && target.pathname.startsWith(base.pathname)) {
+      key = decodeURIComponent(target.pathname.slice(base.pathname.length));
+    } else {
+      // Outro endereço (rota /fotos da API ou endereço antigo do armazenamento): vale só se o caminho
+      // terminar numa chave de foto (employee-photos/... ou checklist-photos/<empresa>/<uuid>.jpg).
+      const match = decodeURIComponent(target.pathname).match(/(?:^|\/)((?:employee-photos|checklist-photos)\/.+)$/);
+      if (!match || !SERVABLE_KEY.test(match[1])) return null;
+      key = match[1];
+    }
     if (!key || key.includes('..') || key.includes('\\') || key.startsWith('/')) return null;
     return key;
   }
@@ -180,4 +274,10 @@ export class StorageService {
     }
     return null;
   }
+}
+
+function contentTypeFor(key: string): string {
+  if (key.endsWith('.png')) return 'image/png';
+  if (key.endsWith('.webp')) return 'image/webp';
+  return 'image/jpeg';
 }

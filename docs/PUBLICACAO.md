@@ -40,7 +40,8 @@ npx prisma db seed   # dados de exemplo, só na branch dev
 ## 3. Armazenamento das fotos (exemplo com Cloudflare R2)
 
 1. Crie um bucket, por exemplo `checkon-fotos`.
-2. Ative o acesso público por um domínio próprio (ex.: `fotos.seudominio.com.br`) ou pela URL pública do R2. Esse endereço vai em `STORAGE_PUBLIC_URL`.
+2. O bucket pode ficar **privado**: a própria API entrega as fotos em `/api/fotos/...`, lendo do bucket com as credenciais abaixo. `STORAGE_PUBLIC_URL` serve só como identificador dos arquivos (ex.: a URL pública do R2, se existir, ou `https://fotos.checkon.invalid`).
+   - Para conferir, entre como super admin em **Empresas → Testar armazenamento das fotos**: ele grava, lê e apaga um arquivo de teste e mostra em que passo falha.
 3. Crie um token de API com permissão de leitura e escrita **só nesse bucket**. Anote o Access Key ID, o Secret e o endpoint (`https://<account_id>.r2.cloudflarestorage.com`).
 
 ## 4. API no Render (alternativa)
