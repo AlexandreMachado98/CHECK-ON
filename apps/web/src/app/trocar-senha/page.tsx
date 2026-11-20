@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ShieldCheck } from 'lucide-react';
+import { AuthHeading, AuthShell } from '@/components/auth-shell';
 import { ChangePasswordForm } from '@/components/change-password-form';
 import { clearSession, getStoredUser } from '@/lib/session';
 import { homePathFor } from '@/lib/roles';
@@ -27,22 +27,18 @@ export default function ForcedPasswordChangePage() {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-slate-950 p-4">
-      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl sm:p-8">
-        <ShieldCheck className="h-8 w-8 text-emerald-600 mb-3" />
-        <h1 className="text-xl font-bold text-slate-900">Crie a sua senha</h1>
-        <p className="mt-1 mb-6 text-sm text-slate-600">
-          Olá, {user.name.split(' ')[0]}. Você entrou com uma senha provisória. Para continuar, defina uma senha só sua.
-        </p>
+    <AuthShell>
+      <AuthHeading title="Defina sua senha">
+        {user.name.split(' ')[0]}, você entrou com uma senha provisória. Crie uma senha pessoal para continuar.
+      </AuthHeading>
         <ChangePasswordForm temporary onDone={done} />
-        <button
-          type="button"
-          className="mt-4 w-full text-center text-xs text-slate-500 hover:underline"
-          onClick={() => { clearSession(); router.replace('/login'); }}
-        >
-          Sair
-        </button>
-      </div>
-    </div>
+      <button
+        type="button"
+        className="mt-4 w-full text-center text-sm text-slate-500 hover:text-slate-800 hover:underline"
+        onClick={() => { clearSession(); router.replace('/login'); }}
+      >
+        Sair
+      </button>
+    </AuthShell>
   );
 }
