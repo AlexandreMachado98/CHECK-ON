@@ -20,7 +20,8 @@ O app conversa com o CHECK-ON que está no ar. O endereço fica em `app/build.gr
   - os itens podem ser conforme/não conforme, texto, número ou foto;
   - segue as mesmas regras da API: itens obrigatórios, foto obrigatória e foto do problema;
   - o rascunho é salvo a cada resposta;
-  - a foto é reduzida para no máximo 1600 px.
+  - a foto é reduzida para no máximo 1600 px;
+  - tocar na miniatura abre a foto em tela cheia (pinça ou toque duplo para ampliar).
 - **Envio:**
   - cada foto é enviada uma vez só;
   - as inspeções vão em lote, sem duplicar;
