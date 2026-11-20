@@ -150,3 +150,34 @@ describe('itemsForVersion', () => {
     expect(items[1].isRequired).toBe(true);
   });
 });
+
+describe('N/A (não se aplica)', () => {
+  const comum: RuleItem = { id: 'a', text: 'Tacógrafo funcionando', type: 'PASS_FAIL', isRequired: true, isCritical: false };
+  const critico: RuleItem = { id: 'b', text: 'Freio de mão', type: 'PASS_FAIL', isRequired: true, isCritical: true, photoRequirement: 'ALWAYS' };
+  const texto: RuleItem = { id: 'c', text: 'Nº do lacre', type: 'TEXT', isRequired: true, isCritical: false };
+
+  it('vale como resposta em item obrigatório, não abre NC e limpa os valores', () => {
+    const { errors, answers } = validateAnswers([comum, texto], [
+      { itemId: 'a', notApplicable: true },
+      { itemId: 'c', notApplicable: true, textValue: 'lixo' },
+    ]);
+    expect(errors).toEqual([]);
+    expect(answers).toEqual([
+      expect.objectContaining({ itemId: 'a', notApplicable: true, isCompliant: true }),
+      expect.objectContaining({ itemId: 'c', notApplicable: true, isCompliant: true, textValue: null }),
+    ]);
+  });
+
+  it('em item crítico exige o motivo na observação (e dispensa a foto obrigatória)', () => {
+    expect(validateAnswers([critico], [{ itemId: 'b', notApplicable: true }]).errors).toEqual([
+      'O item crítico "Freio de mão" foi marcado como N/A: informe o motivo na observação.',
+    ]);
+    const ok = validateAnswers([critico], [{ itemId: 'b', notApplicable: true, observations: ' veículo elétrico sem freio de mão mecânico ' }]);
+    expect(ok.errors).toEqual([]);
+    expect(ok.answers[0]).toMatchObject({ notApplicable: true, observations: 'veículo elétrico sem freio de mão mecânico' });
+  });
+
+  it('resposta normal continua com notApplicable = false', () => {
+    expect(validateAnswers([comum], [{ itemId: 'a', isCompliant: false }]).answers[0]).toMatchObject({ notApplicable: false, isCompliant: false });
+  });
+});

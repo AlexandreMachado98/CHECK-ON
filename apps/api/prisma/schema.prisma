@@ -388,7 +388,9 @@ model ChecklistAnswer {
   itemId      String
   item        TemplateItem @relation(fields: [itemId], references: [id])
 
-  isCompliant  Boolean // true = Conforme, false = Não Conforme
+  isCompliant  Boolean // true = Conforme, false = Não Conforme (N/A é gravado como true: não abre NC)
+  // "Não se aplica": o item não existe neste veículo. Não conta como conforme nem como não conforme.
+  notApplicable Boolean @default(false)
   textValue    String?
   numberValue  Float?
   photoUrl     String?

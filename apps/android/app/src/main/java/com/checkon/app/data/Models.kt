@@ -98,6 +98,8 @@ data class Bootstrap(
 data class Answer(
     val itemId: String,
     val isCompliant: Boolean? = null,
+    /** "Não se aplica": o item não existe neste veículo (não abre NC). */
+    val notApplicable: Boolean? = null,
     val textValue: String? = null,
     val numberValue: Double? = null,
     val observations: String? = null,

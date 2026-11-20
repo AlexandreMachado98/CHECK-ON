@@ -39,6 +39,7 @@ export function photoIsRequired(item: RuleItem, isCompliant: boolean): boolean {
 export interface RawAnswer {
   itemId: string;
   isCompliant?: boolean;
+  notApplicable?: boolean;
   textValue?: string;
   numberValue?: number;
   photoUrl?: string;
@@ -48,6 +49,7 @@ export interface RawAnswer {
 export interface NormalizedAnswer {
   itemId: string;
   isCompliant: boolean;
+  notApplicable: boolean;
   textValue: string | null;
   numberValue: number | null;
   photoUrl: string | null;
@@ -108,6 +110,26 @@ export function validateAnswers(
     }
     seen.add(item.id);
 
+    // "Não se aplica": vale como resposta, não abre NC e não exige foto.
+    // Em item crítico, o motivo é obrigatório (para ninguém pular um item de segurança).
+    if (answer.notApplicable === true) {
+      const observations = clean(answer.observations);
+      if (item.isCritical && !observations) {
+        errors.push(`O item crítico "${item.text}" foi marcado como N/A: informe o motivo na observação.`);
+        continue;
+      }
+      normalized.push({
+        itemId: item.id,
+        isCompliant: true,
+        notApplicable: true,
+        textValue: null,
+        numberValue: null,
+        photoUrl: clean(answer.photoUrl),
+        observations,
+      });
+      continue;
+    }
+
     const answered = hasValue(item, answer);
     if (!answered) {
       if (item.isRequired) {
@@ -131,6 +153,7 @@ export function validateAnswers(
     normalized.push({
       itemId: item.id,
       isCompliant,
+      notApplicable: false,
       textValue: clean(answer.textValue),
       numberValue:
         typeof answer.numberValue === 'number' && Number.isFinite(answer.numberValue) ? answer.numberValue : null,
