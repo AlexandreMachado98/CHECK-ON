@@ -111,6 +111,9 @@ export class ChecklistExecutionService {
         for (const answer of answers) {
           if (answer.photoUrl && !this.storage.isChecklistPhotoUrl(answer.photoUrl, tenantId)) {
             errors.push(`A foto do item "${itemsById.get(answer.itemId)?.text}" não foi enviada por esta plataforma. Envie a foto novamente.`);
+          } else if (answer.photoUrl) {
+            // O app pode devolver o endereço de exibição (/fotos/...): grava sempre o do armazenamento.
+            answer.photoUrl = this.storage.canonicalUrl(answer.photoUrl);
           }
         }
         if (errors.length) throw new UnprocessableEntityException(errors);

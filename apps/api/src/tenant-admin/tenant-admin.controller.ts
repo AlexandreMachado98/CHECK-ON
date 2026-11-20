@@ -6,12 +6,22 @@ import { UpdateTenantDto } from './dto/update-tenant.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { StorageService } from '../storage/storage.service';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('SUPER_ADMIN')
 @Controller('admin/tenants')
 export class TenantAdminController {
-  constructor(private readonly tenantAdminService: TenantAdminService) {}
+  constructor(
+    private readonly tenantAdminService: TenantAdminService,
+    private readonly storage: StorageService,
+  ) {}
+
+  /** Teste do armazenamento das fotos (gravar, ler e apagar um arquivo de teste). */
+  @Get('storage-check')
+  storageCheck() {
+    return this.storage.selfTest();
+  }
 
   @Post()
   create(@Body() createTenantDto: CreateTenantDto) {

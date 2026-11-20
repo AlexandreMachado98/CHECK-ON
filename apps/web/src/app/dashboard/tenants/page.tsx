@@ -7,6 +7,7 @@ import { matchesSearch } from '@/lib/search';
 import api, { ensureList } from '@/lib/api';
 import { apiErrorMessage, type AdminAccessLog, type AuthUser, type Tenant } from '@/lib/types';
 import { startTenantAccess } from '@/lib/session';
+import { StorageCheckButton } from '@/components/storage-check';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -176,6 +177,9 @@ export default function TenantsPage() {
           <Plus className="h-4 w-4 mr-2" />
           Nova empresa
         </Button>
+      </div>
+      <div className="mb-6">
+        <StorageCheckButton />
       </div>
 
       {accessExpired && (
