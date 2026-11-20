@@ -31,6 +31,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.checkon.app.data.QueuedInspection
+import com.checkon.app.data.Rules
 
 @Composable
 fun DoneScreen(vm: AppViewModel, clientId: String, onNew: () -> Unit, onHome: () -> Unit) {
@@ -107,7 +108,7 @@ fun QueueScreen(vm: AppViewModel) {
             val photos = item.payload.answers.count { it.localPhoto != null }
             AppCard(accent = if (item.state == "REJECTED") Palette.Danger else Palette.Warning) {
                 Text("${item.vehicleLabel} · ${item.templateName}", fontWeight = FontWeight.Bold, color = Palette.Text)
-                Muted("Feita em ${formatDateTime(item.payload.completedAt)}" + if (photos > 0) " · $photos foto(s)" else "")
+                Muted("Feita em ${formatDateTime(item.payload.completedAt)}" + if (photos > 0) " · ${Rules.plural(photos, "foto", "fotos")}" else "")
                 Tag(if (item.state == "REJECTED") "Recusada" else "Aguardando envio", if (item.state == "REJECTED") Tone.Danger else Tone.Warning)
                 if (item.state == "REJECTED") {
                     Text(item.message ?: "", color = Palette.Danger)

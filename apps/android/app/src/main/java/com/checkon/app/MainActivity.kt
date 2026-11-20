@@ -95,7 +95,13 @@ private fun AppNavigation(vm: AppViewModel) {
         Box(Modifier.fillMaxSize().padding(padding)) {
             NavHost(nav, startDestination = "home") {
                 composable("home") {
-                    HomeScreen(vm, onNewInspection = { nav.navigate("vehicles") }, onVehicle = { nav.navigate("vehicle/$it") }, onQueue = { nav.navigate("queue") })
+                    HomeScreen(
+                        vm,
+                        onNewInspection = { nav.navigate("vehicles") },
+                        onVehicle = { nav.navigate("vehicle/$it") },
+                        onQueue = { nav.navigate("queue") },
+                        onResumeDraft = { v, t -> nav.navigate("inspection/$v/$t") },
+                    )
                 }
                 composable("vehicles") { VehiclesScreen(vm, onVehicle = { nav.navigate("vehicle/$it") }) }
                 composable("vehicle/{id}") { back ->

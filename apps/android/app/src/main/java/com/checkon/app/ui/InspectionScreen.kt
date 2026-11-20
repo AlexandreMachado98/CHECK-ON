@@ -12,6 +12,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -33,6 +36,7 @@ import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -54,6 +58,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -213,7 +218,14 @@ fun InspectionScreen(vm: AppViewModel, vehicleId: String, templateId: String, on
                 longitude = location?.longitude,
                 answers = Rules.answersToSend(template, current.answers),
             )
-            vm.enqueue(QueuedInspection(current.clientId, payload, current.vehicleLabel, current.templateName))
+            try {
+                vm.enqueue(QueuedInspection(current.clientId, payload, current.vehicleLabel, current.templateName))
+            } catch (e: Exception) {
+                // Ex.: celular sem espaço. O rascunho continua salvo; o motorista pode tentar de novo.
+                saving = false
+                pendencies = listOf("Não foi possível guardar a inspeção no celular. Libere espaço e toque em \"Concluir inspeção\" de novo.")
+                return@launch
+            }
             repository.saveDraft(null)
             onDone(current.clientId)
         }
@@ -231,7 +243,7 @@ fun InspectionScreen(vm: AppViewModel, vehicleId: String, templateId: String, on
                 color = Palette.Primary,
                 trackColor = Palette.Border,
             )
-            Muted("$answered de ${items.size} respondidos" + (if (nonCompliant.isNotEmpty()) " · ${nonCompliant.size} não conforme(s)" else "") + " · salvo no celular")
+            Muted("$answered de ${items.size} respondidos" + (if (nonCompliant.isNotEmpty()) " · ${Rules.plural(nonCompliant.size, "não conforme", "não conformes")}" else "") + " · salvo no celular")
         }
         LazyColumn(state = listState, modifier = Modifier.weight(1f), contentPadding = ScreenPadding, verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item {
@@ -279,7 +291,7 @@ fun InspectionScreen(vm: AppViewModel, vehicleId: String, templateId: String, on
                 Text(
                     "${vehicle.label} · ${template.name}\n\n" +
                         if (nonCompliant.isEmpty()) "Todos os itens conformes."
-                        else "${nonCompliant.size} item(ns) não conforme(s)" + (if (critical > 0) ", $critical crítico(s)" else "") + ". Vai abrir não conformidade para o gestor.",
+                        else Rules.plural(nonCompliant.size, "item não conforme", "itens não conformes") + (if (critical > 0) ", ${Rules.plural(critical, "crítico", "críticos")}" else "") + ". O gestor vai receber a não conformidade no portal.",
                 )
             },
             confirmButton = { TextButton(onClick = { confirm = false; save() }) { Text("Concluir") } },
@@ -322,6 +334,8 @@ private fun ItemCard(
     val failed = !na && answer?.isCompliant == false
     var numberText by rememberSaveable(item.id) { mutableStateOf(answer?.numberValue?.toString()?.removeSuffix(".0")?.replace('.', ',') ?: "") }
     var showNotes by rememberSaveable(item.id) { mutableStateOf(!answer?.observations.isNullOrBlank()) }
+    var viewing by remember { mutableStateOf<String?>(null) }
+    viewing?.let { PhotoViewer(it, title = item.text, onClose = { viewing = null }) }
 
     AppCard(accent = if (highlighted) Palette.Danger else null) {
         Text(item.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Palette.Text)
@@ -388,7 +402,7 @@ private fun ItemCard(
             val path = answer?.localPhoto
             if (path != null && File(path).exists()) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    PhotoThumb(path)
+                    PhotoThumb(path, onOpen = { viewing = path })
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         SecondaryButton("Tirar outra", onClick = onPhoto, loading = processingPhoto)
                         TextButton(onClick = onRemovePhoto, modifier = Modifier.fillMaxWidth()) { Text("Remover foto", color = Palette.Text) }
@@ -446,13 +460,33 @@ private fun Choice(label: String, icon: androidx.compose.ui.graphics.vector.Imag
 }
 
 @Composable
-private fun PhotoThumb(path: String) {
+private fun PhotoThumb(path: String, onOpen: () -> Unit) {
     // Miniatura leve (1/8 do tamanho) para não pesar na memória.
     val bitmap = remember(path, File(path).lastModified()) {
         runCatching { BitmapFactory.decodeFile(path, BitmapFactory.Options().apply { inSampleSize = 8 })?.asImageBitmap() }.getOrNull()
     }
     if (bitmap != null) {
-        Image(bitmap, contentDescription = "Foto do item", contentScale = ContentScale.Crop, modifier = Modifier.size(96.dp).background(Palette.Border, RoundedCornerShape(10.dp)))
+        // Toque abre a foto em tela cheia para conferir os detalhes.
+        Box(
+            Modifier
+                .size(96.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(Palette.Border)
+                .clickable(onClickLabel = "Ampliar foto", onClick = onOpen),
+        ) {
+            Image(bitmap, contentDescription = "Foto do item", contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
+            Icon(
+                Icons.Filled.ZoomIn,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(4.dp)
+                    .background(Color.Black.copy(alpha = 0.55f), CircleShape)
+                    .padding(4.dp)
+                    .size(18.dp),
+            )
+        }
     }
 }
 

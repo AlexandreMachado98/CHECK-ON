@@ -3,6 +3,7 @@
 package com.checkon.app.ui
 
 import android.content.Context
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,6 +26,7 @@ import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.AlertDialog
@@ -32,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,15 +45,20 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.checkon.app.R
 import com.checkon.app.data.ApiException
+import com.checkon.app.data.Draft
 import com.checkon.app.data.Rules
 import com.checkon.app.data.Vehicle
 import com.google.mlkit.vision.barcode.common.Barcode
@@ -93,8 +102,19 @@ fun LoginScreen(vm: AppViewModel) {
     ) {
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
             Spacer(Modifier.height(32.dp))
-            Box(Modifier.size(76.dp).background(Palette.Primary, RoundedCornerShape(22.dp)), contentAlignment = Alignment.Center) {
-                Text("✓", color = Color.White, fontSize = 38.sp, fontWeight = FontWeight.Black)
+            // Mesmo desenho do ícone do app (medidor em C com check) sobre o fundo azul-noite.
+            Box(
+                Modifier
+                    .size(84.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Brush.linearGradient(listOf(Color(0xFF0F2A2A), Color(0xFF020617)))),
+                contentAlignment = Alignment.Center,
+            ) {
+                Image(
+                    painterResource(R.drawable.ic_launcher_foreground),
+                    contentDescription = "CHECK-ON",
+                    modifier = Modifier.requiredSize(126.dp),
+                )
             }
             Spacer(Modifier.height(10.dp))
             Text("CHECK-ON", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = Palette.Text)
@@ -130,7 +150,13 @@ fun LoginScreen(vm: AppViewModel) {
 }
 
 @Composable
-fun HomeScreen(vm: AppViewModel, onNewInspection: () -> Unit, onVehicle: (String) -> Unit, onQueue: () -> Unit) {
+fun HomeScreen(
+    vm: AppViewModel,
+    onNewInspection: () -> Unit,
+    onVehicle: (String) -> Unit,
+    onQueue: () -> Unit,
+    onResumeDraft: (vehicleId: String, templateId: String) -> Unit,
+) {
     val session by vm.session.collectAsState()
     val bootstrap by vm.bootstrap.collectAsState()
     val queue by vm.queue.collectAsState()
@@ -144,6 +170,12 @@ fun HomeScreen(vm: AppViewModel, onNewInspection: () -> Unit, onVehicle: (String
     val pending = queue.count { it.state == "PENDING" }
     val rejected = queue.count { it.state == "REJECTED" }
     val user = session?.user
+    // Inspeção começada e não concluída: lida sempre que a tela inicial aparece.
+    var draft by remember { mutableStateOf<Draft?>(null) }
+    LaunchedEffect(user?.id) { draft = vm.repository.readDraft() }
+    val draftAvailable = draft?.let { d ->
+        bootstrap?.vehicles?.any { it.id == d.vehicleId } == true && bootstrap?.templates?.any { it.id == d.templateId } == true
+    } == true
 
     PullToRefreshBox(isRefreshing = loading, onRefresh = { vm.refreshBootstrap(); vm.syncNow() }, modifier = Modifier.fillMaxSize()) {
         Column(
@@ -162,6 +194,17 @@ fun HomeScreen(vm: AppViewModel, onNewInspection: () -> Unit, onVehicle: (String
                 )
             }
             qrMessage?.let { Banner("QR Code não reconhecido", it, Tone.Warning) }
+
+            draft?.takeIf { draftAvailable }?.let { d ->
+                AppCard(accent = Palette.Primary, onClick = { onResumeDraft(d.vehicleId, d.templateId) }) {
+                    IconRow(Icons.Filled.EditNote, Palette.Primary) {
+                        Column {
+                            Text("Continuar inspeção", fontWeight = FontWeight.Bold, color = Palette.Text)
+                            Muted("${d.vehicleLabel} · ${d.templateName} · ${Rules.plural(d.answers.size, "resposta salva", "respostas salvas")}")
+                        }
+                    }
+                }
+            }
 
             PrimaryButton("Nova inspeção", onClick = onNewInspection, icon = Icons.AutoMirrored.Filled.Assignment, enabled = bootstrap != null)
             SecondaryButton("Ler QR Code do veículo", icon = Icons.Filled.QrCodeScanner, enabled = bootstrap != null, onClick = {
@@ -192,8 +235,8 @@ fun HomeScreen(vm: AppViewModel, onNewInspection: () -> Unit, onVehicle: (String
                     Column {
                         Text(
                             when {
-                                rejected > 0 -> "$rejected inspeção(ões) recusada(s)"
-                                pending > 0 -> "$pending inspeção(ões) aguardando envio"
+                                rejected > 0 -> Rules.plural(rejected, "inspeção recusada", "inspeções recusadas")
+                                pending > 0 -> Rules.plural(pending, "inspeção aguardando envio", "inspeções aguardando envio")
                                 else -> "Tudo enviado"
                             },
                             fontWeight = FontWeight.Bold, color = Palette.Text,
@@ -213,7 +256,7 @@ fun HomeScreen(vm: AppViewModel, onNewInspection: () -> Unit, onVehicle: (String
 
             bootstrap?.let {
                 Muted(
-                    "${it.vehicles.size} veículo(s) e ${it.templates.size} checklist(s) no celular.\nAtualizado em ${formatMillis(it.downloadedAt)}. Puxe a tela para baixo para atualizar.",
+                    "${Rules.plural(it.vehicles.size, "veículo", "veículos")} e ${Rules.plural(it.templates.size, "checklist", "checklists")} no celular.\nAtualizado em ${formatMillis(it.downloadedAt)}. Puxe a tela para baixo para atualizar.",
                     Modifier.fillMaxWidth(),
                 )
             }
@@ -232,7 +275,11 @@ fun HomeScreen(vm: AppViewModel, onNewInspection: () -> Unit, onVehicle: (String
             text = {
                 Text(
                     "Para entrar de novo, use o código da empresa e a sua matrícula." +
-                        if (pending > 0) "\n\nVocê tem $pending inspeção(ões) ainda não enviada(s). Elas ficam guardadas neste celular e são enviadas quando você entrar de novo." else "",
+                        when {
+                            pending == 1 -> "\n\nVocê tem 1 inspeção ainda não enviada. Ela fica guardada neste celular e é enviada quando você entrar de novo."
+                            pending > 1 -> "\n\nVocê tem $pending inspeções ainda não enviadas. Elas ficam guardadas neste celular e são enviadas quando você entrar de novo."
+                            else -> ""
+                        },
                 )
             },
             confirmButton = { TextButton(onClick = { confirmLogout = false; vm.logout() }) { Text("Sair", color = Palette.Danger) } },
@@ -293,7 +340,7 @@ fun VehiclesScreen(vm: AppViewModel, onVehicle: (String) -> Unit) {
                 Muted((vehicle.description.ifBlank { "Sem modelo" }) + (vehicle.fleet?.let { " · ${it.name}" } ?: ""))
                 androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     StatusTag(vehicle.status)
-                    if (ncs > 0) Text("$ncs NC(s) em aberto", color = Palette.Warning, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    if (ncs > 0) Text(Rules.plural(ncs, "NC em aberto", "NCs em aberto"), color = Palette.Warning, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
