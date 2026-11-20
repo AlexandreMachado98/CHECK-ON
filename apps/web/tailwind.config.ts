@@ -67,8 +67,24 @@ const config: Config = {
           from: { height: 'var(--radix-accordion-content-height)' },
           to: { height: '0' },
         },
+        // Fundo das telas de acesso: manchas de luz que se deslocam devagar.
+        'aurora-a': {
+          '0%, 100%': { transform: 'translate3d(0, 0, 0) scale(1)' },
+          '50%': { transform: 'translate3d(12%, 8%, 0) scale(1.15)' },
+        },
+        'aurora-b': {
+          '0%, 100%': { transform: 'translate3d(0, 0, 0) scale(1.1)' },
+          '50%': { transform: 'translate3d(-10%, -12%, 0) scale(0.95)' },
+        },
+        'grid-drift': {
+          from: { backgroundPosition: '0 0' },
+          to: { backgroundPosition: '48px 48px' },
+        },
       },
       animation: {
+        'aurora-a': 'aurora-a 22s ease-in-out infinite',
+        'aurora-b': 'aurora-b 28s ease-in-out infinite',
+        'grid-drift': 'grid-drift 18s linear infinite',
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
       },
