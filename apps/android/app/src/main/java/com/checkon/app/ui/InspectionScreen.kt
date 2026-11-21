@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
@@ -243,7 +244,23 @@ fun InspectionScreen(vm: AppViewModel, vehicleId: String, templateId: String, on
                 color = Palette.Primary,
                 trackColor = Palette.Border,
             )
-            Muted("$answered de ${items.size} respondidos" + (if (nonCompliant.isNotEmpty()) " · ${Rules.plural(nonCompliant.size, "não conforme", "não conformes")}" else "") + " · salvo no celular")
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Muted(
+                    "$answered de ${items.size} respondidos" + (if (nonCompliant.isNotEmpty()) " · ${Rules.plural(nonCompliant.size, "não conforme", "não conformes")}" else "") + " · salvo no celular",
+                    Modifier.weight(1f),
+                )
+                // Checklist longo: leva direto ao próximo item que falta responder.
+                val next = Rules.nextToAnswer(template, current.answers)
+                if (next != null) {
+                    TextButton(onClick = {
+                        val index = rows.indexOfFirst { it is TemplateItem && it.id == next }
+                        if (index >= 0) scope.launch { listState.animateScrollToItem(index + 1) }
+                    }) {
+                        Text("Próximo", color = Palette.Primary, fontWeight = FontWeight.SemiBold)
+                        Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null, tint = Palette.Primary, modifier = Modifier.size(18.dp))
+                    }
+                }
+            }
         }
         LazyColumn(state = listState, modifier = Modifier.weight(1f), contentPadding = ScreenPadding, verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item {

@@ -138,4 +138,16 @@ class RulesTest {
         assertEquals(ThemeMode.AUTOMATICO, ThemeMode.fromStored(null))
         assertEquals(ThemeMode.AUTOMATICO, ThemeMode.fromStored("NOTURNO"))
     }
+
+    @Test fun `proximo item e o primeiro sem resposta ou com foto faltando`() {
+        val t = template(item("a"), item("b", photo = "ON_NON_COMPLIANCE"), item("c", required = false))
+        assertEquals("a", Rules.nextToAnswer(t, emptyMap()))
+        // "a" respondido; "b" não conforme sem a foto do problema: ainda falta.
+        val answers = mapOf("a" to Answer("a", isCompliant = true), "b" to Answer("b", isCompliant = false))
+        assertEquals("b", Rules.nextToAnswer(t, answers))
+        // Item opcional também entra, mas só depois dos anteriores.
+        val done = answers + ("b" to Answer("b", isCompliant = true))
+        assertEquals("c", Rules.nextToAnswer(t, done))
+        assertNull(Rules.nextToAnswer(t, done + ("c" to Answer("c", notApplicable = true))))
+    }
 }
