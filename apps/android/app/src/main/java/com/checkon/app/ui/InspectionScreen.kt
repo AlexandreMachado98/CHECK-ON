@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import android.location.Location
 import android.location.LocationManager
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -84,7 +85,14 @@ import java.time.Instant
 import java.util.UUID
 
 @Composable
-fun InspectionScreen(vm: AppViewModel, vehicleId: String, templateId: String, onDone: (clientId: String) -> Unit, onDiscarded: () -> Unit) {
+fun InspectionScreen(
+    vm: AppViewModel,
+    vehicleId: String,
+    templateId: String,
+    onDone: (clientId: String) -> Unit,
+    onDiscarded: () -> Unit,
+    onLeave: () -> Unit,
+) {
     val bootstrap by vm.bootstrap.collectAsState()
     val vehicle = bootstrap?.vehicles?.firstOrNull { it.id == vehicleId }
     val template = bootstrap?.templates?.firstOrNull { it.id == templateId }
@@ -96,6 +104,7 @@ fun InspectionScreen(vm: AppViewModel, vehicleId: String, templateId: String, on
     var pendencies by remember { mutableStateOf<List<String>?>(null) }
     var confirm by remember { mutableStateOf(false) }
     var confirmDiscard by remember { mutableStateOf(false) }
+    var confirmLeave by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
     // Foto sendo tirada: guardada para sobreviver se o Android fechar o app enquanto a câmera está aberta.
     var photoItemId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -233,6 +242,9 @@ fun InspectionScreen(vm: AppViewModel, vehicleId: String, templateId: String, on
         }
     }
 
+    // "Voltar" (do celular ou da barra do topo) com respostas marcadas: avisa que nada se perde.
+    BackHandler(enabled = current.answers.isNotEmpty() && !saving) { confirmLeave = true }
+
     Column(Modifier.fillMaxSize().imePadding()) {
         Column(Modifier.fillMaxWidth().background(Palette.Surface).padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -314,6 +326,21 @@ fun InspectionScreen(vm: AppViewModel, vehicleId: String, templateId: String, on
             },
             confirmButton = { TextButton(onClick = { confirm = false; save() }) { Text("Concluir") } },
             dismissButton = { TextButton(onClick = { confirm = false }) { Text("Revisar") } },
+        )
+    }
+    if (confirmLeave) {
+        AlertDialog(
+            onDismissRequest = { confirmLeave = false },
+            title = { Text("Sair da inspeção?") },
+            text = {
+                Text(
+                    "${Rules.plural(current.answers.size, "resposta está salva", "respostas estão salvas")} neste celular. " +
+                        "Para continuar depois, toque em \"Continuar inspeção\" na tela inicial.\n\n" +
+                        "A inspeção só é enviada ao gestor depois de concluída.",
+                )
+            },
+            confirmButton = { TextButton(onClick = { confirmLeave = false; onLeave() }) { Text("Sair") } },
+            dismissButton = { TextButton(onClick = { confirmLeave = false }) { Text("Continuar inspeção") } },
         )
     }
     if (confirmDiscard) {
