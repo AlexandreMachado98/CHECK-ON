@@ -5,6 +5,7 @@ package com.checkon.app
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -83,6 +84,7 @@ private val TITLES = mapOf(
 @Composable
 private fun AppNavigation(vm: AppViewModel) {
     val nav = rememberNavController()
+    val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route
     val canGoBack = route != null && route != "home" && !route.startsWith("done")
@@ -96,7 +98,8 @@ private fun AppNavigation(vm: AppViewModel) {
                 },
                 navigationIcon = {
                     if (canGoBack) {
-                        IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar") }
+                        // Passa pelo mesmo caminho do "voltar" do celular, para a tela poder interceptar (ex.: inspeção).
+                        IconButton(onClick = { backDispatcher?.onBackPressed() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar") }
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Palette.Surface),
@@ -127,6 +130,7 @@ private fun AppNavigation(vm: AppViewModel) {
                         templateId = back.arguments?.getString("templateId") ?: "",
                         onDone = { clientId -> nav.goHomeThen("done/$clientId") },
                         onDiscarded = { nav.popBackStack() },
+                        onLeave = { nav.popBackStack() },
                     )
                 }
                 composable("done/{clientId}") { back ->
