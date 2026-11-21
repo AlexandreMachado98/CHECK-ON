@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Modo escuro do celular: barra de status e fundo iguais ao tema escuro do app (ui/Components.kt). -->
+<resources>
+    <style name="Theme.CheckOn" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">#FF172033</item>
+        <item name="android:navigationBarColor">#FF0B1120</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowBackground">#FF0B1120</item>
+    </style>
+</resources>
