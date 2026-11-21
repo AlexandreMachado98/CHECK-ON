@@ -232,7 +232,7 @@ fun InspectionScreen(vm: AppViewModel, vehicleId: String, templateId: String, on
     }
 
     Column(Modifier.fillMaxSize().imePadding()) {
-        Column(Modifier.fillMaxWidth().background(Color.White).padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(Modifier.fillMaxWidth().background(Palette.Surface).padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(template.name, fontWeight = FontWeight.Bold, color = Palette.Text, modifier = Modifier.weight(1f))
                 TextButton(onClick = { confirmDiscard = true }) { Text("Descartar", color = Palette.Danger) }
@@ -446,14 +446,14 @@ private fun Choice(label: String, icon: androidx.compose.ui.graphics.vector.Imag
         shape = RoundedCornerShape(12.dp),
         border = BorderStroke(2.dp, if (active) color else Palette.Border),
         colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = if (active) color else Color.White,
-            contentColor = if (active) Color.White else Palette.Text,
+            containerColor = if (active) color else Palette.Surface,
+            contentColor = if (active) Palette.contentOn(color) else Palette.Text,
         ),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 8.dp),
     ) {
         // Ícone em cima e texto embaixo: as três opções cabem lado a lado em celular pequeno.
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(icon, contentDescription = null, tint = if (active) Color.White else color, modifier = Modifier.size(20.dp))
+            Icon(icon, contentDescription = null, tint = if (active) Palette.contentOn(color) else color, modifier = Modifier.size(20.dp))
             Text(label, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1)
         }
     }

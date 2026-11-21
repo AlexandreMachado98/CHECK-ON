@@ -3,6 +3,7 @@ package com.checkon.app.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -27,49 +28,146 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.checkon.app.data.Rules
 
+/** Conjunto de cores do app; um para o tema claro e outro para o escuro. */
+@Immutable
+data class CheckOnColors(
+    val primary: Color,
+    val primaryDark: Color,
+    val primarySoft: Color,
+    val text: Color,
+    val muted: Color,
+    val border: Color,
+    val background: Color,
+    val surface: Color,
+    val danger: Color,
+    val dangerSoft: Color,
+    val warning: Color,
+    val warningSoft: Color,
+    val info: Color,
+    val infoSoft: Color,
+    val isDark: Boolean,
+)
+
 /** Cores do portal CHECK-ON (verde esmeralda + cinza azulado). */
+val LightColors = CheckOnColors(
+    primary = Color(0xFF059669),
+    primaryDark = Color(0xFF047857),
+    primarySoft = Color(0xFFECFDF5),
+    text = Color(0xFF0F172A),
+    muted = Color(0xFF64748B),
+    border = Color(0xFFE2E8F0),
+    background = Color(0xFFF8FAFC),
+    surface = Color(0xFFFFFFFF),
+    danger = Color(0xFFBE123C),
+    dangerSoft = Color(0xFFFFF1F2),
+    warning = Color(0xFFB45309),
+    warningSoft = Color(0xFFFFFBEB),
+    info = Color(0xFF0369A1),
+    infoSoft = Color(0xFFF0F9FF),
+    isDark = false,
+)
+
+/**
+ * Tema escuro: fundo azul-noite (mesma família do ícone), textos claros e cores de
+ * estado mais vivas para manter o contraste. O verde dos botões continua o mesmo.
+ */
+val DarkColors = CheckOnColors(
+    primary = Color(0xFF059669),
+    primaryDark = Color(0xFF34D399),
+    primarySoft = Color(0xFF0B3B2E),
+    text = Color(0xFFE2E8F0),
+    muted = Color(0xFF94A3B8),
+    border = Color(0xFF334155),
+    background = Color(0xFF0B1120),
+    surface = Color(0xFF172033),
+    danger = Color(0xFFF43F5E),
+    dangerSoft = Color(0xFF3F1220),
+    warning = Color(0xFFFBBF24),
+    warningSoft = Color(0xFF3A2A0C),
+    info = Color(0xFF38BDF8),
+    infoSoft = Color(0xFF0C2A40),
+    isDark = true,
+)
+
+val LocalCheckOnColors = staticCompositionLocalOf { LightColors }
+
+/** Atalho para as cores do tema atual (claro ou escuro). */
 object Palette {
-    val Primary = Color(0xFF059669)
-    val PrimaryDark = Color(0xFF047857)
-    val PrimarySoft = Color(0xFFECFDF5)
-    val Text = Color(0xFF0F172A)
-    val Muted = Color(0xFF64748B)
-    val Border = Color(0xFFE2E8F0)
-    val Background = Color(0xFFF8FAFC)
-    val Danger = Color(0xFFBE123C)
-    val DangerSoft = Color(0xFFFFF1F2)
-    val Warning = Color(0xFFB45309)
-    val WarningSoft = Color(0xFFFFFBEB)
-    val Info = Color(0xFF0369A1)
-    val InfoSoft = Color(0xFFF0F9FF)
+    val Primary: Color @Composable @ReadOnlyComposable get() = LocalCheckOnColors.current.primary
+    val PrimaryDark: Color @Composable @ReadOnlyComposable get() = LocalCheckOnColors.current.primaryDark
+    val PrimarySoft: Color @Composable @ReadOnlyComposable get() = LocalCheckOnColors.current.primarySoft
+    val Text: Color @Composable @ReadOnlyComposable get() = LocalCheckOnColors.current.text
+    val Muted: Color @Composable @ReadOnlyComposable get() = LocalCheckOnColors.current.muted
+    val Border: Color @Composable @ReadOnlyComposable get() = LocalCheckOnColors.current.border
+    val Background: Color @Composable @ReadOnlyComposable get() = LocalCheckOnColors.current.background
+    val Surface: Color @Composable @ReadOnlyComposable get() = LocalCheckOnColors.current.surface
+    val Danger: Color @Composable @ReadOnlyComposable get() = LocalCheckOnColors.current.danger
+    val DangerSoft: Color @Composable @ReadOnlyComposable get() = LocalCheckOnColors.current.dangerSoft
+    val Warning: Color @Composable @ReadOnlyComposable get() = LocalCheckOnColors.current.warning
+    val WarningSoft: Color @Composable @ReadOnlyComposable get() = LocalCheckOnColors.current.warningSoft
+    val Info: Color @Composable @ReadOnlyComposable get() = LocalCheckOnColors.current.info
+    val InfoSoft: Color @Composable @ReadOnlyComposable get() = LocalCheckOnColors.current.infoSoft
+
+    /** Texto/ícone legível sobre um fundo [fill]: branco nos fundos escuros, azul-noite nos claros. */
+    fun contentOn(fill: Color): Color = if (fill.luminance() > 0.4f) Color(0xFF0B1120) else Color.White
 }
 
+/** Segue o modo claro/escuro do celular. */
 @Composable
-fun CheckOnTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = lightColorScheme(
-            primary = Palette.Primary,
+fun CheckOnTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
+    val colors = if (dark) DarkColors else LightColors
+    val scheme = if (dark) {
+        darkColorScheme(
+            primary = colors.primary,
             onPrimary = Color.White,
-            secondary = Palette.PrimaryDark,
-            background = Palette.Background,
-            surface = Color.White,
-            onSurface = Palette.Text,
-            error = Palette.Danger,
-        ),
-        content = content,
-    )
+            secondary = colors.primaryDark,
+            background = colors.background,
+            onBackground = colors.text,
+            surface = colors.surface,
+            onSurface = colors.text,
+            surfaceVariant = colors.surface,
+            onSurfaceVariant = colors.muted,
+            surfaceContainerLowest = colors.background,
+            surfaceContainerLow = colors.surface,
+            surfaceContainer = colors.surface,
+            surfaceContainerHigh = colors.surface,
+            surfaceContainerHighest = colors.border,
+            outline = colors.muted,
+            outlineVariant = colors.border,
+            error = colors.danger,
+        )
+    } else {
+        lightColorScheme(
+            primary = colors.primary,
+            onPrimary = Color.White,
+            secondary = colors.primaryDark,
+            background = colors.background,
+            surface = colors.surface,
+            onSurface = colors.text,
+            error = colors.danger,
+        )
+    }
+    CompositionLocalProvider(LocalCheckOnColors provides colors) {
+        MaterialTheme(colorScheme = scheme, content = content)
+    }
 }
 
 @Composable
@@ -101,7 +199,7 @@ fun SecondaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modi
         modifier = modifier.fillMaxWidth().heightIn(min = 52.dp),
         shape = RoundedCornerShape(14.dp),
         border = BorderStroke(1.dp, Palette.Border),
-        colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White, contentColor = Palette.Text),
+        colors = ButtonDefaults.outlinedButtonColors(containerColor = Palette.Surface, contentColor = Palette.Text),
     ) {
         if (loading) {
             CircularProgressIndicator(Modifier.size(22.dp), color = Palette.Primary, strokeWidth = 2.dp)
@@ -117,7 +215,7 @@ fun SecondaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modi
 
 @Composable
 fun AppCard(modifier: Modifier = Modifier, accent: Color? = null, onClick: (() -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
-    val colors = CardDefaults.cardColors(containerColor = Color.White)
+    val colors = CardDefaults.cardColors(containerColor = Palette.Surface, contentColor = Palette.Text)
     val border = BorderStroke(if (accent != null) 2.dp else 1.dp, accent ?: Palette.Border)
     val inner: @Composable ColumnScope.() -> Unit = {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp), content = content)
@@ -129,12 +227,26 @@ fun AppCard(modifier: Modifier = Modifier, accent: Color? = null, onClick: (() -
     }
 }
 
-enum class Tone(val fg: Color, val bg: Color) {
-    Success(Palette.PrimaryDark, Palette.PrimarySoft),
-    Danger(Palette.Danger, Palette.DangerSoft),
-    Warning(Palette.Warning, Palette.WarningSoft),
-    Info(Palette.Info, Palette.InfoSoft),
-    Muted(Palette.Muted, Palette.Background),
+enum class Tone {
+    Success, Danger, Warning, Info, Muted;
+
+    val fg: Color
+        @Composable @ReadOnlyComposable get() = when (this) {
+            Success -> Palette.PrimaryDark
+            Danger -> Palette.Danger
+            Warning -> Palette.Warning
+            Info -> Palette.Info
+            Muted -> Palette.Muted
+        }
+
+    val bg: Color
+        @Composable @ReadOnlyComposable get() = when (this) {
+            Success -> Palette.PrimarySoft
+            Danger -> Palette.DangerSoft
+            Warning -> Palette.WarningSoft
+            Info -> Palette.InfoSoft
+            Muted -> Palette.Background
+        }
 }
 
 @Composable
