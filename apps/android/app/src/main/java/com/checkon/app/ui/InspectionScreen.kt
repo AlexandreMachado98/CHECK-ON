@@ -64,6 +64,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -348,6 +349,7 @@ private fun ItemCard(
     onRemovePhoto: () -> Unit,
 ) {
     val na = Rules.isNotApplicable(answer)
+    val view = LocalView.current
     val failed = !na && answer?.isCompliant == false
     var numberText by rememberSaveable(item.id) { mutableStateOf(answer?.numberValue?.toString()?.removeSuffix(".0")?.replace('.', ',') ?: "") }
     var showNotes by rememberSaveable(item.id) { mutableStateOf(!answer?.observations.isNullOrBlank()) }
@@ -404,12 +406,15 @@ private fun ItemCard(
             "PHOTO" -> Unit
             else -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Choice("Conforme", Icons.Filled.CheckCircle, !na && answer?.isCompliant == true, Palette.Primary, Modifier.weight(1f)) {
+                    view.answerHaptic(AnswerFeel.Confirm)
                     onChange { it.copy(isCompliant = true, notApplicable = null) }
                 }
                 Choice("Não conforme", Icons.Filled.Cancel, failed, Palette.Danger, Modifier.weight(1f)) {
+                    view.answerHaptic(AnswerFeel.Reject)
                     onChange { it.copy(isCompliant = false, notApplicable = null) }
                 }
                 Choice("N/A", Icons.Filled.Block, na, Palette.Muted, Modifier.weight(0.8f)) {
+                    view.answerHaptic(AnswerFeel.Neutral)
                     onChange { it.copy(notApplicable = true, isCompliant = null) }
                 }
             }
