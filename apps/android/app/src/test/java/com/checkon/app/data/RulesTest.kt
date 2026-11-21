@@ -125,4 +125,17 @@ class RulesTest {
         assertEquals("0 fotos", Rules.plural(0, "foto", "fotos"))
         assertEquals("3 inspeções recusadas", Rules.plural(3, "inspeção recusada", "inspeções recusadas"))
     }
+
+    @Test fun `tema automatico segue o celular e os outros ignoram`() {
+        assertTrue(ThemeMode.AUTOMATICO.isDark(systemDark = true))
+        assertFalse(ThemeMode.AUTOMATICO.isDark(systemDark = false))
+        assertFalse(ThemeMode.CLARO.isDark(systemDark = true))
+        assertTrue(ThemeMode.ESCURO.isDark(systemDark = false))
+    }
+
+    @Test fun `tema salvo desconhecido volta para automatico`() {
+        assertEquals(ThemeMode.ESCURO, ThemeMode.fromStored("ESCURO"))
+        assertEquals(ThemeMode.AUTOMATICO, ThemeMode.fromStored(null))
+        assertEquals(ThemeMode.AUTOMATICO, ThemeMode.fromStored("NOTURNO"))
+    }
 }

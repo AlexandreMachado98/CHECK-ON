@@ -101,7 +101,10 @@ fun LoginScreen(vm: AppViewModel) {
         verticalArrangement = Arrangement.spacedBy(18.dp, Alignment.CenterVertically),
     ) {
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-            Spacer(Modifier.height(32.dp))
+            // Tema antes do login: quem usa o app à noite já entra no escuro.
+            androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                ThemeButton(vm.themeSettings)
+            }
             // Mesmo desenho do ícone do app (medidor em C com check) sobre o fundo azul-noite.
             Box(
                 Modifier

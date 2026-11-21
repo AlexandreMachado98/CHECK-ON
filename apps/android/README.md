@@ -26,7 +26,7 @@ O app conversa com o CHECK-ON que está no ar. O endereço fica em `app/build.gr
   - cada foto é enviada uma vez só;
   - as inspeções vão em lote, sem duplicar;
   - se o servidor recusar uma inspeção, o motivo aparece em "Envios".
-- **Modo escuro:** segue o modo claro/escuro do celular.
+- **Tema:** claro, escuro ou automático (igual ao celular), no ícone do topo da tela inicial ou do login.
 - **No portal:** cada inspeção registra o aparelho e a localização (quando permitida).
 
 ## Testes

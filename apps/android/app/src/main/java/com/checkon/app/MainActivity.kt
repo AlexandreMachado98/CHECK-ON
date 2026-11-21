@@ -2,10 +2,12 @@
 
 package com.checkon.app
 
+import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -19,9 +21,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
+import androidx.core.view.WindowCompat
 import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -39,6 +44,7 @@ import com.checkon.app.ui.InspectionScreen
 import com.checkon.app.ui.LoginScreen
 import com.checkon.app.ui.Palette
 import com.checkon.app.ui.QueueScreen
+import com.checkon.app.ui.ThemeButton
 import com.checkon.app.ui.VehicleScreen
 import com.checkon.app.ui.VehiclesScreen
 import kotlinx.coroutines.launch
@@ -53,7 +59,10 @@ class MainActivity : ComponentActivity() {
             repeatOnLifecycle(Lifecycle.State.STARTED) { vm.catchUp() }
         }
         setContent {
-            CheckOnTheme {
+            val themeMode by vm.themeSettings.mode.collectAsState()
+            val dark = themeMode.isDark(isSystemInDarkTheme())
+            CheckOnTheme(dark = dark) {
+                SystemBars(dark)
                 val session by vm.session.collectAsState()
                 if (session == null) LoginScreen(vm) else AppNavigation(vm)
             }
@@ -81,6 +90,9 @@ private fun AppNavigation(vm: AppViewModel) {
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text(TITLES[route] ?: "CHECK-ON", fontWeight = FontWeight.Bold) },
+                actions = {
+                    if (route == "home") ThemeButton(vm.themeSettings)
+                },
                 navigationIcon = {
                     if (canGoBack) {
                         IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar") }
@@ -125,6 +137,26 @@ private fun AppNavigation(vm: AppViewModel) {
                 }
                 composable("queue") { QueueScreen(vm) }
             }
+        }
+    }
+}
+
+/**
+ * Barra de status e de navegação com as cores do tema escolhido no app
+ * (o tema do sistema em values-night só acompanha o modo do celular).
+ */
+@Suppress("DEPRECATION")
+@Composable
+private fun ComponentActivity.SystemBars(dark: Boolean) {
+    val statusBar = Palette.Surface.toArgb()
+    val navigationBar = Palette.Background.toArgb()
+    SideEffect {
+        window.statusBarColor = statusBar
+        window.navigationBarColor = navigationBar
+        window.setBackgroundDrawable(ColorDrawable(navigationBar))
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = !dark
+            isAppearanceLightNavigationBars = !dark
         }
     }
 }
