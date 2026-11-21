@@ -5,4 +5,14 @@
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowBackground">@android:color/white</item>
     </style>
+
+    <!--
+        Tela de abertura: ícone do app sobre o azul-noite do CHECK-ON, nos temas claro e escuro.
+        Depois dela o app volta para Theme.CheckOn (postSplashScreenTheme).
+    -->
+    <style name="Theme.CheckOn.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.CheckOn</item>
+    </style>
 </resources>
