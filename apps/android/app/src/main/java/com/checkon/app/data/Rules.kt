@@ -68,6 +68,15 @@ object Rules {
         return result
     }
 
+    /**
+     * Próximo item a responder, na ordem do checklist: o primeiro sem resposta ou com
+     * algo faltando (foto, motivo do N/A). Null quando não falta nada.
+     */
+    fun nextToAnswer(template: Template, answers: Map<String, Answer>): String? {
+        val pending = pendingItems(template, answers).map { it.itemId }.toSet()
+        return template.allItems.firstOrNull { it.id in pending || !isAnswered(it, answers[it.id]) }?.id
+    }
+
     /** Respostas que vão para a API: só itens respondidos, sem campos vazios. */
     fun answersToSend(template: Template, answers: Map<String, Answer>): List<Answer> =
         template.allItems.mapNotNull { item ->

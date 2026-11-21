@@ -27,8 +27,8 @@ android {
         applicationId = "com.checkon.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "1.2.1"
+        versionCode = 7
+        versionName = "1.2.2"
         // Endereço da API do CHECK-ON.
         buildConfigField("String", "API_URL", "\"https://check-on-mu.vercel.app/api\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
