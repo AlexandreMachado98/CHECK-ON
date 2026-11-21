@@ -5,10 +5,11 @@ import { UpdateUnitDto } from './dto/update-unit.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { PANEL_ROLES } from '../role/role-definitions';
+import { ADMIN_EMPRESA, OPERATION_ROLES, SUPER_ADMIN } from '../role/role-definitions';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(...PANEL_ROLES)
+// Cadastrar, editar e excluir frentes: só o administrador. Ver a lista: quem opera o portal (só as frentes dele).
+@Roles(ADMIN_EMPRESA, SUPER_ADMIN)
 @Controller('units')
 export class UnitController {
   constructor(private readonly service: UnitService) {}
@@ -17,9 +18,11 @@ export class UnitController {
   create(@Body() createDto: CreateUnitDto) { return this.service.create(createDto); }
 
   @Get()
+  @Roles(...OPERATION_ROLES)
   findAll() { return this.service.findAll(); }
 
   @Get(':id')
+  @Roles(...OPERATION_ROLES)
   findOne(@Param('id') id: string) { return this.service.findOne(id); }
 
   @Patch(':id')

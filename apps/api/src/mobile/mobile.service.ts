@@ -14,7 +14,8 @@ const VEHICLE_SELECT = {
   status: true,
   mileage: true,
   qrCode: true,
-  fleet: { select: { id: true, name: true } },
+  // unitId: frente de trabalho do veículo (o app filtra os checklists por ela).
+  fleet: { select: { id: true, name: true, unitId: true } },
 } as const;
 
 const NC_SELECT = {
@@ -50,6 +51,9 @@ export class MobileService {
           description: true,
           version: true,
           updatedAt: true,
+          // Frentes do modelo: o app só oferece o checklist nos veículos dessas frentes.
+          allUnits: true,
+          units: { select: { unitId: true } },
           categories: {
             where: { isActive: true },
             orderBy: { order: 'asc' },

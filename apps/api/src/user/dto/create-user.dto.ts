@@ -1,7 +1,15 @@
 import { Transform } from 'class-transformer';
 import { IsEmail, IsNotEmpty, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsUUID } from 'class-validator';
 
 export class CreateUserDto {
+  /** Frentes de trabalho que o gestor ou supervisor enxerga (ignorado para administrador e motorista). */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsUUID('all', { each: true })
+  unitIds?: string[];
+
   @IsNotEmpty()
   @IsString()
   @MaxLength(120)

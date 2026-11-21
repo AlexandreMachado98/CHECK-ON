@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { currentUnitIds } from '../common/unit-scope';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateFleetDto } from './dto/create-fleet.dto';
 import { UpdateFleetDto } from './dto/update-fleet.dto';
@@ -16,22 +17,24 @@ export class FleetService {
   }
 
   /**
-   * A frota precisa de uma unidade. O painel ainda não tem tela de unidades, então, sem unitId,
-   * usa a primeira unidade ativa da empresa ou cria a "Unidade principal".
+   * Frente de trabalho da frota. Sem unitId: a única frente de quem cadastra (ou da empresa);
+   * com mais de uma, é preciso escolher. Empresa sem frente nenhuma ganha a "Unidade principal".
    */
   private async resolveUnitId(unitId?: string): Promise<string> {
     if (unitId) {
-      // A extensão do Prisma restringe a busca à empresa de quem está logado.
+      // A extensão do Prisma restringe a busca à empresa e às frentes de quem está logado.
       const unit = await this.prisma.unit.findFirst({ where: { id: unitId }, select: { id: true } });
-      if (!unit) throw new NotFoundException('Unidade não encontrada.');
+      if (!unit) throw new NotFoundException('Frente de trabalho não encontrada.');
       return unit.id;
     }
-    const existing = await this.prisma.unit.findFirst({
-      where: { isActive: true },
-      orderBy: { createdAt: 'asc' },
-      select: { id: true },
-    });
-    if (existing) return existing.id;
+    const scope = currentUnitIds();
+    if (scope) {
+      if (scope.length === 1) return scope[0];
+      throw new BadRequestException('Escolha a frente de trabalho da frota.');
+    }
+    const active = await this.prisma.unit.findMany({ where: { isActive: true }, select: { id: true }, take: 2 });
+    if (active.length > 1) throw new BadRequestException('Escolha a frente de trabalho da frota.');
+    if (active.length === 1) return active[0].id;
     const created = await this.prisma.unit.create({ data: { name: 'Unidade principal' } as never, select: { id: true } });
     return created.id;
   }
@@ -40,6 +43,7 @@ export class FleetService {
     return this.prisma.fleet.findMany({
       include: {
         vehicles: true,
+        unit: { select: { id: true, name: true, client: true } },
         _count: { select: { vehicles: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -51,6 +55,7 @@ export class FleetService {
       where: { id },
       include: {
         vehicles: true,
+        unit: { select: { id: true, name: true, client: true } },
         _count: { select: { vehicles: true } },
       },
     });

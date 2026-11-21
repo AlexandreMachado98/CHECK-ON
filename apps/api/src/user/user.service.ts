@@ -3,7 +3,8 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { MOTORISTA, ROLE_LABELS, assignableRoleNames } from '../role/role-definitions';
+import { GESTOR, MOTORISTA, ROLE_LABELS, SUPERVISOR, assignableRoleNames } from '../role/role-definitions';
+import { resolveUnitAssignment, visibleUnitsInclude } from '../unit/unit-assignment';
 import { SessionGuardCache } from '../auth/session-guard.cache';
 import { generateTemporaryPassword } from '../auth/password';
 import { CreateAccessDto } from './dto/create-access.dto';
@@ -11,7 +12,10 @@ import { CreateAccessDto } from './dto/create-access.dto';
 /** Quem faz a alteração (vem do token). */
 export type Requester = { id: string; role: string };
 
-const USER_SELECT = {
+/** Perfis cujo acesso depende das frentes vinculadas ao login. */
+const UNIT_SCOPED_PANEL_ROLES = [GESTOR, SUPERVISOR];
+
+const USER_SELECT_BASE = {
   id: true,
   name: true,
   email: true,
@@ -23,6 +27,11 @@ const USER_SELECT = {
   mustChangePassword: true,
   lockedUntil: true,
 } as const;
+
+/** Campos do login, com as frentes que quem pede pode ver. */
+function userSelect() {
+  return { ...USER_SELECT_BASE, units: visibleUnitsInclude() };
+}
 
 type UserRow = { role: { id: string; name: string } } & Record<string, unknown>;
 
@@ -38,7 +47,8 @@ export class UserService {
   ) {}
 
   async create(dto: CreateUserDto, requester: Requester) {
-    await this.assertAssignableRole(dto.roleId, requester);
+    const roleName = await this.assertAssignableRole(dto.roleId, requester);
+    const units = await this.unitsForNewLogin(roleName, dto.unitIds);
 
     // O e-mail é único em toda a plataforma, não só na empresa.
     const existing = await this.prisma.$queryRaw<{ id: string }[]>`SELECT id FROM "User" WHERE lower(email) = lower(${dto.email}) LIMIT 1`;
@@ -50,14 +60,22 @@ export class UserService {
     const user = await this.prisma.user.create({
       // O tenantId é preenchido pela extensão do Prisma com a empresa de quem está logado.
       // A senha definida por outra pessoa é provisória: troca obrigatória no primeiro login.
-      data: { name: dto.name.trim(), email: dto.email, passwordHash, roleId: dto.roleId, employeeId: dto.employeeId || null, mustChangePassword: true } as never,
-      select: USER_SELECT,
+      data: {
+        name: dto.name.trim(),
+        email: dto.email,
+        passwordHash,
+        roleId: dto.roleId,
+        employeeId: dto.employeeId || null,
+        mustChangePassword: true,
+        units: { create: units.map((unitId) => ({ unitId })) },
+      } as never,
+      select: userSelect(),
     });
     return withRoleLabel(user);
   }
 
   async findAll() {
-    const users = await this.prisma.user.findMany({ select: USER_SELECT, orderBy: { createdAt: 'desc' } });
+    const users = await this.prisma.user.findMany({ select: userSelect(), orderBy: { createdAt: 'desc' } });
     return users.map(withRoleLabel);
   }
 
@@ -73,13 +91,16 @@ export class UserService {
       if (dto.isActive === false) throw new BadRequestException('Você não pode bloquear o seu próprio acesso.');
       if (dto.roleId) throw new BadRequestException('Você não pode alterar o seu próprio perfil.');
     }
-    if (dto.roleId) await this.assertAssignableRole(dto.roleId, requester);
+    const newRoleName = dto.roleId ? await this.assertAssignableRole(dto.roleId, requester) : null;
     if (dto.employeeId) await this.assertEmployeeAvailable(dto.employeeId, id);
+    const units = await this.unitsForUpdatedLogin(id, newRoleName ?? target.role.name, newRoleName !== null && newRoleName !== target.role.name, dto.unitIds);
 
     const data: {
       name?: string; roleId?: string; isActive?: boolean; passwordHash?: string; employeeId?: string | null;
       mustChangePassword?: boolean; passwordChangedAt?: Date; failedLoginCount?: number; lockedUntil?: Date | null;
+      units?: { deleteMany: Record<string, never>; create: { unitId: string }[] };
     } = {};
+    if (units !== undefined) data.units = { deleteMany: {}, create: units.map((unitId) => ({ unitId })) };
     if (dto.employeeId !== undefined) data.employeeId = dto.employeeId || null;
     if (dto.name !== undefined) data.name = dto.name.trim();
     if (dto.roleId !== undefined) data.roleId = dto.roleId;
@@ -90,7 +111,7 @@ export class UserService {
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
-      const user = await tx.user.update({ where: { id }, data, select: USER_SELECT });
+      const user = await tx.user.update({ where: { id }, data, select: userSelect() });
       // Bloqueio ou troca de senha encerram as sessões abertas (inclusive no app).
       if (data.isActive === false || data.passwordHash) {
         await tx.refreshToken.updateMany({ where: { userId: id, revokedAt: null }, data: { revokedAt: new Date() } });
@@ -106,7 +127,8 @@ export class UserService {
    * com senha provisória mostrada uma única vez para a empresa entregar à pessoa.
    */
   async createAccess(dto: CreateAccessDto, requester: Requester) {
-    await this.assertAssignableRole(dto.roleId, requester);
+    const roleName = await this.assertAssignableRole(dto.roleId, requester);
+    const units = await this.unitsForNewLogin(roleName, dto.unitIds);
     const employee = await this.prisma.employee.findFirst({
       where: { id: dto.employeeId },
       select: { id: true, name: true, matricula: true, isActive: true, tenant: { select: { code: true } } },
@@ -136,8 +158,9 @@ export class UserService {
         roleId: dto.roleId,
         employeeId: employee.id,
         mustChangePassword: !appOnly,
+        units: { create: units.map((unitId) => ({ unitId })) },
       } as never,
-      select: USER_SELECT,
+      select: userSelect(),
     });
     return {
       user: withRoleLabel(user),
@@ -197,13 +220,37 @@ export class UserService {
     if (linked) throw new ConflictException(`${employee.name} já está vinculado ao login de ${linked.name}.`);
   }
 
-  /** O perfil precisa ser da mesma empresa e estar entre os que quem pede pode atribuir. */
-  private async assertAssignableRole(roleId: string, requester: Requester) {
+  /**
+   * Frentes de um login novo. Só gestor e supervisor têm frentes no login: o administrador vê
+   * todas e o motorista segue as frentes do funcionário dele.
+   */
+  private async unitsForNewLogin(roleName: string, requested: string[] | undefined): Promise<string[]> {
+    if (!UNIT_SCOPED_PANEL_ROLES.includes(roleName)) return [];
+    return (await resolveUnitAssignment(this.prisma, requested, null)) ?? [];
+  }
+
+  /** Frentes depois de editar um login; undefined quando não mudam. */
+  private async unitsForUpdatedLogin(
+    userId: string,
+    roleName: string,
+    roleChanged: boolean,
+    requested: string[] | undefined,
+  ): Promise<string[] | undefined> {
+    if (!UNIT_SCOPED_PANEL_ROLES.includes(roleName)) return roleChanged ? [] : undefined;
+    // Virou gestor/supervisor agora: começa como um login novo (padrão de frentes).
+    if (roleChanged) return (await resolveUnitAssignment(this.prisma, requested, null)) ?? [];
+    const current = await this.prisma.user.findFirst({ where: { id: userId }, select: { units: { select: { unitId: true } } } });
+    return resolveUnitAssignment(this.prisma, requested, current?.units.map((row) => row.unitId) ?? []);
+  }
+
+  /** O perfil precisa ser da mesma empresa e estar entre os que quem pede pode atribuir. Devolve o nome do perfil. */
+  private async assertAssignableRole(roleId: string, requester: Requester): Promise<string> {
     // A extensão do Prisma restringe a busca à empresa de quem está logado.
     const role = await this.prisma.role.findFirst({ where: { id: roleId }, select: { name: true } });
     if (!role) throw new BadRequestException('Perfil inválido.');
     if (!assignableRoleNames(requester.role).includes(role.name)) {
       throw new ForbiddenException('Seu perfil não pode atribuir este perfil de acesso.');
     }
+    return role.name;
   }
 }

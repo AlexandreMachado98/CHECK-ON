@@ -12,6 +12,13 @@ import { Type } from 'class-transformer';
 import { EmployeeTrainingDto } from './employee-training.dto';
 
 export class CreateEmployeeDto {
+  /** Frentes de trabalho em que o funcionário trabalha. O motorista do app vê os veículos delas. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsUUID('all', { each: true })
+  unitIds?: string[];
+
   @IsNotEmpty()
   @IsString()
   name: string;

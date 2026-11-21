@@ -74,6 +74,8 @@ export class TenantAdminService {
             isSystem: true,
           })) as never,
         });
+        // Toda empresa nasce com uma frente de trabalho; as frotas novas entram nela.
+        await tx.unit.create({ data: { name: 'Unidade principal' } as never });
         const adminRole = await tx.role.findFirst({ where: { name: ADMIN_EMPRESA }, select: { id: true } });
         if (!adminRole) throw new Error('Perfil ADMIN_EMPRESA não foi criado.');
         await tx.user.create({

@@ -9,6 +9,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { TemplateService } from './template.service';
+import { CreateTemplateDto } from './dto/create-template.dto';
+import { UpdateTemplateDto } from './dto/update-template.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -33,14 +35,14 @@ export class TemplateController {
   }
 
   @Post()
-  create(@Body() body: { name: string; description?: string }) {
+  create(@Body() body: CreateTemplateDto) {
     return this.service.create(body);
   }
 
   @Patch(':id')
   update(
     @Param('id') id: string,
-    @Body() body: { name?: string; description?: string; isActive?: boolean },
+    @Body() body: UpdateTemplateDto,
   ) {
     return this.service.update(id, body);
   }

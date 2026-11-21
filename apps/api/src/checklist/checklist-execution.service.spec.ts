@@ -17,6 +17,9 @@ const template = {
   id: 'tpl-1',
   name: 'Inspeção diária',
   version: 3,
+  // Vale em todas as frentes de trabalho (caso da maioria das empresas).
+  allUnits: true,
+  units: [] as { unitId: string }[],
   categories: [
     {
       name: 'Rodagem',
@@ -55,7 +58,7 @@ function buildMocks() {
     tenant: { findUnique: vi.fn().mockResolvedValue({ autoBlockCriticalNc: true }) },
     template: { findFirst: vi.fn().mockResolvedValue(template) },
     vehicle: {
-      findFirst: vi.fn().mockResolvedValue({ id: 'veh-1', status: 'LIBERADO' }),
+      findFirst: vi.fn().mockResolvedValue({ id: 'veh-1', status: 'LIBERADO', fleet: { unitId: 'frente-a' } }),
       update: vi.fn().mockResolvedValue({}),
     },
     employee: { findFirst: vi.fn().mockResolvedValue({ id: 'emp-1' }) },
@@ -86,6 +89,15 @@ function buildMocks() {
 }
 
 describe('ChecklistExecutionService', () => {
+  it('checklist de uma frente de trabalho é recusado em veículo de outra frente', async () => {
+    const { service, tx } = buildMocks();
+    tx.template.findFirst.mockResolvedValue({ ...template, allUnits: false, units: [{ unitId: 'frente-b' }] });
+    await expect(service.submit(baseDto(), motorista)).rejects.toThrow();
+    expect(tx.checklist.create).not.toHaveBeenCalled();
+    tx.template.findFirst.mockResolvedValue({ ...template, allUnits: false, units: [{ unitId: 'frente-a' }] });
+    await expect(service.submit(baseDto({ clientId: '7a1c2a8e-3b4d-4f5a-9c6b-7d8e9f0a1b2c' }), motorista)).resolves.toMatchObject({ status: 'CREATED' });
+  });
+
   it('cria execução, abre NC nova, agrupa reincidência e bloqueia o veículo', async () => {
     const { service, tx } = buildMocks();
     const result = await service.submit(baseDto(), motorista);

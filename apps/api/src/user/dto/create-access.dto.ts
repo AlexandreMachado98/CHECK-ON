@@ -1,8 +1,16 @@
 import { Transform } from 'class-transformer';
 import { IsEmail, IsNotEmpty, IsOptional, IsString, ValidateIf } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsUUID } from 'class-validator';
 
 /** "Criar acesso" a partir de um colaborador: o perfil define onde ele entra (motorista = só aplicativo). */
 export class CreateAccessDto {
+  /** Frentes de trabalho que o gestor ou supervisor enxerga (ignorado para administrador e motorista). */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsUUID('all', { each: true })
+  unitIds?: string[];
+
   @IsNotEmpty({ message: 'Escolha o colaborador.' })
   @IsString()
   employeeId: string;
