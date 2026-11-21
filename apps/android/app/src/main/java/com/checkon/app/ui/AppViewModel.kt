@@ -20,6 +20,7 @@ import kotlinx.coroutines.launch
 /** Estado do app inteiro: sessão, dados offline, fila de envio e internet. */
 class AppViewModel(application: Application) : AndroidViewModel(application) {
     val repository = (application as CheckOnApp).repository
+    val themeSettings = (application as CheckOnApp).themeSettings
     val session = repository.sessions.session
     val queue = repository.queue
     val syncing = repository.syncing
