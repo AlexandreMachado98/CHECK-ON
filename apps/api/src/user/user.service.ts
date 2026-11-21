@@ -128,11 +128,13 @@ export class UserService {
    */
   async createAccess(dto: CreateAccessDto, requester: Requester) {
     const roleName = await this.assertAssignableRole(dto.roleId, requester);
-    const units = await this.unitsForNewLogin(roleName, dto.unitIds);
     const employee = await this.prisma.employee.findFirst({
       where: { id: dto.employeeId },
-      select: { id: true, name: true, matricula: true, isActive: true, tenant: { select: { code: true } } },
+      select: { id: true, name: true, matricula: true, isActive: true, tenant: { select: { code: true } }, units: visibleUnitsInclude() },
     });
+    // Sem frentes escolhidas, o gestor/supervisor fica com as frentes do colaborador (as que quem cria vê).
+    const employeeUnits = employee?.units.map((link) => link.unit.id) ?? [];
+    const units = await this.unitsForNewLogin(roleName, dto.unitIds ?? (employeeUnits.length ? employeeUnits : undefined));
     if (!employee) throw new BadRequestException('Colaborador não encontrado.');
     if (!employee.isActive) throw new BadRequestException('Reative o colaborador antes de criar o acesso.');
     if (!employee.matricula?.trim()) {

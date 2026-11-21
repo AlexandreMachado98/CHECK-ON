@@ -24,7 +24,8 @@ import {
   X,
   FolderTree,
   Building2,
-  KeyRound
+  KeyRound,
+  Briefcase
 } from 'lucide-react';
 
 const MENU_GROUPS = [
@@ -48,6 +49,7 @@ const MENU_GROUPS = [
     items: [
       { name: 'Veículos', path: '/dashboard/vehicles', icon: Truck },
       { name: 'Frotas', path: '/dashboard/fleets', icon: FolderTree },
+      { name: 'Frentes de trabalho', path: '/dashboard/frentes', icon: Briefcase },
     ]
   },
   {

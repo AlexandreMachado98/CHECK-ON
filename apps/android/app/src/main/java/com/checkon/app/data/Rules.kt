@@ -140,6 +140,15 @@ object Rules {
     /** "1 foto" / "3 fotos": número com a palavra no singular ou no plural. */
     fun plural(count: Int, singular: String, plural: String): String = "$count ${if (count == 1) singular else plural}"
 
+    /**
+     * Checklists que valem para o veículo: os de todas as frentes e os da frente de trabalho dele.
+     * Sem a frente do veículo (servidor antigo), mostra todos, como antes.
+     */
+    fun templatesForVehicle(templates: List<Template>, vehicle: Vehicle): List<Template> {
+        val unitId = vehicle.fleet?.unitId ?: return templates
+        return templates.filter { it.allUnits || it.units.any { unit -> unit.unitId == unitId } }
+    }
+
     val STATUS_LABEL = mapOf("LIBERADO" to "Liberado", "ATENCAO" to "Atenção", "BLOQUEADO" to "Bloqueado")
     val SEVERITY_LABEL = mapOf("LOW" to "Baixa", "MEDIUM" to "Média", "HIGH" to "Alta", "CRITICAL" to "Crítica")
 

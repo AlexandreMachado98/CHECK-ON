@@ -12,6 +12,10 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ClipboardCheck, Plus, Search, Edit2, Archive, Activity, LayoutList } from 'lucide-react';
+import { UnitMultiPicker, useUnits } from '@/components/unit-picker';
+import { TemplateUnitsLabel } from '@/components/template-units';
+import { getStoredUser } from '@/lib/session';
+import { seesAllUnits } from '@/lib/roles';
 
 export default function TemplatesPage() {
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -22,6 +26,12 @@ export default function TemplatesPage() {
   const [description, setDescription] = useState('');
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
+  // Frentes de trabalho: o modelo vale em todas ou só nas escolhidas (só aparece com mais de uma frente).
+  const { active: units, choose: chooseUnit } = useUnits();
+  const [admin, setAdmin] = useState(false);
+  useEffect(() => { setAdmin(seesAllUnits(getStoredUser()?.role)); }, []);
+  const [allUnits, setAllUnits] = useState(true);
+  const [unitIds, setUnitIds] = useState<string[]>([]);
 
   useEffect(() => { fetchTemplates(); }, []);
 
@@ -41,10 +51,13 @@ export default function TemplatesPage() {
     e.preventDefault();
     try {
       setSaving(true);
-      await api.post('/templates', { name, description });
+      const units = !chooseUnit ? {} : admin && allUnits ? { allUnits: true } : { allUnits: false, unitIds };
+      await api.post('/templates', { name, description, ...units });
       setCreateOpen(false);
       setName(''); 
       setDescription('');
+      setAllUnits(true);
+      setUnitIds([]);
       fetchTemplates();
     } catch (error) {
       alert(apiErrorMessage(error, 'Erro ao criar template.'));
@@ -111,9 +124,22 @@ export default function TemplatesPage() {
                   placeholder="Ex: Obrigatório antes de iniciar a rota..."
                 />
               </div>
+              {chooseUnit && (
+                <UnitMultiPicker
+                  idPrefix="new-template-unit"
+                  units={units}
+                  value={unitIds}
+                  onChange={setUnitIds}
+                  allowAll={admin}
+                  all={allUnits}
+                  onAllChange={setAllUnits}
+                  label="Vale para"
+                  help="O checklist só aparece no aplicativo para os veículos das frentes marcadas."
+                />
+              )}
               <DialogFooter className="mt-6">
                 <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
-                <Button type="submit" disabled={saving || !name}>
+                <Button type="submit" disabled={saving || !name || (chooseUnit && !(admin && allUnits) && unitIds.length === 0)}>
                   {saving ? 'Criando...' : 'Iniciar Construção'}
                 </Button>
               </DialogFooter>
@@ -179,6 +205,7 @@ export default function TemplatesPage() {
                         <LayoutList className="h-4 w-4 text-slate-400 mr-2" />
                         {tpl.name}
                       </div>
+                      {chooseUnit && <div className="mt-1"><TemplateUnitsLabel template={tpl} /></div>}
                       {/* {tpl.categories?.length > 0 && <div className="text-xs text-slate-500 mt-1">{tpl.categories.length} sessões configuradas</div>} */}
                     </TableCell>
                     <TableCell className="text-slate-500 text-sm hidden sm:table-cell">
@@ -204,7 +231,7 @@ export default function TemplatesPage() {
                             Construtor
                           </Button>
                         </Link>
-                        <Button
+                        {tpl.canEdit !== false && <Button
                           variant="ghost"
                           size="icon"
                           className={`h-8 w-8 ${tpl.isActive ? 'text-slate-400 hover:text-amber-600 hover:bg-amber-50' : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'}`}
@@ -212,7 +239,7 @@ export default function TemplatesPage() {
                           title={tpl.isActive ? "Arquivar modelo" : "Ativar modelo"}
                         >
                           <Archive className="h-4 w-4" />
-                        </Button>
+                        </Button>}
                       </div>
                     </TableCell>
                   </TableRow>

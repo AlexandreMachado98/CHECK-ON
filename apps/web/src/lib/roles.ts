@@ -23,6 +23,11 @@ export function roleLabel(role?: string | null): string {
 /** Perfis que usam o portal. O motorista usa só o aplicativo. */
 export const PANEL_ROLES = [SUPER_ADMIN, ADMIN_EMPRESA, GESTOR, SUPERVISOR];
 
+/** Administrador da empresa (e super admin): vê todas as frentes de trabalho. */
+export function seesAllUnits(role?: string | null): boolean {
+  return role === SUPER_ADMIN || role === ADMIN_EMPRESA;
+}
+
 /** Supervisor opera (consulta, trata NCs, libera/bloqueia veículos), mas não cadastra nem cria acessos. */
 export function canManage(role?: string | null): boolean {
   return !!role && role !== SUPERVISOR;
@@ -41,6 +46,8 @@ const COMPANY_PATHS = [
   '/dashboard/reports',
   '/dashboard/settings',
 ];
+/** Frentes de trabalho: só o administrador cadastra (os demais veem só as frentes deles). */
+const ADMIN_ONLY_PATHS = ['/dashboard/frentes'];
 /** Tela de troca da própria senha: todos os perfis do portal. */
 const ACCOUNT_PATHS = ['/dashboard/conta'];
 
@@ -56,8 +63,8 @@ const SUPERVISOR_PATHS = [
 
 const PATHS_BY_ROLE: Record<string, string[]> = {
   // O super admin vê todas as telas (dados da empresa da plataforma) e, além delas, Empresas.
-  SUPER_ADMIN: [...COMPANY_PATHS, '/dashboard/tenants', ...ACCOUNT_PATHS],
-  ADMIN_EMPRESA: [...COMPANY_PATHS, ...ACCOUNT_PATHS],
+  SUPER_ADMIN: [...COMPANY_PATHS, ...ADMIN_ONLY_PATHS, '/dashboard/tenants', ...ACCOUNT_PATHS],
+  ADMIN_EMPRESA: [...COMPANY_PATHS, ...ADMIN_ONLY_PATHS, ...ACCOUNT_PATHS],
   GESTOR: [...COMPANY_PATHS, ...ACCOUNT_PATHS],
   SUPERVISOR: [...SUPERVISOR_PATHS, ...ACCOUNT_PATHS],
 };

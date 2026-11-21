@@ -15,12 +15,17 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Badge } from '@/components/ui/badge';
 import { VehicleStatusBadge } from '@/lib/status';
 import { FolderOpen, Plus, Search, Edit2, Archive, Activity, Truck } from 'lucide-react';
+import { UnitBadges, UnitSelect, useUnits } from '@/components/unit-picker';
 
 export default function FleetsPage() {
   // Supervisor consulta as frotas, mas não cadastra nem altera.
   const [manager, setManager] = useState(false);
   useEffect(() => { setManager(canManage(getStoredUser()?.role)); }, []);
   const [fleets, setFleets] = useState<Fleet[]>([]);
+  // Frentes de trabalho: com mais de uma, cada frota escolhe a sua.
+  const { active: units, choose: chooseUnit } = useUnits();
+  const [unitId, setUnitId] = useState('');
+  const [editUnitId, setEditUnitId] = useState('');
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   
@@ -70,10 +75,11 @@ export default function FleetsPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await api.post('/fleets', { name, description });
+      await api.post('/fleets', { name, description, unitId: chooseUnit ? unitId : undefined });
       setIsDialogOpen(false);
       setName('');
       setDescription('');
+      setUnitId('');
       fetchFleets();
     } catch (error) {
       alert(apiErrorMessage(error, 'Não foi possível cadastrar a frota.'));
@@ -87,7 +93,11 @@ export default function FleetsPage() {
     if (!editTarget) return;
     setEditSubmitting(true);
     try {
-      await api.patch(`/fleets/${editTarget.id}`, { name: editName, description: editDesc });
+      await api.patch(`/fleets/${editTarget.id}`, {
+        name: editName,
+        description: editDesc,
+        unitId: chooseUnit && editUnitId && editUnitId !== editTarget.unitId ? editUnitId : undefined,
+      });
       setEditTarget(null);
       fetchFleets();
     } catch (error) {
@@ -101,6 +111,7 @@ export default function FleetsPage() {
     setEditTarget(fleet);
     setEditName(fleet.name);
     setEditDesc(fleet.description || '');
+    setEditUnitId(fleet.unitId ?? '');
   }
 
   async function handleToggleStatus(fleet: Fleet) {
@@ -206,6 +217,7 @@ export default function FleetsPage() {
                   required
                 />
               </div>
+              {chooseUnit && <UnitSelect id="fleet-unit" units={units} value={unitId} onChange={setUnitId} />}
               <div className="space-y-2">
                 <Label htmlFor="desc">Descrição / Observações</Label>
                 <Input
@@ -219,7 +231,7 @@ export default function FleetsPage() {
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={submitting || !name}>
+                <Button type="submit" disabled={submitting || !name || (chooseUnit && !unitId)}>
                   {submitting ? 'Salvando...' : 'Salvar Frota'}
                 </Button>
               </DialogFooter>
@@ -271,6 +283,7 @@ export default function FleetsPage() {
                 <TableRow>
                   <TableHead className="w-[28%]">Nome do Grupo</TableHead>
                   <TableHead className="w-[20%]">Veículos Vinculados</TableHead>
+                  {chooseUnit && <TableHead className="hidden lg:table-cell">Frente de trabalho</TableHead>}
                   <TableHead className="hidden md:table-cell">Descrição</TableHead>
                   <TableHead className="w-[12%] hidden sm:table-cell">Situação</TableHead>
                   <TableHead className="text-right w-[20%]">Ações</TableHead>
@@ -311,6 +324,11 @@ export default function FleetsPage() {
                           </Button>}
                         </div>
                       </TableCell>
+                      {chooseUnit && (
+                        <TableCell className="hidden lg:table-cell">
+                          <UnitBadges links={fleet.unit ? [{ unit: fleet.unit }] : []} />
+                        </TableCell>
+                      )}
                       <TableCell className="text-slate-500 hidden md:table-cell">
                         {fleet.description || <span className="text-slate-300">—</span>}
                       </TableCell>
@@ -548,6 +566,12 @@ export default function FleetsPage() {
                 required
               />
             </div>
+            {chooseUnit && (
+              <div className="space-y-1">
+                <UnitSelect id="edit-fleet-unit" units={units} value={editUnitId} onChange={setEditUnitId} />
+                <p className="text-xs text-slate-500">Mudar a frente move os veículos, inspeções e NCs desta frota junto.</p>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="edit-desc">Descrição / Observações</Label>
               <Input

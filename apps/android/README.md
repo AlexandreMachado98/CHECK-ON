@@ -15,6 +15,7 @@ O app conversa com o CHECK-ON que está no ar. O endereço fica em `app/build.gr
 
 - **Login:** código da empresa + matrícula, sem senha. Só entra quem tem acesso criado no portal.
 - **Sem internet:** o app baixa veículos, checklists e NCs em aberto. A inspeção fica guardada no celular e é enviada sozinha quando a internet volta, mesmo com o app fechado (WorkManager).
+- **Frentes de trabalho:** o motorista só vê os veículos das frentes em que trabalha (Portal → Colaboradores), e cada veículo só mostra os checklists da frente dele. Veja `docs/FRENTES_DE_TRABALHO.md`.
 - **Escolher o veículo:** pela lista ou pelo QR Code. O QR fica no portal em Veículos → QR Code. O leitor do Google Play Services não pede permissão de câmera.
 - **Inspeção:**
   - os itens podem ser conforme/não conforme, texto, número ou foto;

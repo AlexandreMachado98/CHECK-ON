@@ -1,5 +1,20 @@
 // Shared domain types for the web app
 
+/** Frente de trabalho / contrato. Cada frota pertence a uma; gestores e supervisores veem só as deles. */
+export interface Unit {
+  id: string;
+  name: string;
+  /** Cliente do contrato (opcional). */
+  client?: string | null;
+  isActive: boolean;
+  _count?: { fleets: number; employees: number; users: number };
+}
+
+/** Vínculo com uma frente, como a API devolve em colaboradores, usuários e modelos. */
+export interface UnitLink {
+  unit: Pick<Unit, 'id' | 'name'> & { client?: string | null };
+}
+
 export interface Fleet {
   id: string;
   name: string;
@@ -7,6 +22,9 @@ export interface Fleet {
   isActive: boolean;
   vehicles?: Vehicle[];
   _count?: { vehicles: number };
+  /** Frente de trabalho da frota. */
+  unitId?: string;
+  unit?: Pick<Unit, 'id' | 'name'> & { client?: string | null };
 }
 
 export interface Vehicle {
@@ -47,6 +65,8 @@ export interface User {
   employee?: { id: string; name: string; matricula?: string | null } | null;
   mustChangePassword?: boolean;
   lockedUntil?: string | null;
+  /** Frentes que o gestor ou supervisor enxerga. */
+  units?: UnitLink[];
 }
 
 export interface Tenant {
@@ -84,6 +104,8 @@ export interface Employee {
   userId?: string;
   /** Login do colaborador (aplicativo / portal), se a empresa criou. */
   user?: EmployeeAccess | null;
+  /** Frentes em que o colaborador trabalha (o motorista vê os veículos delas no app). */
+  units?: UnitLink[];
 }
 
 export interface EmployeeTraining {
@@ -170,6 +192,11 @@ export interface Template {
   createdAt: string;
   categories: TemplateCategory[];
   _count?: { categories: number };
+  /** Vale em todas as frentes de trabalho. Falso: só nas frentes de `units`. */
+  allUnits?: boolean;
+  units?: UnitLink[];
+  /** Falso quando o modelo também vale para frentes que quem está logado não vê (só o admin altera). */
+  canEdit?: boolean;
 }
 
 export interface ChecklistAnswer {
