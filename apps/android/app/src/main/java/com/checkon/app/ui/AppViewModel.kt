@@ -23,6 +23,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     val themeSettings = (application as CheckOnApp).themeSettings
     val session = repository.sessions.session
     val queue = repository.queue
+    val history = repository.history
     val syncing = repository.syncing
     val lastSync = repository.lastSync
 

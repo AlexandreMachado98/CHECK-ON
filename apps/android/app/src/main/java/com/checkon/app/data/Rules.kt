@@ -68,6 +68,18 @@ object Rules {
         return result
     }
 
+    /** Dados do celular com mais de 24 horas: vale avisar para atualizar. */
+    fun isStale(downloadedAt: Long, now: Long): Boolean = downloadedAt > 0 && now - downloadedAt > 24 * 60 * 60 * 1000L
+
+    /** Resultado de uma inspeção enviada, em texto: "1 NC aberta" / "Sem NC nova". */
+    fun sentResult(item: SentInspection): String = when {
+        item.ncsOpened > 0 && item.ncsRecurrent > 0 ->
+            "${plural(item.ncsOpened, "NC aberta", "NCs abertas")} · ${plural(item.ncsRecurrent, "reincidência", "reincidências")}"
+        item.ncsOpened > 0 -> plural(item.ncsOpened, "NC aberta", "NCs abertas")
+        item.ncsRecurrent > 0 -> plural(item.ncsRecurrent, "reincidência", "reincidências")
+        else -> "Sem NC nova"
+    }
+
     /** Assinatura válida: traços de verdade, não um toque sem querer (pelo menos 8 pontos). */
     fun hasSignature(strokes: List<List<Float>>): Boolean = strokes.sumOf { it.size / 2 } >= 8
 

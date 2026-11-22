@@ -17,6 +17,9 @@ class Repository(
     val queue: StateFlow<List<QueuedInspection>> = _queue
     private val _syncing = MutableStateFlow(false)
     val syncing: StateFlow<Boolean> = _syncing
+    private val _history = MutableStateFlow<List<SentInspection>>(emptyList())
+    /** Últimas inspeções aceitas pelo servidor, deste celular (mais recentes primeiro). */
+    val history: StateFlow<List<SentInspection>> = _history
     private val _lastSync = MutableStateFlow<SyncSummary?>(null)
     val lastSync: StateFlow<SyncSummary?> = _lastSync
     private val syncLock = Mutex()
@@ -34,11 +37,13 @@ class Repository(
     suspend fun logout() {
         api.logout()
         _queue.value = emptyList()
+        _history.value = emptyList()
     }
 
     suspend fun reloadQueue() {
         val id = userId() ?: return
         _queue.value = store.readQueue(id)
+        _history.value = store.readHistory(id)
     }
 
     suspend fun cachedBootstrap(): Bootstrap? = userId()?.let { store.readBootstrap(it) }
@@ -97,6 +102,7 @@ class Repository(
                 },
             )
             val (_, summary) = engine.run(snapshot)
+            if (summary.accepted.isNotEmpty()) _history.value = store.addHistory(id, summary.accepted)
             summary.photosToDelete.forEach { photos.delete(it) }
             if (summary.sent > 0) cleanupPhotos(id)
             _lastSync.value = summary

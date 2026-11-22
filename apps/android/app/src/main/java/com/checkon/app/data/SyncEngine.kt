@@ -12,6 +12,8 @@ data class SyncSummary(
     val pending: Int = 0,
     /** Fotos do celular que podem ser apagadas (inspeção aceita pelo servidor). */
     val photosToDelete: List<String> = emptyList(),
+    /** Inspeções aceitas neste envio, para o histórico do celular. */
+    val accepted: List<SentInspection> = emptyList(),
     val offline: Boolean = false,
     val error: String? = null,
 )
@@ -23,6 +25,8 @@ data class SyncSummary(
  */
 class SyncEngine(
     private val uploadPhoto: suspend (localPath: String) -> String,
+    /** Relógio (milissegundos), trocável nos testes. */
+    private val now: () -> Long = { System.currentTimeMillis() },
     private val postSync: suspend (List<SubmitPayload>) -> List<SyncResult>,
     /** Grava a fila depois de cada mudança (não perde foto já enviada se o app fechar). */
     private val persist: suspend (List<QueuedInspection>) -> Unit,
@@ -32,6 +36,7 @@ class SyncEngine(
         var offline = false
         var error: String? = null
         val photosToDelete = mutableListOf<String>()
+        val accepted = mutableListOf<SentInspection>()
         val ready = mutableListOf<String>()
 
         for (index in queue.indices) {
@@ -106,6 +111,16 @@ class SyncEngine(
                 when (result.status) {
                     "CREATED", "DUPLICATE" -> {
                         done += id
+                        accepted += SentInspection(
+                            clientId = id,
+                            vehicleLabel = item.vehicleLabel,
+                            templateName = item.templateName,
+                            completedAt = item.payload.completedAt,
+                            sentAt = now(),
+                            vehicleStatus = result.vehicleStatus,
+                            ncsOpened = result.ncsOpened,
+                            ncsRecurrent = result.ncsRecurrent,
+                        )
                         photosToDelete += item.payload.answers.mapNotNull { it.localPhoto } + listOfNotNull(item.payload.signatureLocal)
                     }
                     "REJECTED" -> queue[index] = item.copy(state = "REJECTED", message = result.message)
@@ -121,6 +136,7 @@ class SyncEngine(
             rejected = queue.count { it.state == "REJECTED" },
             pending = queue.count { it.state == "PENDING" },
             photosToDelete = photosToDelete,
+            accepted = accepted,
             offline = offline,
             error = error,
         )

@@ -70,6 +70,19 @@ class LocalStore(context: Context) {
     suspend fun readDraft(userId: String) = read(file(userId, "draft.json"), Draft.serializer())
     suspend fun saveDraft(userId: String, value: Draft?) = write(file(userId, "draft.json"), Draft.serializer(), value)
 
+    private val historySerializer = ListSerializer(SentInspection.serializer())
+    suspend fun readHistory(userId: String): List<SentInspection> = read(file(userId, "history.json"), historySerializer) ?: emptyList()
+
+    /** Acrescenta ao histórico de enviadas (mais recentes primeiro, sem repetir, até [limit]). */
+    suspend fun addHistory(userId: String, items: List<SentInspection>, limit: Int = 30): List<SentInspection> = lock.withLock {
+        val f = file(userId, "history.json")
+        val current = read(f, historySerializer) ?: emptyList()
+        val ids = items.map { it.clientId }.toSet()
+        val next = (items.sortedByDescending { it.sentAt } + current.filter { it.clientId !in ids }).take(limit)
+        write(f, historySerializer, next)
+        next
+    }
+
     private val queueSerializer = ListSerializer(QueuedInspection.serializer())
     suspend fun readQueue(userId: String): List<QueuedInspection> = lock.withLock { read(file(userId, "outbox.json"), queueSerializer) ?: emptyList() }
 

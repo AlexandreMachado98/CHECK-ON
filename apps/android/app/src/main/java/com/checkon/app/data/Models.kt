@@ -175,6 +175,24 @@ data class SyncResult(
     val status: String, // CREATED, DUPLICATE, REJECTED, RETRY
     val clientId: String,
     val message: String? = null,
+    /** Resultado no servidor (CREATED): situação do veículo e NCs abertas ou somadas a uma já aberta. */
+    val vehicleStatus: String? = null,
+    val ncsOpened: Int = 0,
+    val ncsRecurrent: Int = 0,
+)
+
+/** Inspeção já aceita pelo servidor, guardada no celular para o motorista consultar ("Enviadas"). */
+@Serializable
+data class SentInspection(
+    val clientId: String,
+    val vehicleLabel: String,
+    val templateName: String,
+    val completedAt: String,
+    /** Quando o servidor aceitou (milissegundos). */
+    val sentAt: Long,
+    val vehicleStatus: String? = null,
+    val ncsOpened: Int = 0,
+    val ncsRecurrent: Int = 0,
 )
 
 @Serializable
