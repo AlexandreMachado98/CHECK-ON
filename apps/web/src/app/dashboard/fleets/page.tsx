@@ -22,9 +22,13 @@ export default function FleetsPage() {
   const [manager, setManager] = useState(false);
   useEffect(() => { setManager(canManage(getStoredUser()?.role)); }, []);
   const [fleets, setFleets] = useState<Fleet[]>([]);
-  // Frentes de trabalho: com mais de uma, cada frota escolhe a sua.
-  const { active: units, choose: chooseUnit } = useUnits();
+  // Frentes de trabalho: cada frota pertence a uma (com uma frente só, ela já vem escolhida).
+  const { active: units } = useUnits();
+  const chooseUnit = units.length > 0;
   const [unitId, setUnitId] = useState('');
+  useEffect(() => {
+    if (units.length === 1 && !unitId) setUnitId(units[0].id);
+  }, [units, unitId]);
   const [editUnitId, setEditUnitId] = useState('');
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -79,7 +83,7 @@ export default function FleetsPage() {
       setIsDialogOpen(false);
       setName('');
       setDescription('');
-      setUnitId('');
+      setUnitId(units.length === 1 ? units[0].id : '');
       fetchFleets();
     } catch (error) {
       alert(apiErrorMessage(error, 'Não foi possível cadastrar a frota.'));
@@ -217,7 +221,12 @@ export default function FleetsPage() {
                   required
                 />
               </div>
-              {chooseUnit && <UnitSelect id="fleet-unit" units={units} value={unitId} onChange={setUnitId} />}
+              {chooseUnit && (
+                <div className="space-y-1">
+                  <UnitSelect id="fleet-unit" units={units} value={unitId} onChange={setUnitId} />
+                  <p className="text-xs text-slate-500">Para criar outra frente ou contrato, use o menu Frentes de trabalho.</p>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="desc">Descrição / Observações</Label>
                 <Input
@@ -283,7 +292,7 @@ export default function FleetsPage() {
                 <TableRow>
                   <TableHead className="w-[28%]">Nome do Grupo</TableHead>
                   <TableHead className="w-[20%]">Veículos Vinculados</TableHead>
-                  {chooseUnit && <TableHead className="hidden lg:table-cell">Frente de trabalho</TableHead>}
+                  {chooseUnit && <TableHead className="hidden md:table-cell">Frente de trabalho</TableHead>}
                   <TableHead className="hidden md:table-cell">Descrição</TableHead>
                   <TableHead className="w-[12%] hidden sm:table-cell">Situação</TableHead>
                   <TableHead className="text-right w-[20%]">Ações</TableHead>
@@ -325,7 +334,7 @@ export default function FleetsPage() {
                         </div>
                       </TableCell>
                       {chooseUnit && (
-                        <TableCell className="hidden lg:table-cell">
+                        <TableCell className="hidden md:table-cell">
                           <UnitBadges links={fleet.unit ? [{ unit: fleet.unit }] : []} />
                         </TableCell>
                       )}
@@ -553,7 +562,7 @@ export default function FleetsPage() {
           <DialogHeader>
             <DialogTitle>Editar Grupo de Frota</DialogTitle>
             <DialogDescription>
-              Atualize o nome e as observações desta frota operacional.
+              Atualize o nome, a frente de trabalho e as observações desta frota.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleEdit} className="space-y-4 pt-2">
