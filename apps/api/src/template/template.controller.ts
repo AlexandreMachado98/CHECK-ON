@@ -11,6 +11,7 @@ import {
 import { TemplateService } from './template.service';
 import { CreateTemplateDto } from './dto/create-template.dto';
 import { UpdateTemplateDto } from './dto/update-template.dto';
+import { CopyTemplateDto } from './dto/copy-template.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -45,6 +46,12 @@ export class TemplateController {
     @Body() body: UpdateTemplateDto,
   ) {
     return this.service.update(id, body);
+  }
+
+  /** Copia o modelo (ex.: para outra frente de trabalho) como um rascunho novo e independente. */
+  @Post(':id/copy')
+  copy(@Param('id') id: string, @Body() body: CopyTemplateDto) {
+    return this.service.copy(id, body);
   }
 
   @Delete(':id')

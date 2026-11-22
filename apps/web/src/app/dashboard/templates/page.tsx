@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { apiErrorMessage, type Template } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -11,9 +12,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { ClipboardCheck, Plus, Search, Edit2, Archive, Activity, LayoutList } from 'lucide-react';
+import { ClipboardCheck, Plus, Search, Edit2, Archive, Activity, LayoutList, Copy } from 'lucide-react';
 import { UnitMultiPicker, useUnits } from '@/components/unit-picker';
-import { TemplateUnitsLabel } from '@/components/template-units';
+import { CopyTemplateDialog, TemplateUnitsLabel } from '@/components/template-units';
 import { getStoredUser } from '@/lib/session';
 import { seesAllUnits } from '@/lib/roles';
 
@@ -26,6 +27,9 @@ export default function TemplatesPage() {
   const [description, setDescription] = useState('');
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
+  const router = useRouter();
+  // Copiar modelo (ex.: para outra frente de trabalho).
+  const [copyTarget, setCopyTarget] = useState<Template | null>(null);
   // Frentes de trabalho: o modelo vale em todas ou só nas escolhidas (só aparece com mais de uma frente).
   const { active: units, choose: chooseUnit } = useUnits();
   const [admin, setAdmin] = useState(false);
@@ -225,6 +229,17 @@ export default function TemplatesPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs font-medium text-slate-700 bg-white"
+                          onClick={() => setCopyTarget(tpl)}
+                          title="Copiar este modelo (ex.: para outra frente de trabalho)"
+                        >
+                          <Copy className="h-3.5 w-3.5 sm:mr-2 text-slate-500" />
+                          <span className="hidden sm:inline">Copiar</span>
+                          <span className="sr-only sm:hidden">Copiar modelo</span>
+                        </Button>
                         <Link href={`/dashboard/templates/${tpl.id}`}>
                           <Button variant="outline" size="sm" className="h-8 text-xs font-medium text-slate-700 bg-white">
                             <Edit2 className="h-3.5 w-3.5 mr-2 text-primary" />
@@ -249,6 +264,18 @@ export default function TemplatesPage() {
           )}
         </CardContent>
       </Card>
+      {copyTarget && (
+        <CopyTemplateDialog
+          template={copyTarget}
+          units={units}
+          allowAll={admin}
+          onClose={() => setCopyTarget(null)}
+          onCopied={(copy) => {
+            setCopyTarget(null);
+            router.push(`/dashboard/templates/${copy.id}`);
+          }}
+        />
+      )}
     </>
   );
 }

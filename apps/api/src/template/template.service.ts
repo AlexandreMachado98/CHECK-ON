@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateTemplateItemDto, UpdateTemplateItemDto } from './dto/template-item.dto';
 import { CreateTemplateDto } from './dto/create-template.dto';
 import { UpdateTemplateDto } from './dto/update-template.dto';
+import { CopyTemplateDto } from './dto/copy-template.dto';
 import { currentUnitIds } from '../common/unit-scope';
 import { resolveUnitAssignment, visibleUnitsInclude } from '../unit/unit-assignment';
 
@@ -141,6 +142,57 @@ export class TemplateService {
         ...(units
           ? { allUnits: units.allUnits, units: { deleteMany: {}, create: units.unitIds.map((unitId) => ({ unitId })) } }
           : {}),
+      } as any,
+    });
+  }
+
+  /**
+   * Copia o modelo para outra(s) frente(s) de trabalho: um modelo novo e independente, com as seções
+   * e os itens ativos, na versão 1 e como rascunho (para revisar antes de ativar no app).
+   * O original não muda. Quem é limitado só copia modelos que vê, e só para as frentes dele.
+   */
+  async copy(id: string, data: CopyTemplateDto) {
+    const source = await this.prisma.template.findUnique({
+      where: { id },
+      include: {
+        categories: {
+          where: { isActive: true },
+          orderBy: { order: 'asc' },
+          include: { items: { where: { isActive: true }, orderBy: { order: 'asc' } } },
+        },
+      },
+    });
+    if (!source) throw new NotFoundException('Template não encontrado');
+    const units = await this.resolveTemplateUnits({ allUnits: data.allUnits, unitIds: data.unitIds }, null);
+    // Seções e itens são gravados aninhados: o tenantId vai explícito (a extensão do Prisma só cobre o modelo principal).
+    const tenantId = source.tenantId;
+    return this.prisma.template.create({
+      data: {
+        name: data.name?.trim() || `${source.name} (cópia)`,
+        description: source.description,
+        isActive: false,
+        version: 1,
+        allUnits: units?.allUnits ?? true,
+        units: { create: (units?.unitIds ?? []).map((unitId) => ({ unitId })) },
+        categories: {
+          create: source.categories.map((category) => ({
+            tenantId,
+            name: category.name,
+            order: category.order,
+            items: {
+              create: category.items.map((item) => ({
+                tenantId,
+                text: item.text,
+                type: item.type,
+                isRequired: item.isRequired,
+                isCritical: item.isCritical,
+                photoRequirement: item.photoRequirement,
+                order: item.order,
+                addedInVersion: 1,
+              })),
+            },
+          })),
+        },
       } as any,
     });
   }
