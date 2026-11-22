@@ -102,7 +102,7 @@ O `vercel.json` da raiz publica os dois apps num único projeto e num único dom
 
 | Variável | Valor |
 | --- | --- |
-| `DATABASE_URL`, `DIRECT_URL` | URLs do Neon. O build roda `prisma migrate deploy` **só em Production**. Em **Preview** (deploys de PR) as migrações não rodam: sem essas variáveis o preview ainda compila, mas a API dele não acessa banco. Para testar a API no preview, use as URLs da branch `dev` (já migrada com `npx prisma migrate deploy`). Nunca use as de produção em Preview. |
+| `DATABASE_URL`, `DIRECT_URL` | URLs do Neon. O build roda `prisma migrate deploy` sempre que `DIRECT_URL` existe, **menos em Preview** (deploys de PR). Sem essas variáveis o preview ainda compila, mas a API dele não acessa banco. O log do build mostra "prisma migrate deploy pulado" quando a migração não roda. Para testar a API no preview, use as URLs da branch `dev` (já migrada com `npx prisma migrate deploy`). Nunca use as de produção em Preview. |
 | `JWT_SECRET` | 32+ caracteres (`openssl rand -base64 48`) |
 | `CORS_ORIGINS` | O domínio do projeto, ex.: `https://checkon.vercel.app` |
 | `PUBLIC_API_URL` | `https://<dominio>/api` |
