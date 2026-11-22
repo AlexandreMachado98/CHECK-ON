@@ -10,7 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ClipboardList, Search, Activity, Calendar, Car, User, Clock, ArrowRight, MessageSquare, Download } from 'lucide-react';
+import { ClipboardList, Search, Activity, Calendar, Car, User, Clock, ArrowRight, MessageSquare, Download, Trash2 } from 'lucide-react';
+import { seesAllUnits } from '@/lib/roles';
 import { getStoredUser } from '@/lib/session';
 import { NC_SEVERITY, NC_STATUS } from '@/lib/status';
 import { format } from 'date-fns';
@@ -29,6 +30,32 @@ export default function ExecutionsPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
   const [pdfWorking, setPdfWorking] = useState(false);
+  // Excluir inspeção: só o administrador (não tem como desfazer).
+  const [canDelete, setCanDelete] = useState(false);
+  useEffect(() => { setCanDelete(seesAllUnits(getStoredUser()?.role)); }, []);
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete() {
+    const checklist = selectedChecklist;
+    if (!checklist) return;
+    const when = checklist.completedAt || checklist.startedAt;
+    const label = `${checklist.vehicle?.plate ?? 'veículo'} · ${when ? format(new Date(when), "dd/MM/yyyy 'às' HH:mm") : ''}`;
+    const ok = window.confirm(
+      `Excluir a inspeção ${label}?\n\nSerão apagadas as respostas, as fotos, a assinatura e as NCs abertas por ela. ` +
+        'A situação do veículo é recalculada. Não tem como desfazer.',
+    );
+    if (!ok) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/checklists/${checklist.id}`);
+      setSelectedChecklist(null);
+      await fetchChecklists();
+    } catch (error) {
+      alert(apiErrorMessage(error, 'Não foi possível excluir a inspeção.'));
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   /** PDF da inspeção aberta (gerado no navegador, com as fotos). */
   async function handleDownloadPdf() {
@@ -263,7 +290,20 @@ export default function ExecutionsPage() {
               {selectedChecklist?.template?.name || 'Inspeção Operacional'} realizada em {selectedChecklist?.startedAt ? format(new Date(selectedChecklist.startedAt), "dd/MM/yyyy 'às' HH:mm") : '—'}
             </DialogDescription>
           </DialogHeader>
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            {canDelete && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDelete}
+                disabled={deleting || !selectedChecklist}
+                className="border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+                title="Excluir esta inspeção (só o administrador)"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                {deleting ? 'Excluindo...' : 'Excluir'}
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"

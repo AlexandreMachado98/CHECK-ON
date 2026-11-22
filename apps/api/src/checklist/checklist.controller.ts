@@ -9,7 +9,7 @@ import { ChecklistPageQueryDto } from '../common/pagination';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { OPERATION_ROLES, PANEL_ROLES } from '../role/role-definitions';
+import { ADMIN_EMPRESA, OPERATION_ROLES, PANEL_ROLES, SUPER_ADMIN } from '../role/role-definitions';
 
 /** Perfis que executam checklists em campo (app) ou registram pelo painel. */
 const EXECUTION_ROLES = ['ADMIN_EMPRESA', 'GESTOR', 'SUPERVISOR', 'MOTORISTA'];
@@ -74,7 +74,12 @@ export class ChecklistController {
   @Roles(...OPERATION_ROLES)
   findOne(@Param('id') id: string) { return this.service.findOne(id); }
 
+  /**
+   * Exclui a inspeção (com respostas, fotos, assinatura e as NCs abertas por ela). Não tem como desfazer:
+   * só o administrador da empresa. Gestor e supervisor recebem 403.
+   */
   @Delete(':id')
+  @Roles(ADMIN_EMPRESA, SUPER_ADMIN)
   remove(@Param('id') id: string) { return this.service.remove(id); }
 }
 

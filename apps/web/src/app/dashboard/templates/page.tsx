@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { ClipboardCheck, Plus, Search, Edit2, Archive, Activity, LayoutList, Copy } from 'lucide-react';
+import { ClipboardCheck, Plus, Search, Edit2, Archive, Activity, LayoutList, Copy, Trash2 } from 'lucide-react';
 import { UnitMultiPicker, useUnits } from '@/components/unit-picker';
 import { CopyTemplateDialog, TemplateUnitsLabel } from '@/components/template-units';
 import { getStoredUser } from '@/lib/session';
@@ -67,6 +67,17 @@ export default function TemplatesPage() {
       alert(apiErrorMessage(error, 'Erro ao criar template.'));
     } finally {
       setSaving(false);
+    }
+  }
+
+  /** Exclui o modelo. Modelo já usado em inspeção não é excluído (a API explica e sugere desativar). */
+  async function handleDelete(tpl: Template) {
+    if (!window.confirm(`Excluir o modelo "${tpl.name}"? Não tem como desfazer.\n\nSe ele já foi usado em inspeções, não pode ser excluído: desative-o para que não apareça mais no aplicativo.`)) return;
+    try {
+      await api.delete(`/templates/${tpl.id}`);
+      fetchTemplates();
+    } catch (error) {
+      alert(apiErrorMessage(error, 'Não foi possível excluir o modelo.'));
     }
   }
 
@@ -254,6 +265,16 @@ export default function TemplatesPage() {
                           title={tpl.isActive ? "Arquivar modelo" : "Ativar modelo"}
                         >
                           <Archive className="h-4 w-4" />
+                        </Button>}
+                        {tpl.canEdit !== false && <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                          onClick={() => handleDelete(tpl)}
+                          title="Excluir modelo"
+                          aria-label={`Excluir modelo ${tpl.name}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
                         </Button>}
                       </div>
                     </TableCell>
