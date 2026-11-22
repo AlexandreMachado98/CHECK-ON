@@ -15,7 +15,7 @@ const VEHICLE_SELECT = {
   mileage: true,
   qrCode: true,
   // unitId: frente de trabalho do veículo (o app filtra os checklists por ela).
-  fleet: { select: { id: true, name: true, unitId: true } },
+  fleet: { select: { id: true, name: true, unitId: true, unit: { select: { name: true } } } },
 } as const;
 
 const NC_SELECT = {

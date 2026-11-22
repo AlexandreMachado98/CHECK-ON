@@ -162,4 +162,35 @@ class RulesTest {
         val legacy = Vehicle(id = "v3", plate = "CCC3C33", fleet = Fleet("f3", "Frota"))
         assertEquals(2, Rules.templatesForVehicle(listOf(all, onlyA), legacy).size)
     }
+
+    @Test fun `marcar conformes so preenche os itens sem resposta da secao`() {
+        val category = TemplateCategory(
+            "c", "Rodagem", 0,
+            listOf(item("a"), item("b"), item("c"), item("d", type = "TEXT"), item("e")),
+        )
+        val answers = mapOf(
+            "b" to Answer("b", isCompliant = false, observations = "pneu careca"),
+            "c" to Answer("c", notApplicable = true),
+            "e" to Answer("e", observations = "só a observação"),
+        )
+        assertEquals(listOf("a", "e"), Rules.unansweredPassFail(category, answers).map { it.id })
+        val marked = Rules.markSectionCompliant(category, answers)
+        assertEquals(true, marked["a"]?.isCompliant)
+        // Não conforme e N/A ficam como estavam; texto não é marcado; observação é mantida.
+        assertEquals(false, marked["b"]?.isCompliant)
+        assertTrue(marked["c"]?.notApplicable == true)
+        assertNull(marked["d"])
+        assertEquals("só a observação", marked["e"]?.observations)
+        assertEquals(true, marked["e"]?.isCompliant)
+    }
+
+    @Test fun `frentes da lista de veiculos sem repetir e em ordem`() {
+        val list = listOf(
+            Vehicle(id = "1", plate = "AAA1A11", fleet = Fleet("f1", "Frota 1", unitId = "u2", unit = FleetUnit("Mina Sul"))),
+            Vehicle(id = "2", plate = "BBB2B22", fleet = Fleet("f2", "Frota 2", unitId = "u1", unit = FleetUnit("Contrato Norte"))),
+            Vehicle(id = "3", plate = "CCC3C33", fleet = Fleet("f3", "Frota 3", unitId = "u2", unit = FleetUnit("Mina Sul"))),
+            Vehicle(id = "4", plate = "DDD4D44", fleet = Fleet("f4", "Frota antiga")),
+        )
+        assertEquals(listOf("u1" to "Contrato Norte", "u2" to "Mina Sul"), Rules.vehicleUnits(list))
+    }
 }

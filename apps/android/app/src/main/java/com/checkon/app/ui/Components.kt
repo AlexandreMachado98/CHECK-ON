@@ -25,6 +25,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -295,6 +296,28 @@ data class QrNotice(val title: String, val text: String) {
     companion object {
         fun notFound(text: String) = QrNotice("QR Code não reconhecido", text)
         fun scannerError(text: String) = QrNotice("Leitor de QR Code indisponível", text)
+    }
+}
+
+/** Título de seção da inspeção, com "Marcar conformes" quando há itens sem resposta. */
+@Composable
+fun SectionHeader(name: String, pending: Int, onMarkCompliant: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            name.uppercase(),
+            color = Palette.Muted,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 0.5.sp,
+            modifier = Modifier.weight(1f),
+        )
+        if (pending > 0) {
+            androidx.compose.material3.TextButton(onClick = onMarkCompliant) {
+                Icon(Icons.Filled.DoneAll, contentDescription = null, tint = Palette.Primary, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Marcar conformes ($pending)", color = Palette.Primary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
     }
 }
 

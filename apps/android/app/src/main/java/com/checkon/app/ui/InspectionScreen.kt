@@ -76,6 +76,7 @@ import com.checkon.app.data.Draft
 import com.checkon.app.data.QueuedInspection
 import com.checkon.app.data.Rules
 import com.checkon.app.data.SubmitPayload
+import com.checkon.app.data.TemplateCategory
 import com.checkon.app.data.TemplateItem
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
@@ -98,6 +99,7 @@ fun InspectionScreen(
     val template = bootstrap?.templates?.firstOrNull { it.id == templateId }
     val repository = vm.repository
     val context = LocalContext.current
+    val view = LocalView.current
     val scope = rememberCoroutineScope()
     var draft by remember { mutableStateOf<Draft?>(null) }
     var highlight by remember { mutableStateOf(setOf<String>()) }
@@ -105,6 +107,8 @@ fun InspectionScreen(
     var confirm by remember { mutableStateOf(false) }
     var confirmDiscard by remember { mutableStateOf(false) }
     var confirmLeave by remember { mutableStateOf(false) }
+    // Seção a marcar como conforme (pede confirmação antes).
+    var markSection by remember { mutableStateOf<TemplateCategory?>(null) }
     var saving by remember { mutableStateOf(false) }
     // Foto sendo tirada: guardada para sobreviver se o Android fechar o app enquanto a câmera está aberta.
     var photoItemId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -200,7 +204,7 @@ fun InspectionScreen(
     val answered = items.count { Rules.isAnswered(it, current.answers[it.id]) }
     val nonCompliant = items.filter { it.type == "PASS_FAIL" && current.answers[it.id]?.isCompliant == false }
     // Linhas da lista: título da categoria seguido dos itens.
-    val rows = template.categories.flatMap { category -> listOf<Any>(category.name) + category.items }
+    val rows = template.categories.flatMap { category -> listOf<Any>(category) + category.items }
 
     fun finish() {
         val missing = Rules.pendingItems(template, current.answers)
@@ -281,7 +285,11 @@ fun InspectionScreen(
             }
             items(rows.size, key = { index -> (rows[index] as? TemplateItem)?.id ?: "cat-$index" }) { index ->
                 when (val row = rows[index]) {
-                    is String -> SectionTitle(row)
+                    is TemplateCategory -> SectionHeader(
+                        name = row.name,
+                        pending = Rules.unansweredPassFail(row, current.answers).size,
+                        onMarkCompliant = { markSection = row },
+                    )
                     is TemplateItem -> ItemCard(
                         item = row,
                         answer = current.answers[row.id],
@@ -326,6 +334,31 @@ fun InspectionScreen(
             },
             confirmButton = { TextButton(onClick = { confirm = false; save() }) { Text("Concluir") } },
             dismissButton = { TextButton(onClick = { confirm = false }) { Text("Revisar") } },
+        )
+    }
+    markSection?.let { category ->
+        val count = Rules.unansweredPassFail(category, current.answers).size
+        AlertDialog(
+            onDismissRequest = { markSection = null },
+            title = { Text("Marcar como conforme?") },
+            text = {
+                Text(
+                    "${Rules.plural(count, "item sem resposta", "itens sem resposta")} da seção \"${category.name}\" " +
+                        "${if (count == 1) "será marcado" else "serão marcados"} como conforme.\n\n" +
+                        "Confirme só se você verificou cada um. Itens já respondidos não mudam e você ainda pode trocar qualquer resposta.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val latest = draft
+                    if (latest != null) {
+                        draft = latest.copy(answers = Rules.markSectionCompliant(category, latest.answers))
+                        view.answerHaptic(AnswerFeel.Confirm)
+                    }
+                    markSection = null
+                }) { Text("Verifiquei, marcar") }
+            },
+            dismissButton = { TextButton(onClick = { markSection = null }) { Text("Cancelar") } },
         )
     }
     if (confirmLeave) {

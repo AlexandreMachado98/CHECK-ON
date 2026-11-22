@@ -74,7 +74,11 @@ fun VehicleScreen(vm: AppViewModel, vehicleId: String, onStart: (vehicleId: Stri
                 Text(vehicle.label, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = Palette.Text)
                 StatusTag(vehicle.status)
             }
-            Muted(vehicle.description.ifBlank { "Sem modelo cadastrado" } + (vehicle.fleet?.let { " · Frota ${it.name}" } ?: ""))
+            Muted(
+                vehicle.description.ifBlank { "Sem modelo cadastrado" } +
+                    (vehicle.fleet?.let { " · Frota ${it.name}" } ?: "") +
+                    (vehicle.fleet?.unit?.let { " · ${it.name}" } ?: ""),
+            )
         }
         if (vehicle.status == "BLOQUEADO") {
             Banner("Veículo bloqueado", "Este veículo tem problema crítico em aberto e não deve circular até ser liberado pelo gestor.", Tone.Danger)
