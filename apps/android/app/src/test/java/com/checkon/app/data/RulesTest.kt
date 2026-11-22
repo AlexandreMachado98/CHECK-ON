@@ -201,4 +201,19 @@ class RulesTest {
         val stroke = (0 until 10).flatMap { listOf(it / 10f, 0.5f) }
         assertTrue(Rules.hasSignature(listOf(stroke)))
     }
+
+    @Test fun `dados com mais de 24 horas estao desatualizados`() {
+        val hour = 60 * 60 * 1000L
+        assertFalse(Rules.isStale(downloadedAt = 0, now = 100 * hour))
+        assertFalse(Rules.isStale(downloadedAt = 10 * hour, now = 30 * hour))
+        assertTrue(Rules.isStale(downloadedAt = 10 * hour, now = 35 * hour))
+    }
+
+    @Test fun `resultado da inspecao enviada em texto`() {
+        fun sent(opened: Int, recurrent: Int) = SentInspection("c", "ABC", "Diário", "x", 0, "LIBERADO", opened, recurrent)
+        assertEquals("Sem NC nova", Rules.sentResult(sent(0, 0)))
+        assertEquals("1 NC aberta", Rules.sentResult(sent(1, 0)))
+        assertEquals("2 NCs abertas · 1 reincidência", Rules.sentResult(sent(2, 1)))
+        assertEquals("3 reincidências", Rules.sentResult(sent(0, 3)))
+    }
 }

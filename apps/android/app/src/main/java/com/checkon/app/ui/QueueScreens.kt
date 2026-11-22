@@ -2,6 +2,7 @@ package com.checkon.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -31,6 +32,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.checkon.app.data.QueuedInspection
+import com.checkon.app.data.SentInspection
 import com.checkon.app.data.Rules
 
 @Composable
@@ -38,9 +40,12 @@ fun DoneScreen(vm: AppViewModel, clientId: String, onNew: () -> Unit, onHome: ()
     val queue by vm.queue.collectAsState()
     val syncing by vm.syncing.collectAsState()
     val online by vm.online.collectAsState()
+    val history by vm.history.collectAsState()
     val item = queue.firstOrNull { it.clientId == clientId }
     val sent = item == null
     val rejected = item?.state == "REJECTED"
+    // Resultado devolvido pelo servidor (situação do veículo e NCs), quando já foi aceita.
+    val result = history.firstOrNull { it.clientId == clientId }
 
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(ScreenPadding),
@@ -80,6 +85,7 @@ fun DoneScreen(vm: AppViewModel, clientId: String, onNew: () -> Unit, onHome: ()
             },
             Modifier.fillMaxWidth(),
         )
+        if (sent && result != null) SentResultCard(result)
         if (rejected) Banner("Motivo", item?.message, Tone.Danger)
         if (item?.state == "PENDING" && online && !syncing) SecondaryButton("Tentar enviar agora", onClick = vm::syncNow)
         PrimaryButton("Nova inspeção", onClick = onNew)
@@ -93,6 +99,7 @@ fun QueueScreen(vm: AppViewModel) {
     val syncing by vm.syncing.collectAsState()
     val online by vm.online.collectAsState()
     val lastSync by vm.lastSync.collectAsState()
+    val history by vm.history.collectAsState()
     var toDiscard by remember { mutableStateOf<QueuedInspection?>(null) }
     val pending = queue.count { it.state == "PENDING" }
 
@@ -103,7 +110,7 @@ fun QueueScreen(vm: AppViewModel) {
         if (!online && pending > 0) Banner("Sem internet", "As inspeções serão enviadas sozinhas quando a conexão voltar.", Tone.Info)
         lastSync?.error?.let { Banner("Erro no último envio", it, Tone.Danger) }
         if (pending > 0) PrimaryButton(if (syncing) "Enviando..." else "Enviar agora ($pending)", onClick = vm::syncNow, loading = syncing, enabled = online)
-        if (queue.isEmpty()) Muted("Tudo enviado. Nenhuma inspeção guardada neste celular.", Modifier.fillMaxWidth().padding(top = 24.dp))
+        if (queue.isEmpty()) Muted("Tudo enviado. Nenhuma inspeção guardada neste celular.", Modifier.fillMaxWidth().padding(top = 8.dp))
         queue.forEach { item ->
             val photos = item.payload.answers.count { it.localPhoto != null }
             AppCard(accent = if (item.state == "REJECTED") Palette.Danger else Palette.Warning) {
@@ -116,6 +123,11 @@ fun QueueScreen(vm: AppViewModel) {
                 }
             }
         }
+        if (history.isNotEmpty()) {
+            SectionTitle("Enviadas por este celular")
+            history.forEach { sentItem -> SentInspectionCard(sentItem) }
+            Muted("Mostra as últimas ${history.size} enviadas. O histórico completo fica no portal.", Modifier.fillMaxWidth())
+        }
     }
 
     toDiscard?.let { item ->
@@ -127,4 +139,41 @@ fun QueueScreen(vm: AppViewModel) {
             dismissButton = { TextButton(onClick = { toDiscard = null }) { Text("Cancelar") } },
         )
     }
+}
+
+/** Inspeção aceita pelo servidor (histórico do celular). */
+@Composable
+fun SentInspectionCard(item: SentInspection) {
+    AppCard {
+        Text("${item.vehicleLabel} · ${item.templateName}", fontWeight = FontWeight.Bold, color = Palette.Text)
+        Muted("Feita em ${formatDateTime(item.completedAt)} · enviada ${formatMillis(item.sentAt)}")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            item.vehicleStatus?.let { StatusTag(it) }
+            Text(
+                Rules.sentResult(item),
+                color = if (item.ncsOpened + item.ncsRecurrent > 0) Palette.Warning else Palette.Muted,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+    }
+}
+
+/** Resultado da inspeção recém-enviada (tela de conclusão). */
+@Composable
+private fun SentResultCard(item: SentInspection) {
+    val tone = when (item.vehicleStatus) {
+        "BLOQUEADO" -> Tone.Danger
+        "ATENCAO" -> Tone.Warning
+        else -> Tone.Success
+    }
+    Banner(
+        title = "Veículo ${Rules.STATUS_LABEL[item.vehicleStatus] ?: "registrado"} · ${Rules.sentResult(item)}",
+        text = when (item.vehicleStatus) {
+            "BLOQUEADO" -> "Há problema crítico em aberto. O veículo não deve circular até ser liberado pelo gestor."
+            "ATENCAO" -> "Há não conformidade em aberto. O gestor vai tratar no portal."
+            else -> null
+        },
+        tone = tone,
+    )
 }

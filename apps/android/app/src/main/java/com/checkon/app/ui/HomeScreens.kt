@@ -173,6 +173,7 @@ fun HomeScreen(
     val session by vm.session.collectAsState()
     val bootstrap by vm.bootstrap.collectAsState()
     val queue by vm.queue.collectAsState()
+    val history by vm.history.collectAsState()
     val online by vm.online.collectAsState()
     val syncing by vm.syncing.collectAsState()
     val loading by vm.loadingBootstrap.collectAsState()
@@ -200,6 +201,16 @@ fun HomeScreen(
             Text("Olá, ${user?.name?.substringBefore(' ') ?: ""}", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = Palette.Text)
             Muted(listOfNotNull(user?.tenantName, user?.tenantCode).joinToString(" · "))
 
+            bootstrap?.let {
+                if (Rules.isStale(it.downloadedAt, System.currentTimeMillis())) {
+                    Banner(
+                        "Dados desatualizados",
+                        "Os veículos e checklists deste celular são de ${formatMillis(it.downloadedAt)}. " +
+                            if (online) "Puxe a tela para baixo para atualizar." else "Eles são atualizados quando a internet voltar.",
+                        Tone.Warning,
+                    )
+                }
+            }
             if (!online) Banner("Sem internet", "Você pode fazer inspeções normalmente. Elas ficam guardadas no celular e são enviadas quando a conexão voltar.", Tone.Info)
             if (bootstrap == null) {
                 Banner(
@@ -266,6 +277,16 @@ fun HomeScreen(
                                 else -> "Nenhuma inspeção pendente neste celular."
                             },
                         )
+                    }
+                }
+            }
+
+            if (history.isNotEmpty()) {
+                SectionTitle("Últimas enviadas")
+                history.take(3).forEach { SentInspectionCard(it) }
+                if (history.size > 3) {
+                    TextButton(onClick = onQueue, modifier = Modifier.fillMaxWidth()) {
+                        Text("Ver todas (${history.size})", color = Palette.Primary, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }

@@ -120,4 +120,21 @@ class SyncEngineTest {
         assertTrue(summary.offline)
         assertEquals(1, rest.size)
     }
+
+    @Test fun `inspecao aceita entra no historico com o resultado do servidor`() = runBlocking {
+        val (_, summary) = SyncEngine(
+            uploadPhoto = { "x" },
+            now = { 1_000L },
+            postSync = { listOf(SyncResult("CREATED", "c1", vehicleStatus = "BLOQUEADO", ncsOpened = 2, ncsRecurrent = 1), SyncResult("REJECTED", "c2", "erro")) },
+            persist = {},
+        ).run(listOf(queued("c1"), queued("c2")))
+        assertEquals(1, summary.accepted.size)
+        val sent = summary.accepted[0]
+        assertEquals("c1", sent.clientId)
+        assertEquals("ABC1D23", sent.vehicleLabel)
+        assertEquals("BLOQUEADO", sent.vehicleStatus)
+        assertEquals(2, sent.ncsOpened)
+        assertEquals(1, sent.ncsRecurrent)
+        assertEquals(1_000L, sent.sentAt)
+    }
 }
