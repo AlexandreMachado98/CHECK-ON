@@ -19,6 +19,7 @@ O limite vale para frotas, veículos, inspeções, NCs (e tratativas), colaborad
 - **Modelos de checklist:** valem em "todas as frentes" ou só nas frentes escolhidas. No aplicativo, o checklist só aparece para os veículos dessas frentes, e a API recusa a inspeção de um modelo em veículo de outra frente.
   - Só o administrador marca "todas as frentes".
   - Gestor só altera modelos que valem apenas nas frentes dele. Modelo compartilhado com outras frentes fica só para consulta.
+- **Copiar modelo para outra frente** (Modelos → Copiar): cria um modelo novo e independente, com as seções e os itens ativos do original, na versão 1 e como rascunho. O original não muda. O administrador copia qualquer modelo para qualquer frente. O gestor copia os modelos que vê, inclusive os de "todas as frentes", mas só para as frentes dele.
 - **Vínculos editados por gestor:** ele só marca ou desmarca as frentes dele. As frentes que ele não vê continuam no cadastro, e ele não pode deixar o registro sem nenhuma das suas frentes.
 
 ## Empresa com uma frente só

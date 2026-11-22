@@ -120,3 +120,58 @@ describe('TemplateService — histórico', () => {
     expect(include.categories.include.items.where).toEqual({ isActive: true });
   });
 });
+
+describe('TemplateService — copiar para outra frente', () => {
+  const source = {
+    id: 'tpl-1',
+    tenantId: 't1',
+    name: 'Diário',
+    description: 'Antes de sair',
+    version: 7,
+    categories: [
+      {
+        name: 'Rodagem',
+        order: 0,
+        items: [
+          { text: 'Pneus', type: 'PASS_FAIL', isRequired: true, isCritical: true, photoRequirement: 'ON_NON_COMPLIANCE', order: 0, addedInVersion: 5 },
+          { text: 'Km', type: 'NUMBER', isRequired: false, isCritical: false, photoRequirement: 'NONE', order: 1, addedInVersion: 1 },
+        ],
+      },
+    ],
+  };
+
+  it('cria um modelo novo, como rascunho, na versão 1, com as seções e itens ativos', async () => {
+    const { prisma, service } = buildService();
+    prisma.template.findUnique.mockResolvedValue(source);
+    (prisma.template as any).create = vi.fn().mockImplementation(({ data }) => Promise.resolve({ id: 'copia', ...data }));
+
+    const copy = await service.copy('tpl-1', {});
+
+    // Só busca seções e itens ativos (os removidos que guardam histórico não vão para a cópia).
+    expect(prisma.template.findUnique.mock.calls[0][0].include.categories.where).toEqual({ isActive: true });
+    const data = (prisma.template as any).create.mock.calls[0][0].data;
+    expect(data).toMatchObject({ name: 'Diário (cópia)', description: 'Antes de sair', isActive: false, version: 1, allUnits: true });
+    const category = data.categories.create[0];
+    expect(category).toMatchObject({ tenantId: 't1', name: 'Rodagem', order: 0 });
+    expect(category.items.create).toEqual([
+      { tenantId: 't1', text: 'Pneus', type: 'PASS_FAIL', isRequired: true, isCritical: true, photoRequirement: 'ON_NON_COMPLIANCE', order: 0, addedInVersion: 1 },
+      { tenantId: 't1', text: 'Km', type: 'NUMBER', isRequired: false, isCritical: false, photoRequirement: 'NONE', order: 1, addedInVersion: 1 },
+    ]);
+    expect(copy.id).toBe('copia');
+  });
+
+  it('usa o nome informado', async () => {
+    const { prisma, service } = buildService();
+    prisma.template.findUnique.mockResolvedValue(source);
+    (prisma.template as any).create = vi.fn().mockResolvedValue({ id: 'copia' });
+    await service.copy('tpl-1', { name: '  Diário Mina Norte ' });
+    expect((prisma.template as any).create.mock.calls[0][0].data.name).toBe('Diário Mina Norte');
+  });
+
+  it('modelo que não existe ou de outra frente: não encontrado', async () => {
+    const { prisma, service } = buildService();
+    prisma.template.findUnique.mockResolvedValue(null);
+    await expect(service.copy('outro', {})).rejects.toThrow('Template não encontrado');
+  });
+});
+

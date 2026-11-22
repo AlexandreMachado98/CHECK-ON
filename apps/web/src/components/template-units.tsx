@@ -86,3 +86,84 @@ export function TemplateUnitsDialog({
     </Dialog>
   );
 }
+
+/**
+ * Copiar o modelo para outra(s) frente(s): cria um modelo novo e independente, como rascunho.
+ * O original não muda. Quem é limitado escolhe entre as frentes dele.
+ */
+export function CopyTemplateDialog({
+  template,
+  units,
+  allowAll,
+  onClose,
+  onCopied,
+}: {
+  template: Template;
+  units: Unit[];
+  allowAll: boolean;
+  onClose: () => void;
+  onCopied: (copy: Template) => void;
+}) {
+  const [name, setName] = useState(`${template.name} (cópia)`);
+  const [all, setAll] = useState(false);
+  // Empresa com uma frente só: ela já vem marcada.
+  const [unitIds, setUnitIds] = useState<string[]>(units.length === 1 ? [units[0].id] : []);
+  const [saving, setSaving] = useState(false);
+  const pickUnits = units.length > 0;
+  const valid = name.trim().length > 0 && (!pickUnits || (allowAll && all) || unitIds.length > 0);
+
+  async function copy() {
+    setSaving(true);
+    try {
+      const body = !pickUnits ? { name: name.trim() } : allowAll && all ? { name: name.trim(), allUnits: true } : { name: name.trim(), unitIds };
+      const response = await api.post<Template>(`/templates/${template.id}/copy`, body);
+      onCopied(response.data);
+    } catch (error) {
+      alert(apiErrorMessage(error, 'Não foi possível copiar o modelo.'));
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(value) => { if (!value) onClose(); }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Copiar modelo</DialogTitle>
+          <DialogDescription>
+            Cria um modelo novo, com as mesmas seções e itens de &quot;{template.name}&quot;. A cópia é independente: mudar uma não
+            altera a outra. Ela nasce como rascunho, para você revisar antes de ativar no aplicativo.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label htmlFor="copy-name" className="text-sm font-medium text-slate-900">Nome da cópia *</label>
+            <input
+              id="copy-name"
+              value={name}
+              maxLength={200}
+              onChange={(event) => setName(event.target.value)}
+              className="flex h-9 w-full rounded-md border border-slate-200 bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-600"
+            />
+          </div>
+          {pickUnits && (
+            <UnitMultiPicker
+              idPrefix="copy-unit"
+              units={units}
+              value={unitIds}
+              onChange={setUnitIds}
+              allowAll={allowAll}
+              all={all}
+              onAllChange={setAll}
+              label="Copiar para"
+              help="A cópia só aparece no aplicativo para os veículos das frentes marcadas."
+            />
+          )}
+        </div>
+        <DialogFooter className="mt-4">
+          <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button type="button" disabled={saving || !valid} onClick={copy}>{saving ? 'Copiando...' : 'Copiar e abrir'}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
