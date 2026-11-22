@@ -216,4 +216,17 @@ class RulesTest {
         assertEquals("2 NCs abertas · 1 reincidência", Rules.sentResult(sent(2, 1)))
         assertEquals("3 reincidências", Rules.sentResult(sent(0, 3)))
     }
+
+    @Test fun `problema comum preenche a observacao sem repetir`() {
+        assertEquals("Desgastado", Rules.appendObservation(null, "Desgastado"))
+        assertEquals("Desgastado", Rules.appendObservation("  ", "Desgastado"))
+        assertEquals("Desgastado, solto", Rules.appendObservation("Desgastado", "Solto"))
+        assertEquals("Pneu desgastado", Rules.appendObservation("Pneu desgastado", "Desgastado"))
+    }
+
+    @Test fun `progresso da secao conta os itens respondidos`() {
+        val category = TemplateCategory("c", "Rodagem", 0, listOf(item("a"), item("b"), item("c", type = "TEXT")))
+        val answers = mapOf("a" to Answer("a", isCompliant = true), "c" to Answer("c", notApplicable = true))
+        assertEquals(2 to 3, Rules.sectionProgress(category, answers))
+    }
 }
