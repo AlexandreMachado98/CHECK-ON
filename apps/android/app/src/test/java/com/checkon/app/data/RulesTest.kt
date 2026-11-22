@@ -150,4 +150,16 @@ class RulesTest {
         assertEquals("c", Rules.nextToAnswer(t, done))
         assertNull(Rules.nextToAnswer(t, done + ("c" to Answer("c", notApplicable = true))))
     }
+
+    @Test fun `checklist de uma frente so aparece nos veiculos dela`() {
+        val all = Template(id = "todas", name = "Diário")
+        val onlyA = Template(id = "a", name = "Só A", allUnits = false, units = listOf(TemplateUnit("frente-a")))
+        val vehicleA = Vehicle(id = "v1", plate = "AAA1A11", fleet = Fleet("f1", "Frota A", unitId = "frente-a"))
+        val vehicleB = Vehicle(id = "v2", plate = "BBB2B22", fleet = Fleet("f2", "Frota B", unitId = "frente-b"))
+        assertEquals(listOf("todas", "a"), Rules.templatesForVehicle(listOf(all, onlyA), vehicleA).map { it.id })
+        assertEquals(listOf("todas"), Rules.templatesForVehicle(listOf(all, onlyA), vehicleB).map { it.id })
+        // Servidor antigo, sem a frente do veículo: mostra todos.
+        val legacy = Vehicle(id = "v3", plate = "CCC3C33", fleet = Fleet("f3", "Frota"))
+        assertEquals(2, Rules.templatesForVehicle(listOf(all, onlyA), legacy).size)
+    }
 }

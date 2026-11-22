@@ -4,7 +4,8 @@ import { ChangeEvent, useEffect, useMemo, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { matchesSearch } from '@/lib/search';
 import api from '@/lib/api';
-import { apiErrorMessage, type AccessCredentials, type Employee, type EmployeeTraining } from '@/lib/types';
+import { UnitBadges, UnitMultiPicker, unitIdsOf, useUnits } from '@/components/unit-picker';
+import { apiErrorMessage, type AccessCredentials, type Employee, type EmployeeTraining, type Unit } from '@/lib/types';
 import { AccessBadge, CreateAccessDialog, CredentialsDialog, resetAccessPassword, toggleAccess } from '@/components/employee-access';
 import { canManage } from '@/lib/roles';
 import { getStoredUser } from '@/lib/session';
@@ -66,6 +67,8 @@ interface EmployeeFormData {
   trainings: TrainingFormData[];
   photoFile: File | null;
   photoUrl: string;
+  /** Frentes de trabalho (o motorista vê os veículos delas no aplicativo). */
+  unitIds: string[];
 }
 
 const EMPTY_FORM: EmployeeFormData = {
@@ -82,6 +85,7 @@ const EMPTY_FORM: EmployeeFormData = {
   trainings: [],
   photoFile: null,
   photoUrl: '',
+  unitIds: [],
 };
 
 function EmployeeForm({
@@ -92,8 +96,11 @@ function EmployeeForm({
   onCancel,
   submitting,
   mode,
+  units = [],
 }: {
   initial?: EmployeeFormData;
+  /** Frentes para escolher; vazio quando a empresa tem uma frente só (nada a escolher). */
+  units?: Unit[];
   supervisors: Employee[];
   currentEmployeeId?: string;
   onSubmit: (data: EmployeeFormData) => Promise<void>;
@@ -199,6 +206,17 @@ function EmployeeForm({
               </SelectContent>
             </Select>
           </div>
+          {units.length > 0 && (
+            <div className="sm:col-span-2">
+              <UnitMultiPicker
+                idPrefix="employee-unit"
+                units={units}
+                value={form.unitIds}
+                onChange={(unitIds) => setForm((current) => ({ ...current, unitIds }))}
+                help="No aplicativo, o motorista só vê os veículos e checklists das frentes marcadas."
+              />
+            </div>
+          )}
         </div>
       </section>
 
@@ -515,8 +533,10 @@ function InfoCell({ icon, label, value }: { icon: React.ReactNode; label: string
   );
 }
 
-function buildPayload(data: EmployeeFormData) {
+function buildPayload(data: EmployeeFormData, withUnits: boolean) {
   return {
+    // Só manda as frentes quando a empresa tem mais de uma (com uma só, a API usa ela).
+    ...(withUnits ? { unitIds: data.unitIds } : {}),
     name: data.name.trim(),
     matricula: data.matricula.trim(),
     jobTitle: data.jobTitle,
@@ -545,6 +565,7 @@ async function uploadEmployeePhoto(employeeId: string, file: File) {
 
 export default function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const { active: units, choose: chooseUnit } = useUnits();
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [createSubmitting, setCreateSubmitting] = useState(false);
@@ -575,11 +596,18 @@ export default function EmployeesPage() {
     }
   }
 
+  /** Com várias frentes, colaborador sem frente não vê nenhum veículo no app: confirma antes. */
+  function confirmUnits(data: EmployeeFormData): boolean {
+    if (!chooseUnit || data.unitIds.length > 0) return true;
+    return window.confirm('Nenhuma frente de trabalho marcada. Sem frente, o colaborador não vê nenhum veículo no aplicativo. Salvar mesmo assim?');
+  }
+
   async function handleCreate(data: EmployeeFormData) {
+    if (!confirmUnits(data)) return;
     let created: Employee | null = null;
     try {
       setCreateSubmitting(true);
-      const response = await api.post<Employee>('/employees', buildPayload(data));
+      const response = await api.post<Employee>('/employees', buildPayload(data, chooseUnit));
       created = response.data;
       if (data.photoFile) await uploadEmployeePhoto(created.id, data.photoFile);
       setCreateOpen(false);
@@ -599,10 +627,11 @@ export default function EmployeesPage() {
 
   async function handleEdit(data: EmployeeFormData) {
     if (!editTarget) return;
+    if (!confirmUnits(data)) return;
     let updated: Employee | null = null;
     try {
       setEditSubmitting(true);
-      const response = await api.patch<Employee>(`/employees/${editTarget.id}`, buildPayload(data));
+      const response = await api.patch<Employee>(`/employees/${editTarget.id}`, buildPayload(data, chooseUnit));
       updated = response.data;
       if (data.photoFile) await uploadEmployeePhoto(editTarget.id, data.photoFile);
       setEditTarget(null);
@@ -652,6 +681,7 @@ export default function EmployeesPage() {
     admissionDate: dateInput(employee.admissionDate) || today(),
     departmentName: employee.departmentName || '',
     supervisorId: employee.supervisorId || '',
+    unitIds: unitIdsOf(employee.units),
     companyIntegrationDate: dateInput(employee.companyIntegrationDate),
     companyIntegrationExpiresAt: dateInput(employee.companyIntegrationExpiresAt),
     clientIntegrationDate: dateInput(employee.clientIntegrationDate),
@@ -685,6 +715,7 @@ export default function EmployeesPage() {
             </DialogHeader>
             <EmployeeForm
               mode="create"
+              units={chooseUnit ? units : []}
               supervisors={employees}
               submitting={createSubmitting}
               onSubmit={handleCreate}
@@ -780,6 +811,7 @@ export default function EmployeesPage() {
                             {roleLabelMap[role] || role || 'Não definida'}
                           </Badge>
                           <p className="text-xs text-slate-500">{employee.departmentName || 'Setor não informado'}</p>
+                          {chooseUnit && <UnitBadges links={employee.units} emptyText="Sem frente: não vê veículos no app" />}
                         </div>
                       </TableCell>
                       <TableCell className="hidden lg:table-cell">
@@ -883,6 +915,7 @@ export default function EmployeesPage() {
             <EmployeeForm
               mode="edit"
               initial={formFromEmployee(editTarget)}
+              units={chooseUnit ? units : []}
               supervisors={employees}
               currentEmployeeId={editTarget.id}
               submitting={editSubmitting}

@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { ClsServiceManager } from 'nestjs-cls';
+import { UNIT_SCOPE_KEY, UnitScope, unitScopeFilter, withUnitScope } from '../common/unit-scope';
 
 // Modelos que possuem tenantId obrigatório
 const MODELS_WITH_TENANT = ['Role', 'User', 'Employee', 'Unit', 'Department', 'Fleet', 'Vehicle', 'Checklist', 'Template', 'TemplateCategory', 'TemplateItem', 'ChecklistAnswer', 'NonConformity', 'NcAction'];
@@ -36,6 +37,10 @@ export function createTenantPrismaClient() {
             // Operações de Leitura / Atualização / Deleção
             if (TENANT_FILTERED_OPERATIONS.includes(operation)) {
               (args as any).where = { ...(args as any).where, tenantId };
+              // Frente de trabalho: gestor, supervisor e motorista só alcançam as frentes em que estão vinculados.
+              const scope = cls?.get<UnitScope | undefined>(UNIT_SCOPE_KEY);
+              const filter = scope ? unitScopeFilter(model, scope) : null;
+              if (filter) (args as any).where = withUnitScope((args as any).where, filter);
             } 
             // Operações de Criação
             else if (['create', 'createMany'].includes(operation)) {

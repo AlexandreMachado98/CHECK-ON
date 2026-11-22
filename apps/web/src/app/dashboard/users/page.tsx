@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { matchesSearch } from '@/lib/search';
 import api, { ensureList } from '@/lib/api';
-import { apiErrorMessage, type AccessCredentials, type Employee, type User, type Role } from '@/lib/types';
+import { apiErrorMessage, type AccessCredentials, type Employee, type User, type Role, type Unit } from '@/lib/types';
+import { UnitBadges, UnitMultiPicker, unitIdsOf, useUnits } from '@/components/unit-picker';
 import { CredentialsDialog, resetAccessPassword } from '@/components/employee-access';
 import { roleLabel } from '@/lib/roles';
 import { Button } from '@/components/ui/button';
@@ -23,25 +24,34 @@ interface UserFormData {
   roleId: string;
   /** 'none' = sem colaborador vinculado. */
   employeeId: string;
+  /** Frentes de trabalho do gestor ou supervisor. */
+  unitIds: string[];
 }
 
+/** Perfis que só veem as frentes de trabalho marcadas no login. */
+const UNIT_SCOPED_ROLES = ['GESTOR', 'SUPERVISOR'];
+
 const NO_EMPLOYEE = 'none';
-const EMPTY_FORM: UserFormData = { name: '', email: '', password: '', roleId: '', employeeId: NO_EMPLOYEE };
+const EMPTY_FORM: UserFormData = { name: '', email: '', password: '', roleId: '', employeeId: NO_EMPLOYEE, unitIds: [] };
 
 /** Envia null para desfazer o vínculo e omite o campo quando não há colaborador no cadastro novo. */
 function employeeIdPayload(value: string) {
   return value === NO_EMPLOYEE ? null : value;
 }
 
-function UserForm({ initial = EMPTY_FORM, roles, employees, onSubmit, onCancel, submitting, mode, error }: { initial?: Partial<UserFormData>; roles: Role[]; employees: Employee[]; onSubmit: (data: UserFormData) => Promise<void>; onCancel: () => void; submitting: boolean; mode: 'create' | 'edit'; error?: string; }) {
+function UserForm({ initial = EMPTY_FORM, roles, employees, units = [], onSubmit, onCancel, submitting, mode, error }: { initial?: Partial<UserFormData>; roles: Role[]; employees: Employee[]; units?: Unit[]; onSubmit: (data: UserFormData) => Promise<void>; onCancel: () => void; submitting: boolean; mode: 'create' | 'edit'; error?: string; }) {
   const [form, setForm] = useState<UserFormData>({ ...EMPTY_FORM, ...initial });
+  // Gestor e supervisor: escolher as frentes (só quando a empresa tem mais de uma).
+  const roleName = roles.find((role) => role.id === form.roleId)?.name ?? '';
+  const pickUnits = units.length > 0 && UNIT_SCOPED_ROLES.includes(roleName);
 
   function set(field: keyof UserFormData) {
     return (e: React.ChangeEvent<HTMLInputElement>) =>
       setForm(prev => ({ ...prev, [field]: e.target.value }));
   }
 
-  const canSubmit = form.name && form.email && form.roleId && (mode === 'edit' ? !form.password || form.password.length >= 8 : !!form.password && form.password.length >= 8);
+  const canSubmit = form.name && form.email && form.roleId && (mode === 'edit' ? !form.password || form.password.length >= 8 : !!form.password && form.password.length >= 8)
+    && (!pickUnits || form.unitIds.length > 0);
 
   return (
     <form onSubmit={async (e) => { e.preventDefault(); await onSubmit(form); }} className="space-y-4 pt-2">
@@ -103,6 +113,16 @@ function UserForm({ initial = EMPTY_FORM, roles, employees, onSubmit, onCancel, 
         <p className="text-xs text-slate-500">Obrigatório para motoristas e supervisores registrarem checklists no aplicativo.</p>
       </div>
 
+      {pickUnits && (
+        <UnitMultiPicker
+          idPrefix="user-unit"
+          units={units}
+          value={form.unitIds}
+          onChange={(unitIds) => setForm((prev) => ({ ...prev, unitIds }))}
+          help="Este login só vê frotas, veículos, inspeções, NCs e colaboradores das frentes marcadas."
+        />
+      )}
+
       {roles.length === 0 && <p className="text-xs text-amber-700">Não foi possível carregar os perfis. Feche e abra de novo.</p>}
       {error && <p className="text-sm text-rose-700">{error}</p>}
 
@@ -120,6 +140,7 @@ export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const { active: units, choose: chooseUnit } = useUnits();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [formError, setFormError] = useState('');
@@ -176,9 +197,11 @@ export default function UsersPage() {
     try {
       setCreateSub(true);
       setFormError('');
-      const { employeeId, ...rest } = data;
+      const { employeeId, unitIds, ...rest } = data;
       const linked = employeeIdPayload(employeeId);
-      await api.post('/users', linked ? { ...rest, employeeId: linked } : rest);
+      // Frentes só quando a empresa tem mais de uma (com uma só, a API usa ela).
+      const withUnits = chooseUnit ? { ...rest, unitIds } : rest;
+      await api.post('/users', linked ? { ...withUnits, employeeId: linked } : withUnits);
       setCreateOpen(false);
       fetchUsers();
     } catch (error) {
@@ -198,6 +221,7 @@ export default function UsersPage() {
       const linked = employeeIdPayload(data.employeeId);
       if (linked !== (editTarget.employeeId ?? null)) (payload as Record<string, unknown>).employeeId = linked;
       if (data.password) payload.password = data.password;
+      if (chooseUnit) payload.unitIds = data.unitIds;
       await api.patch(`/users/${editTarget.id}`, payload);
       setEditTarget(null);
       fetchUsers();
@@ -254,6 +278,7 @@ export default function UsersPage() {
               mode="create"
               roles={roles}
               employees={employees}
+              units={chooseUnit ? units : []}
               submitting={createSub}
               error={formError}
               onSubmit={handleCreate}
@@ -338,6 +363,9 @@ export default function UsersPage() {
                         <Key className="h-3 w-3 mr-1.5 text-slate-400" />
                         {u.role?.label ?? roleLabel(u.role?.name)}
                       </div>
+                      {chooseUnit && UNIT_SCOPED_ROLES.includes(u.role?.name ?? '') && (
+                        <div className="mt-1"><UnitBadges links={u.units} emptyText="Sem frente: não vê nada" /></div>
+                      )}
                     </TableCell>
                     <TableCell>
                       {u.isActive ? (
@@ -404,7 +432,8 @@ export default function UsersPage() {
               mode="edit"
               roles={roles}
               employees={employees}
-              initial={{ name: editTarget.name, email: editTarget.email, roleId: editTarget.roleId, employeeId: editTarget.employeeId ?? NO_EMPLOYEE }}
+              units={chooseUnit ? units : []}
+              initial={{ name: editTarget.name, email: editTarget.email, roleId: editTarget.roleId, employeeId: editTarget.employeeId ?? NO_EMPLOYEE, unitIds: unitIdsOf(editTarget.units) }}
               submitting={editSub}
               error={formError}
               onSubmit={handleEdit}

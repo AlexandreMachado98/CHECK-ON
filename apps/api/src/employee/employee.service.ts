@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
+import { resolveUnitAssignment, visibleUnitsInclude } from '../unit/unit-assignment';
 
 const dateValue = (value?: string | null): Date | null | undefined =>
   value === undefined ? undefined : value === null || value === '' ? null : new Date(value);
@@ -31,7 +32,8 @@ export class EmployeeService {
   async create(createDto: CreateEmployeeDto) {
     await this.assertSupervisor(createDto.supervisorId);
     await this.assertMatriculaAvailable(createDto.matricula);
-    const { trainings, ...employee } = createDto;
+    const { trainings, unitIds, ...employee } = createDto;
+    const units = (await resolveUnitAssignment(this.prisma, unitIds, null)) ?? [];
     const tenantId = ClsServiceManager.getClsService()?.get<string>('tenantId');
     if (!tenantId) throw new UnauthorizedException('Sessão sem empresa associada.');
     return this.prisma.employee.create({
@@ -47,8 +49,13 @@ export class EmployeeService {
         clientIntegrationExpiresAt: dateValue(employee.clientIntegrationExpiresAt),
         badgeToken: randomBytes(32).toString('hex'),
         trainings: { create: trainingData(trainings) },
+        units: { create: units.map((unitId) => ({ unitId })) },
       },
-      include: { trainings: true, supervisor: { select: { id: true, name: true, jobTitle: true } } },
+      include: {
+        trainings: true,
+        supervisor: { select: { id: true, name: true, jobTitle: true } },
+        units: visibleUnitsInclude(),
+      },
     });
   }
 
@@ -60,6 +67,7 @@ export class EmployeeService {
         user: { select: { id: true, email: true, isActive: true, mustChangePassword: true, lockedUntil: true, role: { select: { name: true } } } },
         trainings: { orderBy: { expiresAt: 'asc' } },
         supervisor: { select: { id: true, name: true, jobTitle: true } },
+        units: visibleUnitsInclude(),
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -71,6 +79,7 @@ export class EmployeeService {
       include: {
         trainings: { orderBy: { expiresAt: 'asc' } },
         supervisor: { select: { id: true, name: true, jobTitle: true } },
+        units: visibleUnitsInclude(),
       },
     });
     if (!record) throw new NotFoundException('Colaborador não encontrado.');
@@ -81,7 +90,8 @@ export class EmployeeService {
     await this.findOne(id);
     await this.assertSupervisor(updateDto.supervisorId, id);
     if (updateDto.matricula !== undefined) await this.assertMatriculaAvailable(updateDto.matricula, id);
-    const { trainings, ...employee } = updateDto;
+    const { trainings, unitIds, ...employee } = updateDto;
+    const units = await resolveUnitAssignment(this.prisma, unitIds, await this.currentUnitIds(id));
     return this.prisma.employee.update({
       where: { id },
       data: {
@@ -96,12 +106,20 @@ export class EmployeeService {
         trainings: trainings === undefined
           ? undefined
           : { deleteMany: {}, create: trainingData(trainings) },
+        units: units === undefined ? undefined : { deleteMany: {}, create: units.map((unitId) => ({ unitId })) },
       },
       include: {
         trainings: { orderBy: { expiresAt: 'asc' } },
         supervisor: { select: { id: true, name: true, jobTitle: true } },
+        units: visibleUnitsInclude(),
       },
     });
+  }
+
+  /** Todas as frentes do funcionário, inclusive as que quem edita não vê (para preservá-las). */
+  private async currentUnitIds(employeeId: string): Promise<string[]> {
+    const rows = await this.prisma.employee.findUnique({ where: { id: employeeId }, select: { units: { select: { unitId: true } } } });
+    return rows?.units.map((row) => row.unitId) ?? [];
   }
 
   async uploadPhoto(id: string, file: PhotoUploadFile) {

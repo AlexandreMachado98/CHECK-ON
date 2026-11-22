@@ -51,7 +51,8 @@ fun VehicleScreen(vm: AppViewModel, vehicleId: String, onStart: (vehicleId: Stri
         return
     }
     val ncs = freshNcs ?: bootstrap?.openNcs?.filter { it.vehicleId == vehicleId } ?: emptyList()
-    val templates = bootstrap?.templates ?: emptyList()
+    // Só os checklists que valem na frente de trabalho deste veículo.
+    val templates = Rules.templatesForVehicle(bootstrap?.templates ?: emptyList(), vehicle)
 
     fun start(template: Template) {
         scope.launch {
@@ -95,7 +96,7 @@ fun VehicleScreen(vm: AppViewModel, vehicleId: String, onStart: (vehicleId: Stri
         }
 
         SectionTitle("Escolha o checklist")
-        if (templates.isEmpty()) Muted("A empresa ainda não tem checklists ativos.")
+        if (templates.isEmpty()) Muted("Não há checklist ativo para a frente de trabalho deste veículo. Fale com o seu gestor.")
         templates.forEach { template ->
             AppCard(onClick = { start(template) }) {
                 IconRow(Icons.AutoMirrored.Filled.Assignment, Palette.Primary) {

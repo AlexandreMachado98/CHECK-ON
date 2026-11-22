@@ -1,6 +1,14 @@
 import { IsBoolean, IsNotEmpty, IsOptional, IsString, MaxLength, MinLength, ValidateIf } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsUUID } from 'class-validator';
 
 export class UpdateUserDto {
+  /** Frentes de trabalho que o gestor ou supervisor enxerga (ignorado para administrador e motorista). */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsUUID('all', { each: true })
+  unitIds?: string[];
+
   @IsOptional()
   @IsNotEmpty()
   @IsString()

@@ -11,7 +11,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowDown, ArrowLeft, ArrowUp, Trash2, Plus, CheckCircle2, Type, Hash, Camera, LayoutList, Settings2, Edit2, Activity } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Trash2, Plus, CheckCircle2, Type, Hash, Camera, LayoutList, Settings2, Edit2, Activity, Lock } from 'lucide-react';
+import { useUnits } from '@/components/unit-picker';
+import { TemplateUnitsDialog, TemplateUnitsLabel } from '@/components/template-units';
+import { getStoredUser } from '@/lib/session';
+import { seesAllUnits } from '@/lib/roles';
 
 const ITEM_TYPES: { value: ItemType; label: string; description: string; icon: React.ElementType }[] = [
   { value: 'PASS_FAIL', label: 'Conformidade (OK / NC)', description: 'O inspetor avalia a condição do item.', icon: CheckCircle2 },
@@ -298,6 +302,11 @@ export default function TemplateBuilderPage() {
 
   const [newCatName, setNewCatName] = useState('');
   const [addingCat, setAddingCat] = useState(false);
+  // Frentes de trabalho do modelo (só com mais de uma frente na empresa).
+  const { active: units, choose: chooseUnit } = useUnits();
+  const [admin, setAdmin] = useState(false);
+  useEffect(() => { setAdmin(seesAllUnits(getStoredUser()?.role)); }, []);
+  const [unitsOpen, setUnitsOpen] = useState(false);
 
   const fetchTemplate = useCallback(async () => {
     try {
@@ -397,6 +406,8 @@ export default function TemplateBuilderPage() {
   if (loading) return <div className="py-20 flex justify-center"><Activity className="h-6 w-6 animate-pulse text-slate-400" /></div>;
   if (error || !template) return <div className="text-center py-10 space-y-4"><p className="text-rose-600">{error || 'Modelo não encontrado.'}</p><Button variant="outline" onClick={() => router.push('/dashboard/templates')}>Voltar</Button></div>;
 
+  const readOnly = template.canEdit === false;
+
   return (
     <div className="flex flex-col h-[calc(100vh-6rem)]">
       {/* Header Panel */}
@@ -412,8 +423,20 @@ export default function TemplateBuilderPage() {
             </Badge>
           </div>
           <p className="text-xs text-slate-500 mt-1">{template.description || 'Sem descrição'}</p>
+          {chooseUnit && <div className="mt-2"><TemplateUnitsLabel template={template} /></div>}
         </div>
+        {readOnly ? (
+          <div className="flex max-w-sm items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
+            <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            Este modelo também vale para outras frentes de trabalho. Você pode consultar, mas só o administrador da empresa pode alterá-lo.
+          </div>
+        ) : (
         <div className="flex items-center gap-2">
+          {chooseUnit && (
+            <Button variant="outline" size="sm" className="shadow-sm text-xs" onClick={() => setUnitsOpen(true)}>
+              Frentes de trabalho
+            </Button>
+          )}
           <Button 
             variant="outline" 
             size="sm" 
@@ -431,7 +454,18 @@ export default function TemplateBuilderPage() {
             {template.isActive ? 'Desativar Modelo' : 'Ativar Modelo'}
           </Button>
         </div>
+        )}
       </div>
+      {unitsOpen && (
+        <TemplateUnitsDialog
+          template={template}
+          units={units}
+          allowAll={admin}
+          open={unitsOpen}
+          onClose={() => setUnitsOpen(false)}
+          onSaved={fetchTemplate}
+        />
+      )}
 
       {/* Builder 2-Column Area */}
       <div className="flex flex-1 gap-6 min-h-0">
@@ -460,18 +494,18 @@ export default function TemplateBuilderPage() {
               </ul>
             )}
           </div>
-          <div className="p-4 border-t bg-slate-50">
+          <fieldset disabled={readOnly} className="p-4 border-t bg-slate-50">
             <form onSubmit={handleAddCategory} className="flex gap-2">
               <Input value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder="Nova seção..." className="h-8 text-xs" />
               <Button type="submit" size="sm" className="h-8 px-2 shrink-0" disabled={addingCat || !newCatName.trim()}>
                 <Plus className="h-4 w-4" />
               </Button>
             </form>
-          </div>
+          </fieldset>
         </div>
 
-        {/* Right Content (Editor) */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar pb-20 pr-2">
+        {/* Right Content (Editor). Modelo compartilhado com outras frentes: só leitura. */}
+        <fieldset disabled={readOnly} className="flex-1 min-w-0 overflow-y-auto custom-scrollbar pb-20 pr-2">
           {template.categories.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-slate-400">
               <LayoutList className="h-12 w-12 mb-4 text-slate-300" />
@@ -497,7 +531,7 @@ export default function TemplateBuilderPage() {
               ))}
             </div>
           )}
-        </div>
+        </fieldset>
       </div>
     </div>
   );

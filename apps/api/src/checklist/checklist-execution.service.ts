@@ -84,12 +84,16 @@ export class ChecklistExecutionService {
       return await this.prisma.$transaction(async (tx) => {
         const template = await tx.template.findFirst({
           where: { id: dto.templateId, isActive: true },
-          include: { categories: { include: { items: true } } },
+          include: { categories: { include: { items: true } }, units: { select: { unitId: true } } },
         });
         if (!template) throw new NotFoundException('Template não encontrado ou inativo.');
 
-        const vehicle = await tx.vehicle.findFirst({ where: { id: dto.vehicleId, isActive: true } });
+        const vehicle = await tx.vehicle.findFirst({ where: { id: dto.vehicleId, isActive: true }, include: { fleet: { select: { unitId: true } } } });
         if (!vehicle) throw new NotFoundException('Veículo não encontrado ou inativo.');
+        // Modelo de algumas frentes só vale nos veículos delas (o motorista pode estar em várias frentes).
+        if (!template.allUnits && !template.units.some((unit) => unit.unitId === vehicle.fleet.unitId)) {
+          throw new UnprocessableEntityException(['Este checklist não vale para a frente de trabalho deste veículo.']);
+        }
 
         const driver = await tx.employee.findFirst({ where: { id: driverId, isActive: true } });
         if (!driver) throw new NotFoundException('Motorista não encontrado ou inativo.');

@@ -45,12 +45,18 @@ data class Template(
     val description: String? = null,
     val version: Int = 1,
     val categories: List<TemplateCategory> = emptyList(),
+    /** Vale em todas as frentes de trabalho. Falso: só nos veículos das frentes em [units]. */
+    val allUnits: Boolean = true,
+    val units: List<TemplateUnit> = emptyList(),
 ) {
     val allItems: List<TemplateItem> get() = categories.flatMap { it.items }
 }
 
 @Serializable
-data class Fleet(val id: String, val name: String)
+data class TemplateUnit(val unitId: String)
+
+@Serializable
+data class Fleet(val id: String, val name: String, val unitId: String? = null)
 
 @Serializable
 data class Vehicle(
