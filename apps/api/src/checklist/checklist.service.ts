@@ -82,7 +82,8 @@ export class ChecklistService {
       where: { id },
       include: {
         template: true,
-        vehicle: true,
+        // Frota e frente de trabalho: aparecem nos detalhes e no PDF da inspeção.
+        vehicle: { include: { fleet: { select: { id: true, name: true, unit: { select: { id: true, name: true, client: true } } } } } },
         driver: true,
         answers: { include: { item: true, nonConformity: true } }
       }

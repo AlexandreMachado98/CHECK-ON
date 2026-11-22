@@ -10,7 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ClipboardList, Search, Activity, Calendar, Car, User, Clock, ArrowRight, MessageSquare } from 'lucide-react';
+import { ClipboardList, Search, Activity, Calendar, Car, User, Clock, ArrowRight, MessageSquare, Download } from 'lucide-react';
+import { getStoredUser } from '@/lib/session';
 import { NC_SEVERITY, NC_STATUS } from '@/lib/status';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -27,6 +28,23 @@ export default function ExecutionsPage() {
   const [selectedChecklist, setSelectedChecklist] = useState<Checklist | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
+  const [pdfWorking, setPdfWorking] = useState(false);
+
+  /** PDF da inspeção aberta (gerado no navegador, com as fotos). */
+  async function handleDownloadPdf() {
+    if (!selectedChecklist?.answers) return;
+    setPdfWorking(true);
+    try {
+      const { downloadChecklistPdf } = await import('@/lib/checklist-pdf');
+      const user = getStoredUser();
+      await downloadChecklistPdf(selectedChecklist, { companyName: user?.tenantName, generatedBy: user?.name });
+    } catch (error) {
+      console.error('Falha ao gerar o PDF', error);
+      alert('Não foi possível gerar o PDF desta inspeção. Tente de novo.');
+    } finally {
+      setPdfWorking(false);
+    }
+  }
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const debouncedSearch = useDebounced(search);
@@ -245,6 +263,18 @@ export default function ExecutionsPage() {
               {selectedChecklist?.template?.name || 'Inspeção Operacional'} realizada em {selectedChecklist?.startedAt ? format(new Date(selectedChecklist.startedAt), "dd/MM/yyyy 'às' HH:mm") : '—'}
             </DialogDescription>
           </DialogHeader>
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadPdf}
+              disabled={detailLoading || !!detailError || !selectedChecklist?.answers || pdfWorking}
+              title="Relatório da inspeção com as respostas e as fotos"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              {pdfWorking ? 'Gerando PDF...' : 'Baixar PDF'}
+            </Button>
+          </div>
 
           {selectedChecklist && (
             <div className="space-y-4 pt-2">
@@ -256,6 +286,15 @@ export default function ExecutionsPage() {
                     <span className="text-xs text-slate-500 block">{selectedChecklist.vehicle.model}</span>
                   )}
                 </div>
+                {selectedChecklist.vehicle?.fleet && (
+                  <div>
+                    <span className="text-xs text-slate-500 block">Frota / frente</span>
+                    <span className="font-semibold text-slate-800">{selectedChecklist.vehicle.fleet.name}</span>
+                    {selectedChecklist.vehicle.fleet.unit && (
+                      <span className="text-xs text-slate-500 block">{selectedChecklist.vehicle.fleet.unit.name}</span>
+                    )}
+                  </div>
+                )}
                 <div>
                   <span className="text-xs text-slate-500 block">Condutor / Inspetor</span>
                   <span className="font-semibold text-slate-800">{selectedChecklist.driver?.name || '—'}</span>

@@ -211,6 +211,11 @@ export interface ChecklistAnswer {
   observations?: string | null;
   /** NC ativa à qual esta resposta foi agrupada (reincidência). */
   recurrentNcId?: string | null;
+  /** Cópia da pergunta no momento da resposta (editar o modelo não muda o histórico). */
+  itemText?: string | null;
+  itemType?: string | null;
+  itemIsCritical?: boolean | null;
+  categoryName?: string | null;
   item?: TemplateItem;
   nonConformity?: NC | null;
 }
@@ -234,6 +239,8 @@ export interface Checklist {
   /** Na lista paginada: quantidade de itens não conformes (as respostas vêm só nos detalhes). */
   ncCount?: number;
   templateName?: string | null;
+  /** Versão do modelo usada nesta inspeção. */
+  templateVersion?: number | null;
   /** Aparelho que enviou a inspeção (auditoria do login sem senha do aplicativo). */
   deviceInfo?: string | null;
 }
