@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { matchesSearch } from '@/lib/search';
 import api, { ensureList } from '@/lib/api';
 import { apiErrorMessage, type AccessCredentials, type Employee, type User, type Role, type Unit } from '@/lib/types';
-import { UnitBadges, UnitMultiPicker, unitIdsOf, useUnits } from '@/components/unit-picker';
+import { UnitBadges, UnitMultiPicker, UnitScopeHint, defaultUnitIds, unitIdsOf, useUnits } from '@/components/unit-picker';
 import { CredentialsDialog, resetAccessPassword } from '@/components/employee-access';
 import { roleLabel } from '@/lib/roles';
 import { Button } from '@/components/ui/button';
@@ -39,11 +39,19 @@ function employeeIdPayload(value: string) {
   return value === NO_EMPLOYEE ? null : value;
 }
 
-function UserForm({ initial = EMPTY_FORM, roles, employees, units = [], onSubmit, onCancel, submitting, mode, error }: { initial?: Partial<UserFormData>; roles: Role[]; employees: Employee[]; units?: Unit[]; onSubmit: (data: UserFormData) => Promise<void>; onCancel: () => void; submitting: boolean; mode: 'create' | 'edit'; error?: string; }) {
+function UserForm({ initial = EMPTY_FORM, roles, employees, units = [], unitsError, onSubmit, onCancel, submitting, mode, error }: { initial?: Partial<UserFormData>; roles: Role[]; employees: Employee[]; units?: Unit[]; unitsError?: string; onSubmit: (data: UserFormData) => Promise<void>; onCancel: () => void; submitting: boolean; mode: 'create' | 'edit'; error?: string; }) {
   const [form, setForm] = useState<UserFormData>({ ...EMPTY_FORM, ...initial });
-  // Gestor e supervisor: escolher as frentes (só quando a empresa tem mais de uma).
+  // Gestor e supervisor: escolher as frentes que o login enxerga.
   const roleName = roles.find((role) => role.id === form.roleId)?.name ?? '';
   const pickUnits = units.length > 0 && UNIT_SCOPED_ROLES.includes(roleName);
+
+  // Login novo: já marca as frentes do colaborador vinculado (ou a única frente da empresa).
+  useEffect(() => {
+    if (mode !== 'create' || !pickUnits || form.unitIds.length > 0) return;
+    const employee = employees.find((item) => item.id === form.employeeId);
+    const suggested = defaultUnitIds(units, employee?.units);
+    if (suggested.length) setForm((prev) => ({ ...prev, unitIds: suggested }));
+  }, [mode, pickUnits, form.employeeId, form.unitIds.length, employees, units]);
 
   function set(field: keyof UserFormData) {
     return (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -122,6 +130,8 @@ function UserForm({ initial = EMPTY_FORM, roles, employees, units = [], onSubmit
           help="Este login só vê frotas, veículos, inspeções, NCs e colaboradores das frentes marcadas."
         />
       )}
+      {!pickUnits && <UnitScopeHint roleName={roleName} />}
+      {UNIT_SCOPED_ROLES.includes(roleName) && unitsError && <p className="text-xs text-rose-700">{unitsError}</p>}
 
       {roles.length === 0 && <p className="text-xs text-amber-700">Não foi possível carregar os perfis. Feche e abra de novo.</p>}
       {error && <p className="text-sm text-rose-700">{error}</p>}
@@ -140,7 +150,9 @@ export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const { active: units, choose: chooseUnit } = useUnits();
+  const { active: units, error: unitsError } = useUnits();
+  // Frentes vão para a API sempre que a empresa tem alguma (a escolha aparece para gestor e supervisor).
+  const chooseUnit = units.length > 0;
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [formError, setFormError] = useState('');
@@ -278,7 +290,8 @@ export default function UsersPage() {
               mode="create"
               roles={roles}
               employees={employees}
-              units={chooseUnit ? units : []}
+              units={units}
+              unitsError={unitsError}
               submitting={createSub}
               error={formError}
               onSubmit={handleCreate}
@@ -432,7 +445,8 @@ export default function UsersPage() {
               mode="edit"
               roles={roles}
               employees={employees}
-              units={chooseUnit ? units : []}
+              units={units}
+              unitsError={unitsError}
               initial={{ name: editTarget.name, email: editTarget.email, roleId: editTarget.roleId, employeeId: editTarget.employeeId ?? NO_EMPLOYEE, unitIds: unitIdsOf(editTarget.units) }}
               submitting={editSub}
               error={formError}

@@ -15,13 +15,16 @@ import { Briefcase } from 'lucide-react';
 export function useUnits() {
   const [units, setUnits] = useState<Unit[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState('');
 
   const reload = useCallback(async () => {
     try {
       const response = await api.get<Unit[]>('/units');
       setUnits(response.data);
+      setError('');
     } catch {
       setUnits([]);
+      setError('Não foi possível carregar as frentes de trabalho. Feche e abra de novo; se continuar, avise o suporte.');
     } finally {
       setLoaded(true);
     }
@@ -30,7 +33,7 @@ export function useUnits() {
   useEffect(() => { reload(); }, [reload]);
 
   const active = units.filter((unit) => unit.isActive);
-  return { units, active, loaded, reload, choose: active.length > 1 };
+  return { units, active, loaded, reload, error, choose: active.length > 1 };
 }
 
 /** Ids das frentes de um vínculo vindo da API. */
@@ -125,6 +128,31 @@ export function UnitMultiPicker({
       </div>
     </fieldset>
   );
+}
+
+/**
+ * Frentes de um login novo de gestor ou supervisor, já marcadas: as do colaborador vinculado
+ * ou, com uma frente só na empresa, essa frente.
+ */
+export function defaultUnitIds(units: Unit[], employeeLinks?: UnitLink[]): string[] {
+  const fromEmployee = unitIdsOf(employeeLinks).filter((id) => units.some((unit) => unit.id === id));
+  if (fromEmployee.length) return fromEmployee;
+  return units.length === 1 ? [units[0].id] : [];
+}
+
+/** Explicação, por perfil, de onde vêm as frentes do acesso. */
+export function UnitScopeHint({ roleName }: { roleName: string }) {
+  if (roleName === 'ADMIN_EMPRESA') {
+    return <p className="text-xs text-slate-500">Administrador vê todas as frentes de trabalho.</p>;
+  }
+  if (roleName === 'MOTORISTA') {
+    return (
+      <p className="text-xs text-slate-500">
+        O motorista vê os veículos das frentes marcadas no cadastro do colaborador (Colaboradores → Editar).
+      </p>
+    );
+  }
+  return null;
 }
 
 /** Escolha de uma frente (frota). */

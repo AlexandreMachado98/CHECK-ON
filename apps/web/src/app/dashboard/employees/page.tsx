@@ -111,6 +111,13 @@ function EmployeeForm({
   const [form, setForm] = useState<EmployeeFormData>(initial);
   const [photoPreview, setPhotoPreview] = useState(initial.photoUrl);
 
+  // Cadastro novo numa empresa com uma frente só: ela já vem marcada.
+  useEffect(() => {
+    if (mode === 'create' && units.length === 1 && form.unitIds.length === 0) {
+      setForm((current) => ({ ...current, unitIds: [units[0].id] }));
+    }
+  }, [mode, units, form.unitIds.length]);
+
   useEffect(() => {
     if (!form.photoFile) {
       setPhotoPreview(form.photoUrl);
@@ -565,7 +572,9 @@ async function uploadEmployeePhoto(employeeId: string, file: File) {
 
 export default function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const { active: units, choose: chooseUnit } = useUnits();
+  const { active: units } = useUnits();
+  // Frentes aparecem sempre que a empresa tem alguma (com uma só, ela já vem marcada).
+  const chooseUnit = units.length > 0;
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [createSubmitting, setCreateSubmitting] = useState(false);
@@ -715,7 +724,7 @@ export default function EmployeesPage() {
             </DialogHeader>
             <EmployeeForm
               mode="create"
-              units={chooseUnit ? units : []}
+              units={units}
               supervisors={employees}
               submitting={createSubmitting}
               onSubmit={handleCreate}
@@ -915,7 +924,7 @@ export default function EmployeesPage() {
             <EmployeeForm
               mode="edit"
               initial={formFromEmployee(editTarget)}
-              units={chooseUnit ? units : []}
+              units={units}
               supervisors={employees}
               currentEmployeeId={editTarget.id}
               submitting={editSubmitting}

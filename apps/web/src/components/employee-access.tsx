@@ -10,6 +10,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { UnitBadges, UnitMultiPicker, UnitScopeHint, defaultUnitIds, useUnits } from '@/components/unit-picker';
+
+/** Perfis que só veem as frentes de trabalho marcadas no login. */
+const UNIT_SCOPED_ROLES = ['GESTOR', 'SUPERVISOR'];
 
 /** Onde cada perfil entra: motorista só no aplicativo; os demais no portal e no aplicativo. */
 export function accessChannel(roleName?: string | null): 'APP' | 'PORTAL' {
@@ -136,6 +140,13 @@ export function CreateAccessDialog({
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  // Frentes do gestor/supervisor: começam com as frentes do colaborador.
+  const { active: units, error: unitsError } = useUnits();
+  const [unitIds, setUnitIds] = useState<string[]>([]);
+  const [unitsTouched, setUnitsTouched] = useState(false);
+  useEffect(() => {
+    if (!unitsTouched) setUnitIds(defaultUnitIds(units, employee.units));
+  }, [units, employee.units, unitsTouched]);
 
   useEffect(() => {
     api.get<Role[]>('/roles')
@@ -150,6 +161,7 @@ export function CreateAccessDialog({
   }, [employee.jobTitle]);
 
   const selected = roles.find((r) => r.id === roleId);
+  const pickUnits = !!selected && UNIT_SCOPED_ROLES.includes(selected.name) && units.length > 0;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -160,6 +172,7 @@ export function CreateAccessDialog({
         employeeId: employee.id,
         roleId,
         email: email.trim() || undefined,
+        ...(pickUnits ? { unitIds } : {}),
       });
       onCreated(res.data.credentials);
     } catch (err) {
@@ -200,10 +213,27 @@ export function CreateAccessDialog({
           {selected && accessChannel(selected.name) === 'APP' && (
             <p className="text-xs text-slate-500">Este colaborador não entra no portal; só no aplicativo.</p>
           )}
+          {pickUnits && (
+            <UnitMultiPicker
+              idPrefix="access-unit"
+              units={units}
+              value={unitIds}
+              onChange={(ids) => { setUnitsTouched(true); setUnitIds(ids); }}
+              help="Este login só vê frotas, veículos, inspeções, NCs e colaboradores das frentes marcadas."
+            />
+          )}
+          {selected?.name === 'MOTORISTA' && units.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-slate-700">Frentes do colaborador</p>
+              <UnitBadges links={employee.units} emptyText="Nenhuma: no app, ele não verá veículos. Marque as frentes em Editar colaborador." />
+            </div>
+          )}
+          {selected && !pickUnits && <UnitScopeHint roleName={selected.name} />}
+          {selected && UNIT_SCOPED_ROLES.includes(selected.name) && unitsError && <p className="text-xs text-rose-700">{unitsError}</p>}
           {error && <p role="alert" className="text-sm text-rose-700">{error}</p>}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
-            <Button type="submit" disabled={!roleId || saving}>
+            <Button type="submit" disabled={!roleId || saving || (pickUnits && unitIds.length === 0)}>
               <KeyRound className="mr-2 h-4 w-4" />
               {saving ? 'Criando...' : 'Criar acesso'}
             </Button>
