@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -32,6 +33,7 @@ import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -316,9 +318,19 @@ fun VehiclesScreen(vm: AppViewModel, onVehicle: (String) -> Unit) {
     var query by rememberSaveable { mutableStateOf("") }
     val context = androidx.compose.ui.platform.LocalContext.current
     var qrMessage by remember { mutableStateOf<QrNotice?>(null) }
-    val vehicles: List<Vehicle> = (bootstrap?.vehicles ?: emptyList()).filter { Rules.matchesVehicle(it, query) }
+    val loading by vm.loadingBootstrap.collectAsState()
+    val allVehicles = bootstrap?.vehicles ?: emptyList()
+    // Frentes de trabalho: com mais de uma, aparece o filtro e o nome da frente em cada veículo.
+    val units = Rules.vehicleUnits(allVehicles)
+    val multipleUnits = units.size > 1
+    var unitFilter by rememberSaveable { mutableStateOf<String?>(null) }
+    if (unitFilter != null && units.none { it.first == unitFilter }) unitFilter = null
+    val vehicles: List<Vehicle> = allVehicles.filter {
+        Rules.matchesVehicle(it, query) && (unitFilter == null || it.fleet?.unitId == unitFilter)
+    }
     val ncCount = (bootstrap?.openNcs ?: emptyList()).groupingBy { it.vehicleId }.eachCount()
 
+    PullToRefreshBox(isRefreshing = loading, onRefresh = { vm.refreshBootstrap() }, modifier = Modifier.fillMaxSize()) {
     androidx.compose.foundation.lazy.LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = ScreenPadding,
@@ -344,6 +356,19 @@ fun VehiclesScreen(vm: AppViewModel, onVehicle: (String) -> Unit) {
             })
         }
         qrMessage?.let { notice -> item(key = "qr-notice") { Banner(notice.title, notice.text, Tone.Warning, onDismiss = { qrMessage = null }) } }
+        if (multipleUnits) {
+            item(key = "unit-filter") {
+                androidx.compose.foundation.layout.Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FilterChip(selected = unitFilter == null, onClick = { unitFilter = null }, label = { Text("Todas as frentes") })
+                    units.forEach { (id, name) ->
+                        FilterChip(selected = unitFilter == id, onClick = { unitFilter = if (unitFilter == id) null else id }, label = { Text(name) })
+                    }
+                }
+            }
+        }
         if (vehicles.isEmpty()) {
             item { Muted(if (query.isBlank()) "A empresa ainda não tem veículos ativos." else "Nenhum veículo encontrado.", Modifier.fillMaxWidth().padding(24.dp)) }
         }
@@ -352,13 +377,18 @@ fun VehiclesScreen(vm: AppViewModel, onVehicle: (String) -> Unit) {
             val ncs = ncCount[vehicle.id] ?: 0
             AppCard(onClick = { onVehicle(vehicle.id) }) {
                 Text(vehicle.label, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Palette.Text)
-                Muted((vehicle.description.ifBlank { "Sem modelo" }) + (vehicle.fleet?.let { " · ${it.name}" } ?: ""))
+                Muted(
+                    (vehicle.description.ifBlank { "Sem modelo" }) +
+                        (vehicle.fleet?.let { " · ${it.name}" } ?: "") +
+                        (if (multipleUnits) vehicle.fleet?.unit?.let { " · ${it.name}" } ?: "" else ""),
+                )
                 androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     StatusTag(vehicle.status)
                     if (ncs > 0) Text(Rules.plural(ncs, "NC em aberto", "NCs em aberto"), color = Palette.Warning, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
+    }
     }
 }
 

@@ -69,6 +69,22 @@ object Rules {
     }
 
     /**
+     * "Marcar conformes" de uma seção: só os itens Conforme/Não conforme ainda sem resposta.
+     * Nunca muda o que já foi respondido (Não conforme, N/A ou Conforme). Foto exigida continua exigida.
+     */
+    fun unansweredPassFail(category: TemplateCategory, answers: Map<String, Answer>): List<TemplateItem> =
+        category.items.filter { item ->
+            val answer = answers[item.id]
+            item.type == "PASS_FAIL" && !isNotApplicable(answer) && answer?.isCompliant == null
+        }
+
+    /** Respostas depois de marcar como conformes os itens sem resposta da seção. */
+    fun markSectionCompliant(category: TemplateCategory, answers: Map<String, Answer>): Map<String, Answer> =
+        answers + unansweredPassFail(category, answers).associate { item ->
+            item.id to (answers[item.id] ?: Answer(itemId = item.id)).copy(isCompliant = true, notApplicable = null)
+        }
+
+    /**
      * Próximo item a responder, na ordem do checklist: o primeiro sem resposta ou com
      * algo faltando (foto, motivo do N/A). Null quando não falta nada.
      */
@@ -148,6 +164,13 @@ object Rules {
         val unitId = vehicle.fleet?.unitId ?: return templates
         return templates.filter { it.allUnits || it.units.any { unit -> unit.unitId == unitId } }
     }
+
+    /** Frentes de trabalho dos veículos (id → nome), na ordem do nome. Vazio se o servidor não informa. */
+    fun vehicleUnits(vehicles: List<Vehicle>): List<Pair<String, String>> =
+        vehicles.mapNotNull { vehicle ->
+            val id = vehicle.fleet?.unitId ?: return@mapNotNull null
+            id to (vehicle.fleet.unit?.name ?: "Frente")
+        }.distinctBy { it.first }.sortedBy { it.second.lowercase() }
 
     val STATUS_LABEL = mapOf("LIBERADO" to "Liberado", "ATENCAO" to "Atenção", "BLOQUEADO" to "Bloqueado")
     val SEVERITY_LABEL = mapOf("LOW" to "Baixa", "MEDIUM" to "Média", "HIGH" to "Alta", "CRITICAL" to "Crítica")

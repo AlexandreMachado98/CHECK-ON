@@ -56,7 +56,11 @@ data class Template(
 data class TemplateUnit(val unitId: String)
 
 @Serializable
-data class Fleet(val id: String, val name: String, val unitId: String? = null)
+data class Fleet(val id: String, val name: String, val unitId: String? = null, val unit: FleetUnit? = null)
+
+/** Frente de trabalho da frota (só o nome; o filtro usa Fleet.unitId). */
+@Serializable
+data class FleetUnit(val name: String)
 
 @Serializable
 data class Vehicle(
