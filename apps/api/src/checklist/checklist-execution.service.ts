@@ -120,6 +120,15 @@ export class ChecklistExecutionService {
             answer.photoUrl = this.storage.canonicalUrl(answer.photoUrl);
           }
         }
+        // Assinatura: mesma regra das fotos (só imagem enviada por esta plataforma, desta empresa).
+        let signatureUrl: string | null = null;
+        if (dto.signatureUrl) {
+          if (!this.storage.isChecklistPhotoUrl(dto.signatureUrl, tenantId)) {
+            errors.push('A assinatura não foi enviada por esta plataforma. Assine novamente.');
+          } else {
+            signatureUrl = this.storage.canonicalUrl(dto.signatureUrl);
+          }
+        }
         if (errors.length) throw new UnprocessableEntityException(errors);
 
         const checklist = await tx.checklist.create({
@@ -137,6 +146,8 @@ export class ChecklistExecutionService {
             latitude: dto.latitude ?? null,
             longitude: dto.longitude ?? null,
             deviceInfo: user.deviceInfo ?? null,
+            signatureUrl,
+            signedName: signatureUrl ? dto.signedName?.trim() || driver.name : null,
             syncedAt: new Date(),
           },
         });

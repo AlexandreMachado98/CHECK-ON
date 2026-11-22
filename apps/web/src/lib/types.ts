@@ -241,6 +241,9 @@ export interface Checklist {
   templateName?: string | null;
   /** Versão do modelo usada nesta inspeção. */
   templateVersion?: number | null;
+  /** Assinatura do colaborador ao concluir (imagem) e o nome de quem assinou. Inspeções antigas não têm. */
+  signatureUrl?: string | null;
+  signedName?: string | null;
   /** Aparelho que enviou a inspeção (auditoria do login sem senha do aplicativo). */
   deviceInfo?: string | null;
 }

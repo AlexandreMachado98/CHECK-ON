@@ -107,6 +107,10 @@ fun InspectionScreen(
     var confirm by remember { mutableStateOf(false) }
     var confirmDiscard by remember { mutableStateOf(false) }
     var confirmLeave by remember { mutableStateOf(false) }
+    // Assinatura: quem está logado assina; destaca em vermelho se tentar concluir sem assinar.
+    val session by vm.session.collectAsState()
+    val signerName = session?.user?.name ?: ""
+    var signatureHighlight by remember { mutableStateOf(false) }
     // Seção a marcar como conforme (pede confirmação antes).
     var markSection by remember { mutableStateOf<TemplateCategory?>(null) }
     var saving by remember { mutableStateOf(false) }
@@ -208,11 +212,15 @@ fun InspectionScreen(
 
     fun finish() {
         val missing = Rules.pendingItems(template, current.answers)
-        if (missing.isNotEmpty()) {
+        val needsSignature = !Rules.hasSignature(current.signature)
+        signatureHighlight = needsSignature
+        if (missing.isNotEmpty() || needsSignature) {
             highlight = missing.map { it.itemId }.toSet()
-            pendencies = missing.map { it.message }
-            val index = rows.indexOfFirst { it is TemplateItem && it.id == missing.first().itemId }
-            if (index >= 0) scope.launch { listState.animateScrollToItem(index + 1) }
+            pendencies = missing.map { it.message } + if (needsSignature) listOf("Assine no fim da inspeção.") else emptyList()
+            val index = rows.indexOfFirst { it is TemplateItem && it.id == missing.firstOrNull()?.itemId }
+            // Item pendente primeiro; se só falta a assinatura, vai até ela (depois de todos os itens).
+            val target = if (index >= 0) index + 1 else rows.size + 1
+            scope.launch { listState.animateScrollToItem(target) }
             return
         }
         confirm = true
@@ -222,6 +230,13 @@ fun InspectionScreen(
         saving = true
         scope.launch {
             val location = lastLocation(context)
+            val signature = try {
+                repository.photos.saveSignature(current.signature)
+            } catch (e: Exception) {
+                saving = false
+                pendencies = listOf("Não foi possível guardar a assinatura no celular. Libere espaço e tente de novo.")
+                return@launch
+            }
             val payload = SubmitPayload(
                 clientId = current.clientId,
                 templateId = current.templateId,
@@ -232,6 +247,8 @@ fun InspectionScreen(
                 latitude = location?.latitude,
                 longitude = location?.longitude,
                 answers = Rules.answersToSend(template, current.answers),
+                signatureLocal = signature,
+                signedName = signerName,
             )
             try {
                 vm.enqueue(QueuedInspection(current.clientId, payload, current.vehicleLabel, current.templateName))
@@ -304,6 +321,18 @@ fun InspectionScreen(
                         },
                     )
                 }
+            }
+            item(key = "assinatura") {
+                Spacer(Modifier.height(8.dp))
+                SignatureCard(
+                    signerName = signerName,
+                    strokes = current.signature,
+                    highlighted = signatureHighlight && !Rules.hasSignature(current.signature),
+                    onChange = { strokes ->
+                        draft = draft?.copy(signature = strokes)
+                        if (Rules.hasSignature(strokes)) signatureHighlight = false
+                    },
+                )
             }
             item {
                 Spacer(Modifier.height(8.dp))

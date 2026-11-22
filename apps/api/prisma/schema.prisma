@@ -421,6 +421,10 @@ model Checklist {
   longitude   Float?
   // Aparelho que enviou (auditoria do login sem senha do aplicativo)
   deviceInfo  String?
+  // Assinatura do colaborador ao concluir (imagem no armazenamento, como as fotos) e o nome de quem assinou.
+  // Opcional na API: inspeções antigas e as que ainda estão na fila de apps antigos não têm.
+  signatureUrl String?
+  signedName   String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

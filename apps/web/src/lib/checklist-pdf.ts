@@ -230,6 +230,44 @@ export async function downloadChecklistPdf(checklist: Checklist, context: PdfCon
     y = lastY() + 4;
   }
 
+  // ── Assinatura ──
+  const signerName = checklist.signedName || driver?.name || '';
+  const signatureBlock = 46;
+  if (y + signatureBlock > pageHeight - 16) {
+    doc.addPage();
+    y = MARGIN;
+  }
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(...TEXT);
+  doc.text('Assinatura do colaborador', MARGIN, y + 4);
+  const lineWidth = 90;
+  const lineX = (pageWidth - lineWidth) / 2;
+  const signature = checklist.signatureUrl ? await loadPhoto(checklist.signatureUrl) : null;
+  if (signature) {
+    const maxW = lineWidth;
+    const maxH = 28;
+    const scale = Math.min(maxW / signature.width, maxH / signature.height);
+    const width = signature.width * scale;
+    const height = signature.height * scale;
+    doc.addImage(signature.data, 'JPEG', (pageWidth - width) / 2, y + 7 + (maxH - height), width, height);
+  } else {
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(8.5);
+    doc.setTextColor(...MUTED);
+    doc.text(checklist.signatureUrl ? 'Assinatura indisponível' : 'Sem assinatura (aplicativo anterior à assinatura)', pageWidth / 2, y + 24, { align: 'center' });
+  }
+  doc.setDrawColor(148, 163, 184);
+  doc.line(lineX, y + 36, lineX + lineWidth, y + 36);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(...TEXT);
+  doc.text(signerName, pageWidth / 2, y + 41, { align: 'center' });
+  doc.setFontSize(7.5);
+  doc.setTextColor(...MUTED);
+  doc.text(`Concluída em ${formatDateTime(checklist.completedAt)}`, pageWidth / 2, y + 45, { align: 'center' });
+  y += signatureBlock + 4;
+
   // ── Fotos ──
   const withPhotos = answers.filter((answer) => answer.photoUrl);
   if (withPhotos.length) {

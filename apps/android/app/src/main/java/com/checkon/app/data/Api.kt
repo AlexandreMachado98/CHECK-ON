@@ -79,7 +79,12 @@ class Api(private val sessions: SessionStore, private val deviceInfo: String) {
     suspend fun uploadPhoto(file: File): String {
         val text = authorized {
             val body: RequestBody = MultipartBody.Builder().setType(MultipartBody.FORM)
-                .addFormDataPart("file", "foto.jpg", file.asRequestBody("image/jpeg".toMediaType()))
+                // Foto da câmera é JPEG; a assinatura é PNG.
+                .addFormDataPart(
+                    "file",
+                    if (file.extension.equals("png", true)) "assinatura.png" else "foto.jpg",
+                    file.asRequestBody((if (file.extension.equals("png", true)) "image/png" else "image/jpeg").toMediaType()),
+                )
                 .build()
             it.url("$baseUrl/checklists/photos").post(body)
         }

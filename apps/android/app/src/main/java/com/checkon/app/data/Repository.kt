@@ -66,7 +66,10 @@ class Repository(
     suspend fun discard(clientId: String) {
         val id = userId() ?: return
         _queue.value = store.updateQueue(id) { queue ->
-            queue.firstOrNull { it.clientId == clientId }?.payload?.answers?.forEach { photos.delete(it.localPhoto) }
+            queue.firstOrNull { it.clientId == clientId }?.payload?.let { payload ->
+                payload.answers.forEach { photos.delete(it.localPhoto) }
+                photos.delete(payload.signatureLocal)
+            }
             queue.filter { it.clientId != clientId }
         }
     }
@@ -105,7 +108,7 @@ class Repository(
     }
 
     private suspend fun cleanupPhotos(userId: String) {
-        val inUse = store.readQueue(userId).flatMap { item -> item.payload.answers.mapNotNull { it.localPhoto } } +
+        val inUse = store.readQueue(userId).flatMap { item -> item.payload.answers.mapNotNull { it.localPhoto } + listOfNotNull(item.payload.signatureLocal) } +
             (store.readDraft(userId)?.answers?.values?.mapNotNull { it.localPhoto } ?: emptyList())
         photos.cleanOrphans(inUse)
     }

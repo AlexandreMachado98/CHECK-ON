@@ -38,6 +38,28 @@ class SyncEngine(
             if (queue[index].state != "PENDING") continue
             var item = queue[index]
             var failed = false
+            // Assinatura primeiro: sobe como uma foto, uma vez só.
+            val signature = item.payload.signatureLocal
+            if (signature != null && item.payload.signatureUrl == null) {
+                try {
+                    val url = uploadPhoto(signature)
+                    item = item.copy(payload = item.payload.copy(signatureUrl = url))
+                    queue[index] = item
+                    persist(queue.toList())
+                } catch (e: ApiException) {
+                    if (e.offline) {
+                        offline = true
+                    } else {
+                        item = item.copy(state = "REJECTED", message = "Não foi possível enviar a assinatura: ${e.message}")
+                        queue[index] = item
+                        error = error ?: item.message
+                        persist(queue.toList())
+                    }
+                    failed = true
+                }
+            }
+            if (offline) break
+            if (failed) continue
             for ((answerIndex, answer) in item.payload.answers.withIndex()) {
                 val local = answer.localPhoto
                 if (local == null || answer.photoUrl != null) continue
@@ -84,7 +106,7 @@ class SyncEngine(
                 when (result.status) {
                     "CREATED", "DUPLICATE" -> {
                         done += id
-                        photosToDelete += item.payload.answers.mapNotNull { it.localPhoto }
+                        photosToDelete += item.payload.answers.mapNotNull { it.localPhoto } + listOfNotNull(item.payload.signatureLocal)
                     }
                     "REJECTED" -> queue[index] = item.copy(state = "REJECTED", message = result.message)
                     else -> queue[index] = item.copy(attempts = item.attempts + 1)
@@ -106,8 +128,8 @@ class SyncEngine(
     }
 
     companion object {
-        /** Corpo que vai para a API: sem o caminho local das fotos. */
+        /** Corpo que vai para a API: sem o caminho local das fotos e da assinatura. */
         fun toApiPayload(payload: SubmitPayload): SubmitPayload =
-            payload.copy(answers = payload.answers.map { it.copy(localPhoto = null) })
+            payload.copy(answers = payload.answers.map { it.copy(localPhoto = null) }, signatureLocal = null)
     }
 }

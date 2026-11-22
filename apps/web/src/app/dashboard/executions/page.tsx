@@ -396,6 +396,21 @@ export default function ExecutionsPage() {
                   </div>
                 )}
               </div>
+
+              <div>
+                <h4 className="text-sm font-semibold text-slate-800 mb-2">Assinatura</h4>
+                {selectedChecklist.signatureUrl ? (
+                  <div className="rounded-lg border bg-white p-3 text-center">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={selectedChecklist.signatureUrl} alt={`Assinatura de ${selectedChecklist.signedName ?? 'colaborador'}`} className="mx-auto h-24 w-auto max-w-full object-contain" />
+                    <div className="mx-auto mt-1 w-64 max-w-full border-t border-slate-300 pt-1 text-sm font-medium text-slate-800">
+                      {selectedChecklist.signedName || selectedChecklist.driver?.name}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500 italic">Sem assinatura (inspeção feita numa versão do aplicativo anterior à assinatura).</p>
+                )}
+              </div>
             </div>
           )}
         </DialogContent>

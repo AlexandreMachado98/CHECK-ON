@@ -97,6 +97,18 @@ export class SubmitChecklistDto {
   @ValidateNested({ each: true })
   @Type(() => SubmitAnswerDto)
   answers: SubmitAnswerDto[];
+
+  /** Assinatura do colaborador (enviada antes por POST /checklists/photos, como as fotos). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  signatureUrl?: string;
+
+  /** Nome de quem assinou, como aparece abaixo da assinatura. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  signedName?: string;
 }
 
 export class SyncChecklistsDto {

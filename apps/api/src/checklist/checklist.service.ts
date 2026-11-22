@@ -104,6 +104,7 @@ export class ChecklistService {
       select: {
         id: true,
         vehicleId: true,
+        signatureUrl: true,
         answers: {
           select: {
             photoUrl: true,
@@ -114,10 +115,13 @@ export class ChecklistService {
     });
     if (!record) throw new NotFoundException('Registro não encontrado');
 
-    const photos = record.answers.flatMap((answer) => [
-      ...(answer.photoUrl ? [answer.photoUrl] : []),
-      ...(answer.nonConformity?.actions.flatMap((action) => action.photoUrls) ?? []),
-    ]);
+    const photos = [
+      ...(record.signatureUrl ? [record.signatureUrl] : []),
+      ...record.answers.flatMap((answer) => [
+        ...(answer.photoUrl ? [answer.photoUrl] : []),
+        ...(answer.nonConformity?.actions.flatMap((action) => action.photoUrls) ?? []),
+      ]),
+    ];
     const hadActiveNc = record.answers.some((answer) => answer.nonConformity && ACTIVE_NC_STATUSES.includes(answer.nonConformity.status));
 
     const deleted = await this.prisma.$transaction(async (tx) => {
