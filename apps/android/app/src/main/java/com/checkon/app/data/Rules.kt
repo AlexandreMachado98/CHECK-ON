@@ -68,6 +68,24 @@ object Rules {
         return result
     }
 
+    /** Problemas comuns: um toque preenche a observação do item não conforme. */
+    val QUICK_PROBLEMS = listOf("Desgastado", "Quebrado", "Vazamento", "Solto", "Faltando", "Não funciona", "Amassado", "Sujo")
+
+    /**
+     * Acrescenta um problema comum à observação: "Desgastado" → "Desgastado, solto".
+     * Não repete o que já está escrito e respeita o limite de 2000 caracteres.
+     */
+    fun appendObservation(current: String?, problem: String): String {
+        val text = current?.trim().orEmpty()
+        if (text.isEmpty()) return problem
+        if (text.contains(problem, ignoreCase = true)) return text
+        return "$text, ${problem.lowercase()}".take(2000)
+    }
+
+    /** Itens respondidos e total da seção (para o título: "RODAGEM · 3/5"). */
+    fun sectionProgress(category: TemplateCategory, answers: Map<String, Answer>): Pair<Int, Int> =
+        category.items.count { isAnswered(it, answers[it.id]) } to category.items.size
+
     /** Dados do celular com mais de 24 horas: vale avisar para atualizar. */
     fun isStale(downloadedAt: Long, now: Long): Boolean = downloadedAt > 0 && now - downloadedAt > 24 * 60 * 60 * 1000L
 

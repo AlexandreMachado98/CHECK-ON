@@ -301,15 +301,17 @@ data class QrNotice(val title: String, val text: String) {
 
 /** Título de seção da inspeção, com "Marcar conformes" quando há itens sem resposta. */
 @Composable
-fun SectionHeader(name: String, pending: Int, onMarkCompliant: () -> Unit) {
+fun SectionHeader(name: String, progress: Pair<Int, Int>, pending: Int, onMarkCompliant: () -> Unit) {
+    val (answered, total) = progress
     Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(
-            name.uppercase(),
-            color = Palette.Muted,
+            "${name.uppercase()} · $answered/$total",
             fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = 0.5.sp,
             modifier = Modifier.weight(1f),
+            // Seção completa fica verde.
+            color = if (total > 0 && answered == total) Palette.Primary else Palette.Muted,
         )
         if (pending > 0) {
             androidx.compose.material3.TextButton(onClick = onMarkCompliant) {
