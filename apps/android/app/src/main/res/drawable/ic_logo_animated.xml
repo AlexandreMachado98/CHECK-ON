@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Logo animado (mesmo desenho do ic_launcher_foreground):
+    1) o arco verde do medidor se preenche (0 → 100%);
+    2) o "V" de ok é desenhado e dá um pulo (cresce um pouco e volta).
+    Usado na tela de abertura (Android 12+) e no logo da tela de login.
+-->
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt">
+
+    <aapt:attr name="android:drawable">
+        <vector
+            android:width="108dp"
+            android:height="108dp"
+            android:viewportWidth="108"
+            android:viewportHeight="108">
+
+            <!-- Trilho do arco (parte apagada do medidor). -->
+            <path
+                android:name="trilho"
+                android:pathData="M73.2,37.4 A26,26 0 1 0 73.2,70.6"
+                android:strokeColor="#FF1E293B"
+                android:strokeWidth="9"
+                android:strokeLineCap="round"
+                android:fillColor="#00000000" />
+
+            <!-- Progresso verde: começa vazio e se preenche. -->
+            <path
+                android:name="progresso"
+                android:pathData="M73.2,37.4 A26,26 0 1 0 45.45,78.57"
+                android:strokeWidth="9"
+                android:strokeLineCap="round"
+                android:trimPathEnd="0"
+                android:fillColor="#00000000">
+                <aapt:attr name="android:strokeColor">
+                    <gradient
+                        android:type="linear"
+                        android:startX="73" android:startY="30"
+                        android:endX="38" android:endY="80">
+                        <item android:offset="0" android:color="#FF34D399" />
+                        <item android:offset="1" android:color="#FF059669" />
+                    </gradient>
+                </aapt:attr>
+            </path>
+
+            <!-- Ponto inicial do medidor: acende no começo. -->
+            <path
+                android:name="ponto"
+                android:pathData="M73.2,37.4 m-2.4,0 a2.4,2.4 0 1,0 4.8,0 a2.4,2.4 0 1,0 -4.8,0"
+                android:fillAlpha="0"
+                android:fillColor="#FFA7F3D0" />
+
+            <!-- "V" de ok: desenhado traço a traço e com um pulo no fim (escala a partir do centro do V). -->
+            <group
+                android:name="grupoCheck"
+                android:pivotX="54.5"
+                android:pivotY="55"
+                android:scaleX="1"
+                android:scaleY="1">
+                <path
+                    android:name="check"
+                    android:pathData="M43,55 L51,63 L66,47"
+                    android:strokeColor="#FFFFFFFF"
+                    android:strokeWidth="7"
+                    android:strokeLineCap="round"
+                    android:strokeLineJoin="round"
+                    android:trimPathEnd="0"
+                    android:fillColor="#00000000" />
+            </group>
+        </vector>
+    </aapt:attr>
+
+    <!-- 1) Arco se preenche. -->
+    <target android:name="progresso">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:propertyName="trimPathEnd"
+                android:duration="800"
+                android:valueFrom="0"
+                android:valueTo="1"
+                android:valueType="floatType"
+                android:interpolator="@android:interpolator/fast_out_slow_in" />
+        </aapt:attr>
+    </target>
+
+    <!-- Ponto acende junto com o início do arco. -->
+    <target android:name="ponto">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:propertyName="fillAlpha"
+                android:duration="250"
+                android:valueFrom="0"
+                android:valueTo="1"
+                android:valueType="floatType" />
+        </aapt:attr>
+    </target>
+
+    <!-- 2) "V" é desenhado depois do arco. -->
+    <target android:name="check">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:propertyName="trimPathEnd"
+                android:startOffset="650"
+                android:duration="350"
+                android:valueFrom="0"
+                android:valueTo="1"
+                android:valueType="floatType"
+                android:interpolator="@android:interpolator/fast_out_slow_in" />
+        </aapt:attr>
+    </target>
+
+    <!-- Pulo do "V": cresce um pouco e volta ao tamanho normal. -->
+    <target android:name="grupoCheck">
+        <aapt:attr name="android:animation">
+            <set android:ordering="sequentially">
+                <set android:ordering="together">
+                    <objectAnimator
+                        android:propertyName="scaleX"
+                        android:startOffset="950"
+                        android:duration="160"
+                        android:valueFrom="1"
+                        android:valueTo="1.22"
+                        android:valueType="floatType"
+                        android:interpolator="@android:interpolator/fast_out_slow_in" />
+                    <objectAnimator
+                        android:propertyName="scaleY"
+                        android:startOffset="950"
+                        android:duration="160"
+                        android:valueFrom="1"
+                        android:valueTo="1.22"
+                        android:valueType="floatType"
+                        android:interpolator="@android:interpolator/fast_out_slow_in" />
+                </set>
+                <set android:ordering="together">
+                    <objectAnimator
+                        android:propertyName="scaleX"
+                        android:duration="220"
+                        android:valueFrom="1.22"
+                        android:valueTo="1"
+                        android:valueType="floatType"
+                        android:interpolator="@android:interpolator/fast_out_slow_in" />
+                    <objectAnimator
+                        android:propertyName="scaleY"
+                        android:duration="220"
+                        android:valueFrom="1.22"
+                        android:valueTo="1"
+                        android:valueType="floatType"
+                        android:interpolator="@android:interpolator/fast_out_slow_in" />
+                </set>
+            </set>
+        </aapt:attr>
+    </target>
+</animated-vector>
