@@ -88,4 +88,36 @@ class SyncEngineTest {
         assertTrue(!json.contains("textValue")) // campos nulos não vão (a API recusa campos desconhecidos/vazios)
         assertNull(SyncEngine.toApiPayload(payload).answers[0].localPhoto)
     }
+
+    @Test fun `assinatura sobe antes da inspecao, uma vez so, e o caminho local nao vai para a API`() = runBlocking {
+        val uploads = mutableListOf<String>()
+        val sent = mutableListOf<SubmitPayload>()
+        val signed = queued("c1").let { it.copy(payload = it.payload.copy(signatureLocal = "/assinatura.png", signedName = "Maria")) }
+        val (rest, summary) = SyncEngine(
+            uploadPhoto = { uploads += it; "https://storage/assinatura.png" },
+            postSync = { list -> sent += list; listOf(SyncResult("CREATED", "c1")) },
+            persist = {},
+        ).run(listOf(signed))
+        assertEquals(listOf("/assinatura.png"), uploads)
+        assertEquals("https://storage/assinatura.png", sent[0].signatureUrl)
+        assertNull(sent[0].signatureLocal)
+        assertEquals("Maria", sent[0].signedName)
+        assertTrue(rest.isEmpty())
+        assertEquals(listOf("/assinatura.png"), summary.photosToDelete)
+    }
+
+    @Test fun `assinatura ja enviada nao e reenviada e sem internet a inspecao fica na fila`() = runBlocking {
+        val alreadySent = queued("c1").let {
+            it.copy(payload = it.payload.copy(signatureLocal = "/assinatura.png", signatureUrl = "https://storage/assinatura.png"))
+        }
+        var uploads = 0
+        val (rest, summary) = SyncEngine(
+            uploadPhoto = { uploads++; "x" },
+            postSync = { throw offline() },
+            persist = {},
+        ).run(listOf(alreadySent))
+        assertEquals(0, uploads)
+        assertTrue(summary.offline)
+        assertEquals(1, rest.size)
+    }
 }

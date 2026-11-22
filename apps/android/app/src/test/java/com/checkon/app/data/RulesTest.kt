@@ -193,4 +193,12 @@ class RulesTest {
         )
         assertEquals(listOf("u1" to "Contrato Norte", "u2" to "Mina Sul"), Rules.vehicleUnits(list))
     }
+
+    @Test fun `assinatura precisa de tracos de verdade`() {
+        assertFalse(Rules.hasSignature(emptyList()))
+        // Um toque sem querer não vale.
+        assertFalse(Rules.hasSignature(listOf(listOf(0.5f, 0.5f))))
+        val stroke = (0 until 10).flatMap { listOf(it / 10f, 0.5f) }
+        assertTrue(Rules.hasSignature(listOf(stroke)))
+    }
 }

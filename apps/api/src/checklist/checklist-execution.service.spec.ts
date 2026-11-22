@@ -61,7 +61,7 @@ function buildMocks() {
       findFirst: vi.fn().mockResolvedValue({ id: 'veh-1', status: 'LIBERADO', fleet: { unitId: 'frente-a' } }),
       update: vi.fn().mockResolvedValue({}),
     },
-    employee: { findFirst: vi.fn().mockResolvedValue({ id: 'emp-1' }) },
+    employee: { findFirst: vi.fn().mockResolvedValue({ id: 'emp-1', name: 'João Motorista' }) },
     checklist: { create: vi.fn().mockResolvedValue({ id: 'chk-1' }) },
     checklistAnswer: {
       create: vi.fn().mockImplementation(({ data }) => Promise.resolve({ id: `ans-${data.itemId}` })),
@@ -83,7 +83,7 @@ function buildMocks() {
     $transaction: vi.fn().mockImplementation((fn: (t: typeof tx) => unknown) => fn(tx)),
   };
   const cls = { get: vi.fn().mockReturnValue('tenant-1') };
-  const storage = { isChecklistPhotoUrl: vi.fn().mockReturnValue(true) };
+  const storage = { isChecklistPhotoUrl: vi.fn().mockReturnValue(true), canonicalUrl: vi.fn((url: string) => url) };
   const service = new ChecklistExecutionService(prisma as any, cls as any, storage as any);
   return { service, prisma, tx, storage };
 }
@@ -167,6 +167,35 @@ describe('ChecklistExecutionService', () => {
     expect(error).toBeInstanceOf(UnprocessableEntityException);
     expect(JSON.stringify(error.getResponse())).toContain('não foi enviada por esta plataforma');
     expect(tx.checklist.create).not.toHaveBeenCalled();
+  });
+
+  describe('assinatura do colaborador', () => {
+    it('grava a assinatura e o nome de quem assinou', async () => {
+      const { service, tx } = buildMocks();
+      await service.submit(baseDto({ signatureUrl: 'https://fotos/assinatura.png', signedName: '  Maria Silva ' }), motorista);
+      expect(tx.checklist.create.mock.calls[0][0].data).toMatchObject({ signatureUrl: 'https://fotos/assinatura.png', signedName: 'Maria Silva' });
+    });
+
+    it('sem nome informado, usa o nome do motorista', async () => {
+      const { service, tx } = buildMocks();
+      await service.submit(baseDto({ signatureUrl: 'https://fotos/assinatura.png' }), motorista);
+      expect(tx.checklist.create.mock.calls[0][0].data).toMatchObject({ signedName: 'João Motorista' });
+    });
+
+    it('sem assinatura (app antigo), a inspeção continua aceita', async () => {
+      const { service, tx } = buildMocks();
+      await expect(service.submit(baseDto(), motorista)).resolves.toMatchObject({ status: 'CREATED' });
+      expect(tx.checklist.create.mock.calls[0][0].data).toMatchObject({ signatureUrl: null, signedName: null });
+    });
+
+    it('recusa assinatura que não foi enviada pela plataforma', async () => {
+      const { service, storage, tx } = buildMocks();
+      storage.isChecklistPhotoUrl.mockReturnValue(false);
+      const error = await service.submit(baseDto({ signatureUrl: 'https://site-qualquer.com/a.png' }), motorista).catch((e) => e);
+      expect(error).toBeInstanceOf(UnprocessableEntityException);
+      expect(JSON.stringify(error.getResponse())).toContain('A assinatura não foi enviada por esta plataforma');
+      expect(tx.checklist.create).not.toHaveBeenCalled();
+    });
   });
 
   describe('versão do modelo e histórico', () => {

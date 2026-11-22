@@ -68,6 +68,9 @@ object Rules {
         return result
     }
 
+    /** Assinatura válida: traços de verdade, não um toque sem querer (pelo menos 8 pontos). */
+    fun hasSignature(strokes: List<List<Float>>): Boolean = strokes.sumOf { it.size / 2 } >= 8
+
     /**
      * "Marcar conformes" de uma seção: só os itens Conforme/Não conforme ainda sem resposta.
      * Nunca muda o que já foi respondido (Não conforme, N/A ou Conforme). Foto exigida continua exigida.

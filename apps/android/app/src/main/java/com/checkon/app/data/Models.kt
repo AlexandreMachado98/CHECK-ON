@@ -130,6 +130,11 @@ data class Draft(
     val templateVersion: Int,
     val startedAt: String,
     val answers: Map<String, Answer> = emptyMap(),
+    /**
+     * Assinatura desenhada com o dedo: cada traço é uma lista x0, y0, x1, y1... de 0 a 1
+     * (proporção da área de assinatura). Fica no rascunho até concluir.
+     */
+    val signature: List<List<Float>> = emptyList(),
 )
 
 /** Corpo do POST /checklists/sync (cada item). */
@@ -144,6 +149,12 @@ data class SubmitPayload(
     val latitude: Double? = null,
     val longitude: Double? = null,
     val answers: List<Answer>,
+    /** Imagem da assinatura ainda no celular (caminho). Não vai para a API. */
+    val signatureLocal: String? = null,
+    /** Endereço da assinatura depois de enviada (POST /checklists/photos, como as fotos). */
+    val signatureUrl: String? = null,
+    /** Nome de quem assinou. */
+    val signedName: String? = null,
 )
 
 /** Inspeção na fila de envio do celular. */
