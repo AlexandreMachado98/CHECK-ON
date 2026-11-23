@@ -79,6 +79,16 @@ fun VehicleScreen(vm: AppViewModel, vehicleId: String, onStart: (vehicleId: Stri
                     (vehicle.fleet?.let { " · Frota ${it.name}" } ?: "") +
                     (vehicle.fleet?.unit?.let { " · ${it.name}" } ?: ""),
             )
+            // Evita inspecionar de novo o que um colega acabou de inspecionar.
+            val now = java.time.Instant.now()
+            val zone = java.time.ZoneId.systemDefault()
+            val today = Rules.inspectedToday(vehicle.lastInspection, now, zone)
+            Text(
+                Rules.lastInspectionText(vehicle.lastInspection, now, zone),
+                color = if (today) Palette.Info else Palette.Muted,
+                fontSize = 14.sp,
+                fontWeight = if (today) FontWeight.SemiBold else FontWeight.Normal,
+            )
         }
         if (vehicle.status == "BLOQUEADO") {
             Banner("Veículo bloqueado", "Este veículo tem problema crítico em aberto e não deve circular até ser liberado pelo gestor.", Tone.Danger)

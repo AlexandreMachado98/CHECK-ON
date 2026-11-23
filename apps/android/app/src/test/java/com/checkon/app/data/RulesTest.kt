@@ -229,4 +229,19 @@ class RulesTest {
         val answers = mapOf("a" to Answer("a", isCompliant = true), "c" to Answer("c", notApplicable = true))
         assertEquals(2 to 3, Rules.sectionProgress(category, answers))
     }
+
+    @Test fun `ultima inspecao do veiculo em texto e inspecionado hoje`() {
+        val zone = java.time.ZoneId.of("America/Sao_Paulo")
+        val now = java.time.Instant.parse("2026-11-23T15:00:00Z") // 12:00 em São Paulo
+        val today = LastInspection("2026-11-23T10:12:00Z", "Maria") // 07:12
+        val yesterday = LastInspection("2026-11-22T20:30:00Z", "João") // 17:30 de ontem
+        val older = LastInspection("2026-11-20T11:05:00Z")
+        assertTrue(Rules.inspectedToday(today, now, zone))
+        assertFalse(Rules.inspectedToday(yesterday, now, zone))
+        assertFalse(Rules.inspectedToday(null, now, zone))
+        assertEquals("Última inspeção: hoje às 07:12 · Maria", Rules.lastInspectionText(today, now, zone))
+        assertEquals("Última inspeção: ontem às 17:30 · João", Rules.lastInspectionText(yesterday, now, zone))
+        assertEquals("Última inspeção: 20/11 às 08:05", Rules.lastInspectionText(older, now, zone))
+        assertEquals("Nenhuma inspeção registrada", Rules.lastInspectionText(null, now, zone))
+    }
 }
