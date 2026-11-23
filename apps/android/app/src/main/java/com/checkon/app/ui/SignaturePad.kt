@@ -52,10 +52,12 @@ fun SignatureCard(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Assinatura", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Palette.Text, modifier = Modifier.weight(1f))
             if (strokes.isNotEmpty()) {
+                // Desfaz só o último traço (ex.: o dedo escorregou), sem apagar a assinatura toda.
+                TextButton(onClick = { onChange(strokes.dropLast(1)) }) { Text("Desfazer", color = Palette.Text) }
                 TextButton(onClick = { onChange(emptyList()) }) { Text("Limpar", color = Palette.Danger) }
             }
         }
-        Muted(if (signed) "Assinado. Toque em \"Limpar\" para assinar de novo." else "Assine com o dedo no quadro abaixo para concluir a inspeção.")
+        Muted(if (signed) "Assinado. Toque em \"Desfazer\" para apagar o último traço ou em \"Limpar\" para assinar de novo." else "Assine com o dedo no quadro abaixo para concluir a inspeção.")
         SignatureArea(strokes = strokes, onChange = onChange)
         Text(signerName, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Palette.Text, modifier = Modifier.fillMaxWidth())
         Muted("Ao assinar, confirmo que fiz esta inspeção e que as respostas são verdadeiras.")
