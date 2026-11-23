@@ -4,60 +4,97 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { BarChart3, AlertOctagon, ClipboardCheck, Activity, Truck, ArrowRight, ShieldCheck } from 'lucide-react';
+import { BarChart3, AlertOctagon, ClipboardCheck, Activity, Truck, ArrowRight, ShieldCheck, FileDown, Sheet } from 'lucide-react';
 import api from '@/lib/api';
 import { apiErrorMessage } from '@/lib/types';
+import { getStoredUser } from '@/lib/session';
+import { useUnits, unitLabel } from '@/components/unit-picker';
+import {
+  type Delta,
+  type PeriodKey,
+  type Report,
+  type VehicleReportRow,
+  delta,
+  describePeriod,
+  describePrevious,
+  downloadReportCsv,
+  downloadReportPdf,
+} from '@/lib/report-export';
 
-/** Períodos aceitos pela API (`/dashboard/report?period=`). */
-const PERIODS = [
+/** Períodos aceitos pela API (`/dashboard/report?period=`), mais as datas escolhidas. */
+const PERIODS: { key: PeriodKey; label: string }[] = [
   { key: '7d', label: '7 dias' },
   { key: '30d', label: '30 dias' },
   { key: '90d', label: '90 dias' },
   { key: '12m', label: '12 meses' },
   { key: 'all', label: 'Tudo' },
-] as const;
-type PeriodKey = (typeof PERIODS)[number]['key'];
+  { key: 'custom', label: 'Datas' },
+];
 const DEFAULT_PERIOD: PeriodKey = '30d';
-const PERIOD_STORAGE_KEY = 'checkon.reports.period';
+const STORAGE_KEY = 'checkon.reports.filter';
 
-/** Último período escolhido neste navegador (só conveniência: sem acesso ao armazenamento, usa 30 dias). */
-function savedPeriod(): PeriodKey {
+type Filter = { period: PeriodKey; from: string; to: string; unitId: string };
+
+/** "AAAA-MM-DD" de hoje no horário da empresa (valor do campo de data). */
+function today(): string {
+  return new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+}
+
+/** Filtro padrão: 30 dias, todas as frentes; as datas começam no dia 1º do mês atual. */
+function defaultFilter(): Filter {
+  const now = today();
+  return { period: DEFAULT_PERIOD, from: `${now.slice(0, 8)}01`, to: now, unitId: '' };
+}
+
+/** Último filtro usado neste navegador (só conveniência: sem armazenamento, usa o padrão). */
+function savedFilter(): Filter {
   try {
-    const value = window.localStorage.getItem(PERIOD_STORAGE_KEY);
-    return PERIODS.some((p) => p.key === value) ? (value as PeriodKey) : DEFAULT_PERIOD;
+    const saved = JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? 'null') as Partial<Filter> | null;
+    const base = defaultFilter();
+    if (!saved || !PERIODS.some((p) => p.key === saved.period)) return base;
+    return { ...base, ...saved };
   } catch {
-    return DEFAULT_PERIOD;
+    return defaultFilter();
   }
 }
 
-/** "últimos 30 dias (desde 25/10/2026)" / "todo o histórico". */
-function periodDescription(key: PeriodKey, from: string | null): string {
-  if (key === 'all' || !from) return 'todo o histórico';
-  const label = PERIODS.find((p) => p.key === key)?.label ?? key;
-  const since = new Date(from).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
-  return `últimos ${label} (desde ${since})`;
+/** Parâmetros da API para o filtro. */
+function filterParams(filter: Filter) {
+  return {
+    ...(filter.period === 'custom' ? { from: filter.from, to: filter.to } : { period: filter.period }),
+    ...(filter.unitId ? { unitId: filter.unitId } : {}),
+  };
 }
 
-type Report = {
-  period?: { key: PeriodKey; from: string | null };
-  inspections: { total: number; completed: number; withNc: number; compliant: number };
-  complianceRate: number | null;
-  ncs: { total: number; active: number; bySeverity: Record<string, number> };
-  topVehicles: { vehicleId: string; plate: string; count: number }[];
-};
+/** Variação em relação ao período anterior, colorida (verde melhorou, vermelho piorou). */
+function DeltaLine({ value, previousLabel }: { value: Delta | null; previousLabel: string }) {
+  if (!value) return null;
+  const color = value.tone === 'good' ? 'text-emerald-700' : value.tone === 'bad' ? 'text-rose-700' : 'text-slate-500';
+  const arrow = value.text === '=' ? '' : value.text.startsWith('+') ? '▲ ' : '▼ ';
+  return (
+    <p className="mt-1 text-xs leading-5 text-slate-500">
+      <span className={`font-semibold ${color}`}>{arrow}{value.text}</span> vs {previousLabel}
+    </p>
+  );
+}
 
 export default function ReportsPage() {
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
-  const [period, setPeriod] = useState<PeriodKey | null>(null);
+  // Filtro aplicado (o que está na tela) e o rascunho das datas, que só vale ao tocar em "Aplicar".
+  const [filter, setFilter] = useState<Filter | null>(null);
+  const [draftFrom, setDraftFrom] = useState('');
+  const [draftTo, setDraftTo] = useState('');
+  const [exporting, setExporting] = useState<'' | 'pdf' | 'csv'>('');
+  const { active: units, choose: chooseUnit } = useUnits();
 
-  async function fetchReport(selected: PeriodKey) {
+  async function fetchReport(selected: Filter) {
     try {
       setLoading(true);
       setLoadError('');
-      // Calculado no servidor, só do período escolhido: não pesa mais com os anos de histórico.
-      const res = await api.get<Report>('/dashboard/report', { params: { period: selected } });
+      // Calculado no servidor, só do período (e da frente) escolhidos.
+      const res = await api.get<Report>('/dashboard/report', { params: filterParams(selected) });
       setReport(res.data);
     } catch (error) {
       setLoadError(apiErrorMessage(error, 'Não foi possível carregar os relatórios.'));
@@ -66,26 +103,60 @@ export default function ReportsPage() {
     }
   }
 
-  // Abre no último período escolhido neste navegador (lido depois de montar: não existe no servidor).
+  // Abre no último filtro usado neste navegador (lido depois de montar: não existe no servidor).
   useEffect(() => {
-    setPeriod(savedPeriod());
+    const saved = savedFilter();
+    setFilter(saved);
+    setDraftFrom(saved.from);
+    setDraftTo(saved.to);
   }, []);
 
   useEffect(() => {
-    if (period) fetchReport(period);
-  }, [period]);
+    if (filter) fetchReport(filter);
+  }, [filter]);
 
-  function choosePeriod(key: PeriodKey) {
+  function apply(next: Filter) {
     try {
-      window.localStorage.setItem(PERIOD_STORAGE_KEY, key);
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     } catch {
       // Sem armazenamento (aba anônima, bloqueio): só não lembra na próxima vez.
     }
-    setPeriod(key);
+    setFilter(next);
   }
 
+  function choosePeriod(key: PeriodKey) {
+    if (!filter) return;
+    if (key === 'custom') {
+      // Abre os campos de data; o relatório só muda ao aplicar.
+      apply({ ...filter, period: 'custom', from: draftFrom || filter.from, to: draftTo || filter.to });
+      return;
+    }
+    apply({ ...filter, period: key });
+  }
+
+  const datesInvalid = !draftFrom || !draftTo || draftFrom > draftTo;
+
+  async function exportReport(kind: 'pdf' | 'csv') {
+    if (!report || !filter) return;
+    setExporting(kind);
+    try {
+      const res = await api.get<VehicleReportRow[]>('/dashboard/report/vehicles', { params: filterParams(filter) });
+      const user = getStoredUser();
+      const context = { companyName: user?.tenantName, generatedBy: user?.name };
+      if (kind === 'pdf') await downloadReportPdf(report, res.data, context);
+      else downloadReportCsv(report, res.data, context);
+    } catch (error) {
+      alert(apiErrorMessage(error, 'Não foi possível gerar o arquivo do relatório.'));
+    } finally {
+      setExporting('');
+    }
+  }
+
+  const period = filter?.period ?? null;
   const shownPeriod = report?.period?.key ?? period ?? DEFAULT_PERIOD;
-  const periodText = periodDescription(shownPeriod, report?.period?.from ?? null);
+  const periodText = report ? describePeriod(report.period) : '';
+  const previous = report?.previous ?? null;
+  const previousLabel = previous ? describePrevious(previous) : '';
 
   const totalInspections = report?.inspections.total ?? 0;
   const completedInspections = report?.inspections.completed ?? 0;
@@ -100,29 +171,79 @@ export default function ReportsPage() {
 
   return (
     <>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Relatórios Gerenciais</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Métricas de desempenho, uso da frota e conformidade de inspeções{report ? ` · ${periodText}` : ''}.
-          </p>
+      <div className="mb-6 space-y-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900">Relatórios Gerenciais</h1>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Conformidade e não conformidades das inspeções
+              {report ? ` · ${periodText}${report.unit ? ` · ${report.unit.name}` : ''}` : ''}.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={() => exportReport('pdf')} disabled={!report || loading || !!exporting}>
+              <FileDown className="mr-1.5 h-4 w-4" />
+              {exporting === 'pdf' ? 'Gerando PDF...' : 'Baixar PDF'}
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => exportReport('csv')} disabled={!report || loading || !!exporting}>
+              <Sheet className="mr-1.5 h-4 w-4" />
+              {exporting === 'csv' ? 'Gerando...' : 'Planilha (Excel)'}
+            </Button>
+          </div>
         </div>
-        <div role="group" aria-label="Período do relatório" className="flex w-full shrink-0 gap-1 rounded-lg border border-slate-200 bg-white p-1 shadow-sm sm:w-auto">
-          {PERIODS.map((p) => (
-            <button
-              key={p.key}
-              type="button"
-              aria-pressed={period === p.key}
-              onClick={() => choosePeriod(p.key)}
-              disabled={loading && period === p.key}
-              className={`flex-1 whitespace-nowrap rounded-md px-2 py-1.5 text-sm font-medium transition-colors sm:flex-none sm:px-3 ${
-                period === p.key ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
-              }`}
+
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+          <div role="group" aria-label="Período do relatório" className="grid w-full grid-cols-3 gap-1 rounded-lg border border-slate-200 bg-white p-1 shadow-sm sm:flex sm:w-auto">
+            {PERIODS.map((p) => (
+              <button
+                key={p.key}
+                type="button"
+                aria-pressed={period === p.key}
+                onClick={() => choosePeriod(p.key)}
+                disabled={loading && period === p.key}
+                className={`whitespace-nowrap rounded-md px-2 py-1.5 text-sm font-medium transition-colors sm:px-3 ${
+                  period === p.key ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+          {chooseUnit && filter && (
+            <select
+              aria-label="Frente de trabalho"
+              value={filter.unitId}
+              onChange={(event) => apply({ ...filter, unitId: event.target.value })}
+              className="h-10 rounded-lg border border-slate-200 bg-white px-3 pr-8 text-sm text-slate-700 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 lg:w-auto lg:min-w-64"
             >
-              {p.label}
-            </button>
-          ))}
+              <option value="">Todas as frentes</option>
+              {units.map((unit) => (
+                <option key={unit.id} value={unit.id}>{unitLabel(unit)}</option>
+              ))}
+            </select>
+          )}
         </div>
+
+        {period === 'custom' && filter && (
+          <form
+            className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!datesInvalid) apply({ ...filter, from: draftFrom, to: draftTo });
+            }}
+          >
+            <label className="text-sm text-slate-600">
+              De
+              <input type="date" value={draftFrom} max={draftTo || today()} onChange={(e) => setDraftFrom(e.target.value)} className="mt-1 block h-9 rounded-md border border-slate-200 px-2 text-sm text-slate-800" />
+            </label>
+            <label className="text-sm text-slate-600">
+              Até
+              <input type="date" value={draftTo} min={draftFrom} max={today()} onChange={(e) => setDraftTo(e.target.value)} className="mt-1 block h-9 rounded-md border border-slate-200 px-2 text-sm text-slate-800" />
+            </label>
+            <Button type="submit" size="sm" disabled={datesInvalid || (draftFrom === filter.from && draftTo === filter.to && !!report)}>Aplicar</Button>
+            {draftFrom > draftTo && draftTo && <p className="text-xs text-rose-700">A data final é anterior à inicial.</p>}
+          </form>
+        )}
       </div>
 
       {loading ? (
@@ -133,7 +254,7 @@ export default function ReportsPage() {
       ) : loadError ? (
         <div role="alert" className="p-10 text-center text-sm">
           <p className="text-rose-700 mb-3">{loadError}</p>
-          <Button variant="outline" size="sm" onClick={() => fetchReport(period ?? DEFAULT_PERIOD)}>Tentar de novo</Button>
+          <Button variant="outline" size="sm" onClick={() => filter && fetchReport(filter)}>Tentar de novo</Button>
         </div>
       ) : (
         <>
@@ -148,6 +269,7 @@ export default function ReportsPage() {
                 <p className="mt-1 break-words text-xs leading-5 text-slate-500">
                   {completedInspections} finalizada{completedInspections === 1 ? '' : 's'}
                 </p>
+                <DeltaLine value={delta(totalInspections, previous?.inspections.total, 'count', true)} previousLabel={previousLabel} />
               </CardContent>
             </Card>
 
@@ -161,6 +283,7 @@ export default function ReportsPage() {
                 <p className="mt-1 break-words text-xs leading-5 text-slate-500">
                   {report?.ncs.active ?? 0} ainda ativa{(report?.ncs.active ?? 0) === 1 ? '' : 's'} (abertas ou em tratativa)
                 </p>
+                <DeltaLine value={delta(totalNcs, previous?.ncs.total, 'count', false)} previousLabel={previousLabel} />
               </CardContent>
             </Card>
 
@@ -176,6 +299,7 @@ export default function ReportsPage() {
                     ? 'Sem inspeções finalizadas ainda'
                     : `${report?.inspections.compliant ?? 0} de ${completedInspections} inspeções sem nenhum item reprovado`}
                 </p>
+                <DeltaLine value={delta(complianceRate, previous?.complianceRate, 'points', true)} previousLabel={previousLabel} />
               </CardContent>
             </Card>
           </div>
@@ -188,7 +312,10 @@ export default function ReportsPage() {
                 </div>
                 {shownPeriod !== 'all' ? (
                   <>
-                    <h3 className="text-lg font-medium text-slate-900 mb-1">Nenhuma inspeção nos {PERIODS.find((p) => p.key === shownPeriod)?.label}</h3>
+                    <h3 className="text-lg font-medium text-slate-900 mb-1">
+                      Nenhuma inspeção {shownPeriod === 'custom' ? 'nas datas escolhidas' : `nos últimos ${PERIODS.find((p) => p.key === shownPeriod)?.label}`}
+                      {report?.unit ? ` em ${report.unit.name}` : ''}
+                    </h3>
                     <p className="text-sm text-slate-500 max-w-sm mb-5">Escolha um período maior para ver o histórico.</p>
                     <Button variant="outline" onClick={() => choosePeriod('all')}>Ver todo o histórico</Button>
                   </>

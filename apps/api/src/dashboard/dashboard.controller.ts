@@ -18,9 +18,15 @@ export class DashboardController {
     return this.dashboardService.getSummary();
   }
 
-  /** ?period=7d | 30d (padrão) | 90d | 12m | all */
+  /** ?period=7d | 30d (padrão) | 90d | 12m | all, ou ?from=AAAA-MM-DD&to=AAAA-MM-DD; &unitId= opcional. */
   @Get('report')
   getReport(@Query() query: ReportQueryDto) {
-    return this.dashboardService.getReport(query.period);
+    return this.dashboardService.getReport(query);
+  }
+
+  /** Mesmos filtros do relatório, uma linha por veículo (exportar em PDF ou planilha). */
+  @Get('report/vehicles')
+  getReportByVehicle(@Query() query: ReportQueryDto) {
+    return this.dashboardService.getReportByVehicle(query);
   }
 }
