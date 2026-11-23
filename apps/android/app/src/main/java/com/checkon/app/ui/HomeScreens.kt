@@ -204,7 +204,8 @@ fun HomeScreen(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(ScreenPadding),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("Olá, ${user?.name?.substringBefore(' ') ?: ""}", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = Palette.Text)
+            val hour = java.time.LocalTime.now().hour
+            Text("${Rules.greeting(hour)}, ${user?.name?.substringBefore(' ') ?: ""}", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = Palette.Text)
             Muted(listOfNotNull(user?.tenantName, user?.tenantCode).joinToString(" · "))
 
             bootstrap?.let {
@@ -228,11 +229,20 @@ fun HomeScreen(
             qrMessage?.let { Banner(it.title, it.text, Tone.Warning, onDismiss = { qrMessage = null }) }
 
             draft?.takeIf { draftAvailable }?.let { d ->
-                AppCard(accent = Palette.Primary, onClick = { onResumeDraft(d.vehicleId, d.templateId) }) {
-                    IconRow(Icons.Filled.EditNote, Palette.Primary) {
+                val (started, old) = Rules.draftStarted(d.startedAt, java.time.Instant.now(), java.time.ZoneId.systemDefault())
+                AppCard(accent = if (old) Palette.Warning else Palette.Primary, onClick = { onResumeDraft(d.vehicleId, d.templateId) }) {
+                    IconRow(Icons.Filled.EditNote, if (old) Palette.Warning else Palette.Primary) {
                         Column {
                             Text("Continuar inspeção", fontWeight = FontWeight.Bold, color = Palette.Text)
                             Muted("${d.vehicleLabel} · ${d.templateName} · ${Rules.plural(d.answers.size, "resposta salva", "respostas salvas")}")
+                            if (started.isNotEmpty()) Muted(started)
+                            // Rascunho esquecido: o veículo pode ter mudado desde então.
+                            if (old) {
+                                Text(
+                                    "Começada há mais de ${Rules.OLD_DRAFT_HOURS} horas. Se o veículo já rodou desde então, descarte e faça uma nova.",
+                                    color = Palette.Warning, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                                )
+                            }
                         }
                     }
                 }
