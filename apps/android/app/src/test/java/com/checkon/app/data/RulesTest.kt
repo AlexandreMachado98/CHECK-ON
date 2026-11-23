@@ -379,4 +379,16 @@ class RulesTest {
         assertTrue(draft.signature.isEmpty())
         assertEquals(listOf("/f/i9.jpg", "/f/assinatura.png"), dropped)
     }
+
+    @Test
+    fun collapsedSectionsHideItemsAndReopenOnJump() {
+        val a = TemplateCategory("a", "Cabine", items = listOf(TemplateItem("a1", "Cinto"), TemplateItem("a2", "Buzina")))
+        val b = TemplateCategory("b", "Pneus", items = listOf(TemplateItem("b1", "Dianteiro")))
+        val template = Template("t", "Diário", categories = listOf(a, b))
+        assertEquals(listOf<Any>(a, a.items[0], a.items[1], b, b.items[0]), Rules.inspectionRows(template, emptySet()))
+        assertEquals(listOf<Any>(a, b, b.items[0]), Rules.inspectionRows(template, setOf("a")))
+        // Ir até "Buzina" com a seção recolhida: abre a seção e devolve a posição certa.
+        assertEquals(2 to setOf("b"), Rules.rowOfItem(template, setOf("a", "b"), "a2"))
+        assertEquals(-1 to setOf("a"), Rules.rowOfItem(template, setOf("a"), "x"))
+    }
 }

@@ -129,6 +129,9 @@ fun InspectionScreen(
     var photoPath by rememberSaveable { mutableStateOf<String?>(null) }
     var processingPhoto by remember { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
+    var collapsed by rememberSaveable(stateSaver = androidx.compose.runtime.saveable.listSaver<Set<String>, String>({ it.toList() }, { it.toSet() })) {
+        mutableStateOf(emptySet<String>())
+    }
 
     // Retoma o rascunho desta inspeção ou começa uma nova.
     LaunchedEffect(vehicle?.id, template?.id) {
@@ -218,7 +221,14 @@ fun InspectionScreen(
     val answered = items.count { Rules.isAnswered(it, current.answers[it.id]) }
     val nonCompliant = items.filter { it.type == "PASS_FAIL" && current.answers[it.id]?.isCompliant == false }
     // Linhas da lista: título da categoria seguido dos itens.
-    val rows = template.categories.flatMap { category -> listOf<Any>(category) + category.items }
+    // Seções recolhidas (toque no título): checklist longo fica mais fácil de percorrer.
+    val rows = Rules.inspectionRows(template, collapsed)
+    // Rola até o item (abrindo a seção dele, se recolhida). +1: a 1ª linha da lista é o aviso de bloqueio.
+    fun scrollToItem(itemId: String) {
+        val (index, opened) = Rules.rowOfItem(template, collapsed, itemId)
+        collapsed = opened
+        if (index >= 0) scope.launch { listState.animateScrollToItem(index + 1) }
+    }
 
     fun finish() {
         val missing = Rules.pendingItems(template, current.answers)
@@ -227,10 +237,9 @@ fun InspectionScreen(
         if (missing.isNotEmpty() || needsSignature) {
             highlight = missing.map { it.itemId }.toSet()
             pendencies = missing.map { it.message } + if (needsSignature) listOf("Assine no fim da inspeção.") else emptyList()
-            val index = rows.indexOfFirst { it is TemplateItem && it.id == missing.firstOrNull()?.itemId }
             // Item pendente primeiro; se só falta a assinatura, vai até ela (depois de todos os itens).
-            val target = if (index >= 0) index + 1 else rows.size + 1
-            scope.launch { listState.animateScrollToItem(target) }
+            val first = missing.firstOrNull()?.itemId
+            if (first != null) scrollToItem(first) else scope.launch { listState.animateScrollToItem(rows.size + 1) }
             return
         }
         confirm = true
@@ -307,8 +316,7 @@ fun InspectionScreen(
                 val next = Rules.nextToAnswer(template, current.answers)
                 if (next != null) {
                     TextButton(onClick = {
-                        val index = rows.indexOfFirst { it is TemplateItem && it.id == next }
-                        if (index >= 0) scope.launch { listState.animateScrollToItem(index + 1) }
+                        scrollToItem(next)
                     }) {
                         Text("Próximo", color = Palette.Primary, fontWeight = FontWeight.SemiBold)
                         Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null, tint = Palette.Primary, modifier = Modifier.size(18.dp))
@@ -320,13 +328,15 @@ fun InspectionScreen(
             item {
                 if (vehicle.status == "BLOQUEADO") Banner("Veículo bloqueado", "Registre a inspeção, mas o veículo não deve circular até ser liberado.", Tone.Danger)
             }
-            items(rows.size, key = { index -> (rows[index] as? TemplateItem)?.id ?: "cat-$index" }) { index ->
+            items(rows.size, key = { index -> (rows[index] as? TemplateItem)?.id ?: "cat-${(rows[index] as TemplateCategory).id}" }) { index ->
                 when (val row = rows[index]) {
                     is TemplateCategory -> SectionHeader(
                         name = row.name,
                         progress = Rules.sectionProgress(row, current.answers),
                         pending = Rules.unansweredPassFail(row, current.answers).size,
                         onMarkCompliant = { markSection = row },
+                        collapsed = row.id in collapsed,
+                        onToggle = { collapsed = if (row.id in collapsed) collapsed - row.id else collapsed + row.id },
                     )
                     is TemplateItem -> ItemCard(
                         item = row,
