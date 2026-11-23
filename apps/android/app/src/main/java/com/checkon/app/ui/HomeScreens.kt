@@ -416,18 +416,7 @@ fun VehiclesScreen(vm: AppViewModel, onVehicle: (String) -> Unit) {
         }
         if (inUnit.isNotEmpty()) {
             item(key = "today-summary") {
-                androidx.compose.foundation.layout.Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Muted("Hoje: $inspectedInUnit de ${inUnit.size} inspecionados", Modifier.weight(1f))
-                    FilterChip(
-                        selected = onlyPending,
-                        onClick = { onlyPending = !onlyPending },
-                        label = { Text("Falta inspecionar (${inUnit.size - inspectedInUnit})") },
-                    )
-                }
+                TodaySummary(inspectedInUnit, inUnit.size, onlyPending, onToggle = { onlyPending = !onlyPending })
             }
         }
         if (vehicles.isEmpty()) {
@@ -458,6 +447,27 @@ fun VehiclesScreen(vm: AppViewModel, onVehicle: (String) -> Unit) {
             }
         }
     }
+    }
+}
+
+/**
+ * "Hoje: 7 de 12 inspecionados" + filtro "Falta inspecionar (5)". Com fonte grande do sistema o
+ * filtro desce para a linha de baixo em vez de espremer o texto.
+ */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+internal fun TodaySummary(inspected: Int, total: Int, onlyPending: Boolean, onToggle: () -> Unit) {
+    androidx.compose.foundation.layout.FlowRow(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+    ) {
+        Muted("Hoje: $inspected de $total inspecionados", Modifier.weight(1f).align(Alignment.CenterVertically))
+        FilterChip(
+            selected = onlyPending,
+            onClick = onToggle,
+            label = { Text("Falta inspecionar (${total - inspected})") },
+            modifier = Modifier.align(Alignment.CenterVertically),
+        )
     }
 }
 

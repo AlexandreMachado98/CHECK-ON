@@ -27,8 +27,8 @@ android {
         applicationId = "com.checkon.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 18
-        versionName = "1.4.5"
+        versionCode = 19
+        versionName = "1.4.6"
         // Endereço da API do CHECK-ON.
         buildConfigField("String", "API_URL", "\"https://check-on-mu.vercel.app/api\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -60,6 +60,10 @@ android {
     }
     kotlinOptions {
         jvmTarget = "17"
+    }
+    testOptions {
+        // Testes de tela no computador (Robolectric) precisam dos recursos do app.
+        unitTests.isIncludeAndroidResources = true
     }
     buildFeatures {
         compose = true
@@ -96,4 +100,9 @@ dependencies {
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
+    // Testes de tela sem aparelho: Compose rodando no Robolectric.
+    testImplementation(composeBom)
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    testImplementation("org.robolectric:robolectric:4.14.1")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

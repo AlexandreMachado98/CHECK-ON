@@ -63,6 +63,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -497,20 +502,23 @@ private fun ItemCard(
                 )
             }
             "PHOTO" -> Unit
-            else -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Choice("Conforme", Icons.Filled.CheckCircle, !na && answer?.isCompliant == true, Palette.Primary, Modifier.weight(1f)) {
+            else -> AnswerChoices(
+                compliant = !na && answer?.isCompliant == true,
+                failed = failed,
+                na = na,
+                onCompliant = {
                     view.answerHaptic(AnswerFeel.Confirm)
                     onChange { it.copy(isCompliant = true, notApplicable = null) }
-                }
-                Choice("Não conforme", Icons.Filled.Cancel, failed, Palette.Danger, Modifier.weight(1f)) {
+                },
+                onFailed = {
                     view.answerHaptic(AnswerFeel.Reject)
                     onChange { it.copy(isCompliant = false, notApplicable = null) }
-                }
-                Choice("N/A", Icons.Filled.Block, na, Palette.Muted, Modifier.weight(0.8f)) {
+                },
+                onNa = {
                     view.answerHaptic(AnswerFeel.Neutral)
                     onChange { it.copy(notApplicable = true, isCompliant = null) }
-                }
-            }
+                },
+            )
         }
 
         if (Rules.showsPhoto(item, answer)) {
@@ -569,23 +577,83 @@ private fun ItemCard(
     }
 }
 
+/**
+ * Conforme / Não conforme / N/A. Lado a lado no tamanho normal; com fonte grande do sistema
+ * ou tela estreita, uma embaixo da outra, para o texto não ser cortado.
+ * Leitor de tela anuncia como grupo de opções, com a marcada como "selecionada".
+ */
 @Composable
-private fun Choice(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, active: Boolean, color: Color, modifier: Modifier, onClick: () -> Unit) {
+internal fun AnswerChoices(
+    compliant: Boolean,
+    failed: Boolean,
+    na: Boolean,
+    onCompliant: () -> Unit,
+    onFailed: () -> Unit,
+    onNa: () -> Unit,
+) {
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth()) {
+        // Mede "Não conforme" com a fonte atual do sistema (já inclui o tamanho de fonte escolhido).
+        val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        val labelDp = with(density) {
+            measurer.measure("Não conforme", androidx.compose.ui.text.TextStyle(fontWeight = FontWeight.Bold, fontSize = 13.sp), softWrap = false)
+                .size.width.toDp().value
+        }
+        val stacked = Rules.stackAnswerChoices(maxWidth.value, labelDp)
+        val group = Modifier.fillMaxWidth().selectableGroup()
+        if (stacked) {
+            Column(group, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Choice("Conforme", Icons.Filled.CheckCircle, compliant, Palette.Primary, Modifier.fillMaxWidth(), stacked = true, onClick = onCompliant)
+                Choice("Não conforme", Icons.Filled.Cancel, failed, Palette.Danger, Modifier.fillMaxWidth(), stacked = true, onClick = onFailed)
+                Choice("N/A · não se aplica", Icons.Filled.Block, na, Palette.Muted, Modifier.fillMaxWidth(), stacked = true, onClick = onNa)
+            }
+        } else {
+            Row(group, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Choice("Conforme", Icons.Filled.CheckCircle, compliant, Palette.Primary, Modifier.weight(1f), stacked = false, onClick = onCompliant)
+                Choice("Não conforme", Icons.Filled.Cancel, failed, Palette.Danger, Modifier.weight(1f), stacked = false, onClick = onFailed)
+                Choice("N/A", Icons.Filled.Block, na, Palette.Muted, Modifier.weight(0.8f), stacked = false, onClick = onNa)
+            }
+        }
+    }
+}
+
+@Composable
+private fun Choice(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    active: Boolean,
+    color: Color,
+    modifier: Modifier,
+    stacked: Boolean,
+    onClick: () -> Unit,
+) {
+    val content = if (active) Palette.contentOn(color) else Palette.Text
     OutlinedButton(
         onClick = onClick,
-        modifier = modifier.heightIn(min = 52.dp),
+        modifier = modifier
+            .heightIn(min = 52.dp)
+            .semantics { selected = active; role = Role.RadioButton },
         shape = RoundedCornerShape(12.dp),
         border = BorderStroke(2.dp, if (active) color else Palette.Border),
         colors = ButtonDefaults.outlinedButtonColors(
             containerColor = if (active) color else Palette.Surface,
-            contentColor = if (active) Palette.contentOn(color) else Palette.Text,
+            contentColor = content,
         ),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 8.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = if (stacked) 16.dp else 4.dp, vertical = 8.dp),
     ) {
-        // Ícone em cima e texto embaixo: as três opções cabem lado a lado em celular pequeno.
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(icon, contentDescription = null, tint = if (active) Palette.contentOn(color) else color, modifier = Modifier.size(20.dp))
-            Text(label, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1)
+        val tint = if (active) Palette.contentOn(color) else color
+        if (stacked) {
+            // Uma opção por linha: ícone e texto na mesma linha, à esquerda.
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(24.dp))
+                Text(label, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            }
+        } else {
+            // Ícone em cima e texto embaixo: as três opções cabem lado a lado.
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
+                Text(label, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1, softWrap = false)
+            }
         }
     }
 }
