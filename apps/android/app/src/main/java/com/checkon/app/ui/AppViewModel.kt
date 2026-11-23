@@ -124,6 +124,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         syncNow()
     }
 
+    /** Refaz uma inspeção recusada aproveitando as respostas. Devolve o rascunho criado. */
+    suspend fun redoRejected(clientId: String, template: com.checkon.app.data.Template) = repository.redoRejected(clientId, template)
+
     fun discard(clientId: String) {
         viewModelScope.launch { repository.discard(clientId) }
     }

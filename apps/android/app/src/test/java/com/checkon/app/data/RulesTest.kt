@@ -348,4 +348,35 @@ class RulesTest {
         // Retomando o mesmo rascunho: não pergunta nada.
         assertEquals(Rules.StartAction.Start, Rules.startAction(same, "v1", "t1", inspectedToday = true, confirmedToday = false))
     }
+
+    @Test
+    fun draftFromRejectedKeepsAnswersOfCurrentItems() {
+        val template = Template(
+            id = "t1", name = "Diário", version = 3,
+            categories = listOf(TemplateCategory("c1", "Geral", items = listOf(TemplateItem("i1", "Pneus"), TemplateItem("i2", "Freio")))),
+        )
+        val rejected = QueuedInspection(
+            clientId = "old",
+            payload = SubmitPayload(
+                clientId = "old", templateId = "t1", templateVersion = 2, vehicleId = "v1",
+                startedAt = "2026-11-23T08:00:00Z", completedAt = "2026-11-23T08:10:00Z",
+                answers = listOf(
+                    Answer("i1", isCompliant = false, observations = "Careca", localPhoto = "/f/i1.jpg"),
+                    Answer("i9", isCompliant = true, localPhoto = "/f/i9.jpg"), // item que saiu do checklist
+                ),
+                signatureLocal = "/f/assinatura.png",
+            ),
+            vehicleLabel = "ABC1D23", templateName = "Diário", state = "REJECTED", message = "Versão antiga",
+        )
+        val now = java.time.Instant.parse("2026-11-23T09:00:00Z")
+        val (draft, dropped) = Rules.draftFromRejected(rejected, template, "new", now)
+        assertEquals("new", draft.clientId)
+        assertEquals(3, draft.templateVersion)
+        assertEquals("2026-11-23T09:00:00Z", draft.startedAt)
+        assertEquals(setOf("i1"), draft.answers.keys)
+        assertEquals("Careca", draft.answers["i1"]?.observations)
+        assertEquals("/f/i1.jpg", draft.answers["i1"]?.localPhoto)
+        assertTrue(draft.signature.isEmpty())
+        assertEquals(listOf("/f/i9.jpg", "/f/assinatura.png"), dropped)
+    }
 }

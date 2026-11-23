@@ -34,14 +34,26 @@ import androidx.compose.ui.unit.sp
 import com.checkon.app.data.QueuedInspection
 import com.checkon.app.data.SentInspection
 import com.checkon.app.data.Rules
+import kotlinx.coroutines.launch
 
 @Composable
-fun DoneScreen(vm: AppViewModel, clientId: String, onNew: () -> Unit, onHome: () -> Unit) {
+fun DoneScreen(
+    vm: AppViewModel,
+    clientId: String,
+    onNew: () -> Unit,
+    onHome: () -> Unit,
+    onOpenInspection: (vehicleId: String, templateId: String) -> Unit,
+) {
     val queue by vm.queue.collectAsState()
     val syncing by vm.syncing.collectAsState()
     val online by vm.online.collectAsState()
     val history by vm.history.collectAsState()
-    val item = queue.firstOrNull { it.clientId == clientId }
+    val redo = rememberRedo(vm, onOpenInspection)
+    // Guarda a última versão vista: ao refazer, a inspeção sai da fila sem ter sido enviada.
+    var lastItem by remember { mutableStateOf<QueuedInspection?>(null) }
+    val inQueue = queue.firstOrNull { it.clientId == clientId }
+    androidx.compose.runtime.SideEffect { if (inQueue != null) lastItem = inQueue }
+    val item = if (redo.busy) inQueue ?: lastItem else inQueue
     val sent = item == null
     val rejected = item?.state == "REJECTED"
     // Resultado devolvido pelo servidor (situação do veículo e NCs), quando já foi aceita.
@@ -100,6 +112,7 @@ fun DoneScreen(vm: AppViewModel, clientId: String, onNew: () -> Unit, onHome: ()
         )
         if (sent && result != null) SentResultCard(result)
         if (rejected) Banner("Motivo", item?.message, Tone.Danger)
+        if (rejected && item != null && redo.canRedo(item)) PrimaryButton("Refazer com estas respostas", onClick = { redo.start(item) })
         if (item?.state == "PENDING" && online && !syncing) SecondaryButton("Tentar enviar agora", onClick = vm::syncNow)
         if (!rejected && vehicles.size > 1) {
             Muted(
@@ -114,7 +127,7 @@ fun DoneScreen(vm: AppViewModel, clientId: String, onNew: () -> Unit, onHome: ()
 }
 
 @Composable
-fun QueueScreen(vm: AppViewModel) {
+fun QueueScreen(vm: AppViewModel, onOpenInspection: (vehicleId: String, templateId: String) -> Unit) {
     val queue by vm.queue.collectAsState()
     val syncing by vm.syncing.collectAsState()
     val online by vm.online.collectAsState()
@@ -122,6 +135,7 @@ fun QueueScreen(vm: AppViewModel) {
     val history by vm.history.collectAsState()
     var toDiscard by remember { mutableStateOf<QueuedInspection?>(null) }
     val pending = queue.count { it.state == "PENDING" }
+    val redo = rememberRedo(vm, onOpenInspection)
 
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(ScreenPadding),
@@ -139,6 +153,7 @@ fun QueueScreen(vm: AppViewModel) {
                 Tag(if (item.state == "REJECTED") "Recusada" else "Aguardando envio", if (item.state == "REJECTED") Tone.Danger else Tone.Warning)
                 if (item.state == "REJECTED") {
                     Text(item.message ?: "", color = Palette.Danger)
+                    if (redo.canRedo(item)) SecondaryButton("Refazer com estas respostas", onClick = { redo.start(item) })
                     SecondaryButton("Apagar do celular", onClick = { toDiscard = item })
                 }
             }
@@ -209,5 +224,58 @@ private fun SuccessMark(modifier: Modifier) {
         painter = androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter(image, atEnd),
         contentDescription = "Inspeção enviada",
         modifier = modifier,
+    )
+}
+
+/**
+ * "Refazer com estas respostas" de uma inspeção recusada: confere se o veículo e o checklist
+ * ainda estão ativos e se não há outra inspeção em andamento; então abre a inspeção já preenchida.
+ */
+private class Redo(
+    val canRedo: (QueuedInspection) -> Boolean,
+    val start: (QueuedInspection) -> Unit,
+    /** Refazendo agora: a inspeção sai da fila, mas não foi "enviada". */
+    val busy: Boolean,
+)
+
+@Composable
+private fun rememberRedo(vm: AppViewModel, onOpenInspection: (vehicleId: String, templateId: String) -> Unit): Redo {
+    val bootstrap by vm.bootstrap.collectAsState()
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var blocked by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    blocked?.let { text ->
+        AlertDialog(
+            onDismissRequest = { blocked = null },
+            title = { Text("Inspeção em andamento") },
+            text = { Text(text) },
+            confirmButton = { TextButton(onClick = { blocked = null }) { Text("Ok") } },
+        )
+    }
+    fun templateOf(item: QueuedInspection) = bootstrap?.let { data ->
+        val vehicle = data.vehicles.firstOrNull { it.id == item.payload.vehicleId } ?: return@let null
+        Rules.templatesForVehicle(data.templates, vehicle).firstOrNull { it.id == item.payload.templateId }
+    }
+    return Redo(
+        canRedo = { item -> item.state == "REJECTED" && templateOf(item) != null },
+        start = { item ->
+            scope.launch {
+                val template = templateOf(item) ?: return@launch
+                val current = vm.repository.readDraft()
+                if (current != null) {
+                    blocked = "Você já tem uma inspeção começada (${current.vehicleLabel} · ${current.templateName}). " +
+                        "Conclua ou descarte essa antes de refazer a recusada."
+                    return@launch
+                }
+                busy = true
+                val draft = vm.redoRejected(item.clientId, template)
+                if (draft == null) {
+                    busy = false
+                    return@launch
+                }
+                onOpenInspection(draft.vehicleId, draft.templateId)
+            }
+        },
+        busy = busy,
     )
 }

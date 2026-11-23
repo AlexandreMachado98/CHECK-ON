@@ -127,6 +127,31 @@ object Rules {
         inspectedToday(latestInspection(vehicle.id, vehicle.lastInspection, queue, history, myName), now, zone)
     }.map { it.id }.toSet()
 
+    /**
+     * Inspeção recusada pelo servidor vira um rascunho novo com as mesmas respostas, para o
+     * motorista corrigir e reenviar sem responder tudo de novo. Só ficam as respostas de itens
+     * que ainda existem no checklist atual; a assinatura é pedida de novo.
+     * Retorna o rascunho e as fotos que não foram aproveitadas (para apagar do celular).
+     */
+    fun draftFromRejected(item: QueuedInspection, template: Template, newClientId: String, now: Instant): Pair<Draft, List<String>> {
+        val itemIds = template.allItems.map { it.id }.toSet()
+        val kept = item.payload.answers.filter { it.itemId in itemIds }
+        val draft = Draft(
+            clientId = newClientId,
+            vehicleId = item.payload.vehicleId,
+            vehicleLabel = item.vehicleLabel,
+            templateId = template.id,
+            templateName = template.name,
+            templateVersion = template.version,
+            startedAt = now.toString(),
+            answers = kept.associateBy { it.itemId },
+        )
+        val keptPhotos = kept.mapNotNull { it.localPhoto }.toSet()
+        val dropped = item.payload.answers.mapNotNull { it.localPhoto }.filter { it !in keptPhotos } +
+            listOfNotNull(item.payload.signatureLocal)
+        return draft to dropped
+    }
+
     /** O que fazer ao tocar num checklist na tela do veículo. */
     enum class StartAction { Start, AskAboutOtherDraft, AskInspectedToday }
 
