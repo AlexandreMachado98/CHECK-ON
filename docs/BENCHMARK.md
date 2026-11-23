@@ -30,7 +30,7 @@ alta tende a ser **melhor** que aqui, onde um único processo atende tudo.
 | App baixa os dados (≈83 veículos da frente, ~95 KB) | 33 ms | 41 ms |
 | Envio de 1 inspeção de 40 itens | 72 ms | 84 ms |
 | Painel (resumo) | 4 ms | 7 ms |
-| Relatório do painel (todo o histórico) | 83 ms | 105 ms |
+| Relatório do painel: 30 dias (padrão) / todo o histórico | 52 / 72 ms | — |
 | Lista de inspeções (1ª página / página 400) | 12 / 19 ms | 14 / 23 ms |
 | Busca por placa | 53 ms | 72 ms |
 | Detalhe da inspeção (40 respostas) | 9 ms | 12 ms |
@@ -105,9 +105,10 @@ Antes das correções, 60 s de uso contínuo gravavam 1.426 inspeções; depois,
    - `multer`, `body-parser` e outras com correção simples;
    - `shadcn`, que é ferramenta de linha de comando, passou para `devDependencies`, e saiu o `zod`, que não era usado.
    - `npm audit --omit=dev`: **0 alertas** (antes: 22, 2 críticos). Restam 15 só em ferramentas de desenvolvimento (lint/CLI), nenhum crítico.
-2. **Relatório do painel sobre todo o histórico** (83 ms com 90 dias).
-   - Cresce com o tempo: ~2 anos de uso devem passar de 0,5 s.
-   - Sugestão: filtrar por período (ex.: últimos 90 dias), como já faz o resumo.
+2. ~~**Relatório do painel sobre todo o histórico.**~~ Feito:
+   - A tela de Relatórios agora tem período: 7 dias, **30 dias (padrão)**, 90 dias, 12 meses ou tudo.
+   - Com 90 dias de histórico: 7 dias = 31 ms, 30 dias = 52 ms, tudo = 72 ms.
+   - O padrão não cresce com os anos de uso.
 3. **Lista de NCs pesada (~180 KB por página de 50).**
    - Traz o cadastro completo do motorista e do veículo de cada NC.
    - Enxugar para os campos que a tela usa.

@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ACTIVE_NC_STATUSES } from '../checklist/checklist-rules';
 import { startOfDayInTimeZone } from './time-zone';
 import { PANEL_ROLES } from '../role/role-definitions';
+import { DEFAULT_REPORT_PERIOD, ReportPeriod, reportPeriodStart } from './report-period';
 
 type SummaryRow = {
   activeVehicles: number;
@@ -87,41 +88,52 @@ export class DashboardService {
   }
 
   /**
-   * Números da tela de Relatórios, calculados no banco (antes a tela baixava todas as inspeções e NCs).
+   * Números da tela de Relatórios, calculados no banco, para o período escolhido (padrão: 30 dias).
+   * Inspeções contam pela data de conclusão (ou de início, se ainda não concluída); NCs pela abertura.
    * Conformidade = inspeções finalizadas sem nenhum item não conforme / inspeções finalizadas.
    */
-  async getReport() {
+  async getReport(period: ReportPeriod = DEFAULT_REPORT_PERIOD) {
     const tenantId = this.cls.get<string | undefined>('tenantId');
     if (!tenantId) throw new ForbiddenException('Empresa não identificada na sessão.');
+    const from = reportPeriodStart(period, new Date(), dashboardTimeZone());
 
     // Frentes de trabalho: filtro à mão (SQL direto não passa pela extensão do Prisma).
     const checklistScope = sqlVehicleInScope('"vehicleId"');
     const checklistScopeC = sqlVehicleInScope('c."vehicleId"');
     const ncScope = sqlVehicleInScope('"vehicleId"');
+    // Período: usa os índices (tenantId, completedAt) e (tenantId, startedAt) / (tenantId, createdAt).
+    const inPeriod = from
+      ? Prisma.sql` AND ("completedAt" >= ${from} OR ("completedAt" IS NULL AND "startedAt" >= ${from}))`
+      : Prisma.empty;
+    const inPeriodC = from
+      ? Prisma.sql` AND (c."completedAt" >= ${from} OR (c."completedAt" IS NULL AND c."startedAt" >= ${from}))`
+      : Prisma.empty;
+    const ncInPeriod = from ? Prisma.sql` AND "createdAt" >= ${from}` : Prisma.empty;
 
     const [totals] = await this.prisma.$queryRaw<
       { total: number; completed: number; completedWithNc: number; totalNcs: number; activeNcs: number }[]
     >`
       SELECT
-        (SELECT COUNT(*) FROM "Checklist" WHERE "tenantId" = ${tenantId}${checklistScope})::int AS "total",
-        (SELECT COUNT(*) FROM "Checklist" WHERE "tenantId" = ${tenantId} AND "status" IN ('COMPLETED', 'SYNCED')${checklistScope})::int AS "completed",
-        (SELECT COUNT(*) FROM "Checklist" c WHERE c."tenantId" = ${tenantId} AND c."status" IN ('COMPLETED', 'SYNCED')${checklistScopeC}
+        (SELECT COUNT(*) FROM "Checklist" WHERE "tenantId" = ${tenantId}${inPeriod}${checklistScope})::int AS "total",
+        (SELECT COUNT(*) FROM "Checklist" WHERE "tenantId" = ${tenantId} AND "status" IN ('COMPLETED', 'SYNCED')${inPeriod}${checklistScope})::int AS "completed",
+        (SELECT COUNT(*) FROM "Checklist" c WHERE c."tenantId" = ${tenantId} AND c."status" IN ('COMPLETED', 'SYNCED')${inPeriodC}${checklistScopeC}
            AND EXISTS (SELECT 1 FROM "ChecklistAnswer" a WHERE a."checklistId" = c.id AND NOT a."isCompliant"))::int AS "completedWithNc",
-        (SELECT COUNT(*) FROM "NonConformity" WHERE "tenantId" = ${tenantId}${ncScope})::int AS "totalNcs",
-        (SELECT COUNT(*) FROM "NonConformity" WHERE "tenantId" = ${tenantId} AND "status" IN (${Prisma.join(ACTIVE_NC_STATUSES)})${ncScope})::int AS "activeNcs"
+        (SELECT COUNT(*) FROM "NonConformity" WHERE "tenantId" = ${tenantId}${ncInPeriod}${ncScope})::int AS "totalNcs",
+        (SELECT COUNT(*) FROM "NonConformity" WHERE "tenantId" = ${tenantId} AND "status" IN (${Prisma.join(ACTIVE_NC_STATUSES)})${ncInPeriod}${ncScope})::int AS "activeNcs"
     `;
     const [bySeverity, topVehicles] = await Promise.all([
       this.prisma.$queryRaw<{ severity: string; count: number }[]>`
-        SELECT "severity", COUNT(*)::int AS "count" FROM "NonConformity" WHERE "tenantId" = ${tenantId}${ncScope} GROUP BY "severity"`,
+        SELECT "severity", COUNT(*)::int AS "count" FROM "NonConformity" WHERE "tenantId" = ${tenantId}${ncInPeriod}${ncScope} GROUP BY "severity"`,
       this.prisma.$queryRaw<{ vehicleId: string; plate: string; count: number }[]>`
         SELECT c."vehicleId", v."plate", COUNT(*)::int AS "count"
         FROM "Checklist" c JOIN "Vehicle" v ON v.id = c."vehicleId"
-        WHERE c."tenantId" = ${tenantId}${checklistScopeC}
+        WHERE c."tenantId" = ${tenantId}${inPeriodC}${checklistScopeC}
         GROUP BY c."vehicleId", v."plate" ORDER BY "count" DESC, v."plate" LIMIT 5`,
     ]);
 
     const compliant = totals.completed - totals.completedWithNc;
     return {
+      period: { key: period, from: from?.toISOString() ?? null },
       inspections: { total: totals.total, completed: totals.completed, withNc: totals.completedWithNc, compliant },
       complianceRate: totals.completed > 0 ? Math.round((compliant / totals.completed) * 100) : null,
       ncs: {

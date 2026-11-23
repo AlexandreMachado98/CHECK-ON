@@ -8,7 +8,38 @@ import { BarChart3, AlertOctagon, ClipboardCheck, Activity, Truck, ArrowRight, S
 import api from '@/lib/api';
 import { apiErrorMessage } from '@/lib/types';
 
+/** Períodos aceitos pela API (`/dashboard/report?period=`). */
+const PERIODS = [
+  { key: '7d', label: '7 dias' },
+  { key: '30d', label: '30 dias' },
+  { key: '90d', label: '90 dias' },
+  { key: '12m', label: '12 meses' },
+  { key: 'all', label: 'Tudo' },
+] as const;
+type PeriodKey = (typeof PERIODS)[number]['key'];
+const DEFAULT_PERIOD: PeriodKey = '30d';
+const PERIOD_STORAGE_KEY = 'checkon.reports.period';
+
+/** Último período escolhido neste navegador (só conveniência: sem acesso ao armazenamento, usa 30 dias). */
+function savedPeriod(): PeriodKey {
+  try {
+    const value = window.localStorage.getItem(PERIOD_STORAGE_KEY);
+    return PERIODS.some((p) => p.key === value) ? (value as PeriodKey) : DEFAULT_PERIOD;
+  } catch {
+    return DEFAULT_PERIOD;
+  }
+}
+
+/** "últimos 30 dias (desde 25/10/2026)" / "todo o histórico". */
+function periodDescription(key: PeriodKey, from: string | null): string {
+  if (key === 'all' || !from) return 'todo o histórico';
+  const label = PERIODS.find((p) => p.key === key)?.label ?? key;
+  const since = new Date(from).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+  return `últimos ${label} (desde ${since})`;
+}
+
 type Report = {
+  period?: { key: PeriodKey; from: string | null };
   inspections: { total: number; completed: number; withNc: number; compliant: number };
   complianceRate: number | null;
   ncs: { total: number; active: number; bySeverity: Record<string, number> };
@@ -19,13 +50,14 @@ export default function ReportsPage() {
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+  const [period, setPeriod] = useState<PeriodKey | null>(null);
 
-  async function fetchReport() {
+  async function fetchReport(selected: PeriodKey) {
     try {
       setLoading(true);
       setLoadError('');
-      // Calculado no servidor: a tela não baixa mais todas as inspeções e NCs.
-      const res = await api.get<Report>('/dashboard/report');
+      // Calculado no servidor, só do período escolhido: não pesa mais com os anos de histórico.
+      const res = await api.get<Report>('/dashboard/report', { params: { period: selected } });
       setReport(res.data);
     } catch (error) {
       setLoadError(apiErrorMessage(error, 'Não foi possível carregar os relatórios.'));
@@ -34,9 +66,26 @@ export default function ReportsPage() {
     }
   }
 
+  // Abre no último período escolhido neste navegador (lido depois de montar: não existe no servidor).
   useEffect(() => {
-    fetchReport();
+    setPeriod(savedPeriod());
   }, []);
+
+  useEffect(() => {
+    if (period) fetchReport(period);
+  }, [period]);
+
+  function choosePeriod(key: PeriodKey) {
+    try {
+      window.localStorage.setItem(PERIOD_STORAGE_KEY, key);
+    } catch {
+      // Sem armazenamento (aba anônima, bloqueio): só não lembra na próxima vez.
+    }
+    setPeriod(key);
+  }
+
+  const shownPeriod = report?.period?.key ?? period ?? DEFAULT_PERIOD;
+  const periodText = periodDescription(shownPeriod, report?.period?.from ?? null);
 
   const totalInspections = report?.inspections.total ?? 0;
   const completedInspections = report?.inspections.completed ?? 0;
@@ -55,8 +104,24 @@ export default function ReportsPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">Relatórios Gerenciais</h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Métricas de desempenho, uso da frota e conformidade de inspeções da base real.
+            Métricas de desempenho, uso da frota e conformidade de inspeções{report ? ` · ${periodText}` : ''}.
           </p>
+        </div>
+        <div role="group" aria-label="Período do relatório" className="flex w-full shrink-0 gap-1 rounded-lg border border-slate-200 bg-white p-1 shadow-sm sm:w-auto">
+          {PERIODS.map((p) => (
+            <button
+              key={p.key}
+              type="button"
+              aria-pressed={period === p.key}
+              onClick={() => choosePeriod(p.key)}
+              disabled={loading && period === p.key}
+              className={`flex-1 whitespace-nowrap rounded-md px-2 py-1.5 text-sm font-medium transition-colors sm:flex-none sm:px-3 ${
+                period === p.key ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -68,14 +133,14 @@ export default function ReportsPage() {
       ) : loadError ? (
         <div role="alert" className="p-10 text-center text-sm">
           <p className="text-rose-700 mb-3">{loadError}</p>
-          <Button variant="outline" size="sm" onClick={fetchReport}>Tentar de novo</Button>
+          <Button variant="outline" size="sm" onClick={() => fetchReport(period ?? DEFAULT_PERIOD)}>Tentar de novo</Button>
         </div>
       ) : (
         <>
           <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 xl:gap-5">
             <Card className="min-h-32 border-slate-200 shadow-sm">
               <CardHeader className="flex min-w-0 flex-row items-start justify-between gap-3 space-y-0 pb-2">
-                <CardTitle className="min-w-0 break-words text-sm font-medium leading-5 text-slate-600">Total de Inspeções</CardTitle>
+                <CardTitle className="min-w-0 break-words text-sm font-medium leading-5 text-slate-600">Inspeções no período</CardTitle>
                 <ClipboardCheck className="h-4 w-4 text-emerald-600" />
               </CardHeader>
               <CardContent>
@@ -88,7 +153,7 @@ export default function ReportsPage() {
 
             <Card className="min-h-32 border-slate-200 shadow-sm">
               <CardHeader className="flex min-w-0 flex-row items-start justify-between gap-3 space-y-0 pb-2">
-                <CardTitle className="min-w-0 break-words text-sm font-medium leading-5 text-slate-600">Não Conformidades</CardTitle>
+                <CardTitle className="min-w-0 break-words text-sm font-medium leading-5 text-slate-600">Não conformidades abertas no período</CardTitle>
                 <AlertOctagon className="h-4 w-4 text-amber-500" />
               </CardHeader>
               <CardContent>
@@ -121,16 +186,26 @@ export default function ReportsPage() {
                 <div className="h-16 w-16 bg-emerald-50 rounded-full flex items-center justify-center mb-4 border border-emerald-100">
                   <ShieldCheck className="h-8 w-8 text-emerald-600" />
                 </div>
-                <h3 className="text-lg font-medium text-slate-900 mb-1">Aguardando Execuções</h3>
-                <p className="text-sm text-slate-500 max-w-sm mb-5">
-                  Os gráficos analíticos de veículos mais inspecionados e falhas recorrentes serão gerados à medida que os checklists forem concluídos em campo.
-                </p>
-                <Link href="/dashboard/templates">
-                  <Button variant="outline">
-                    Ver Modelos de Checklist
-                    <ArrowRight className="h-4 w-4 ml-2" />
-                  </Button>
-                </Link>
+                {shownPeriod !== 'all' ? (
+                  <>
+                    <h3 className="text-lg font-medium text-slate-900 mb-1">Nenhuma inspeção nos {PERIODS.find((p) => p.key === shownPeriod)?.label}</h3>
+                    <p className="text-sm text-slate-500 max-w-sm mb-5">Escolha um período maior para ver o histórico.</p>
+                    <Button variant="outline" onClick={() => choosePeriod('all')}>Ver todo o histórico</Button>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-lg font-medium text-slate-900 mb-1">Aguardando Execuções</h3>
+                    <p className="text-sm text-slate-500 max-w-sm mb-5">
+                      Os gráficos analíticos de veículos mais inspecionados e falhas recorrentes serão gerados à medida que os checklists forem concluídos em campo.
+                    </p>
+                    <Link href="/dashboard/templates">
+                      <Button variant="outline">
+                        Ver Modelos de Checklist
+                        <ArrowRight className="h-4 w-4 ml-2" />
+                      </Button>
+                    </Link>
+                  </>
+                )}
               </CardContent>
             </Card>
           ) : (
@@ -175,7 +250,7 @@ export default function ReportsPage() {
                 <CardContent className="pt-6">
                   {totalNcs === 0 ? (
                     <p className="text-xs text-emerald-600 text-center py-6 font-medium">
-                      Nenhuma não conformidade registrada até o momento!
+                      Nenhuma não conformidade aberta no período!
                     </p>
                   ) : (
                     <div className="space-y-4">
