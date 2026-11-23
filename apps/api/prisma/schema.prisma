@@ -471,6 +471,8 @@ model ChecklistAnswer {
   updatedAt DateTime @updatedAt
 
   @@unique([checklistId, itemId])
+  // Itens não conformes de cada inspeção (lista de inspeções e relatório do painel) sem ler as respostas.
+  @@index([checklistId, isCompliant])
   @@index([recurrentNcId])
   @@index([itemId])
 }
