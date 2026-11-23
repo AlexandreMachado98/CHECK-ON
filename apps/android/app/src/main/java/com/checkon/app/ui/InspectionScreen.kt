@@ -35,6 +35,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Block
@@ -488,6 +489,7 @@ private fun ItemCard(
                 value = answer?.textValue ?: "",
                 onValueChange = { text -> onChange { it.copy(textValue = text.take(2000)) } },
                 placeholder = { Text("Escreva aqui") },
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                 minLines = 2,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -547,6 +549,7 @@ private fun ItemCard(
             OutlinedTextField(
                 value = answer?.observations ?: "",
                 onValueChange = { text -> onChange { it.copy(observations = text.take(2000)) } },
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                 placeholder = {
                     Text(
                         when {
@@ -634,8 +637,10 @@ private fun Choice(
     onClick: () -> Unit,
 ) {
     val content = if (active) Palette.contentOn(color) else Palette.Text
+    // Escolher a resposta fecha o teclado aberto numa observação, para não cobrir o próximo item.
+    val focus = androidx.compose.ui.platform.LocalFocusManager.current
     OutlinedButton(
-        onClick = onClick,
+        onClick = { focus.clearFocus(); onClick() },
         modifier = modifier
             .heightIn(min = 52.dp)
             .semantics { selected = active; role = Role.RadioButton },

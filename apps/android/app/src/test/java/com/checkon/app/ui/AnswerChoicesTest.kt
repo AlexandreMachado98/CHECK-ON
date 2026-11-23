@@ -6,7 +6,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertIsNotFocused
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -67,5 +74,23 @@ class AnswerChoicesTest {
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.Selected, false))
         compose.onNodeWithText("Não conforme").performClick()
         assertEquals(1, clicked)
+    }
+
+    @Test fun `escolher a resposta tira o foco da observacao (fecha o teclado)`() {
+        compose.setContent {
+            androidx.compose.foundation.layout.Column(Modifier.width(296.dp)) {
+                var text by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
+                androidx.compose.material3.OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    modifier = Modifier.semantics { testTag = "obs" },
+                )
+                AnswerChoices(compliant = false, failed = false, na = false, onCompliant = {}, onFailed = {}, onNa = {})
+            }
+        }
+        compose.onNodeWithTag("obs").performClick()
+        compose.onNodeWithTag("obs").assertIsFocused()
+        compose.onNodeWithText("Conforme").performClick()
+        compose.onNodeWithTag("obs").assertIsNotFocused()
     }
 }
