@@ -373,7 +373,7 @@ fun InspectionScreen(
     if (confirm) {
         AlertDialog(
             onDismissRequest = { confirm = false },
-            title = { Text("Concluir inspeção?") },
+            title = { Text(if (nonCompliant.any { it.isCritical }) "Concluir com item crítico?" else "Concluir inspeção?") },
             text = {
                 Text("${vehicle.label} · ${template.name}\n\n" + Rules.nonCompliantList(nonCompliant))
             },
@@ -526,6 +526,15 @@ private fun ItemCard(
                     view.answerHaptic(AnswerFeel.Neutral)
                     onChange { it.copy(notApplicable = true, isCompliant = null) }
                 },
+            )
+        }
+
+        // Item crítico com problema: o motorista fica sabendo na hora, não só depois de enviar.
+        if (failed && item.isCritical) {
+            Banner(
+                "Problema em item crítico",
+                "O gestor recebe um alerta e o veículo pode ficar bloqueado até ser liberado. Não use o veículo sem falar com o seu gestor.",
+                Tone.Danger,
             )
         }
 
