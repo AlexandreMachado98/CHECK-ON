@@ -127,6 +127,22 @@ object Rules {
         inspectedToday(latestInspection(vehicle.id, vehicle.lastInspection, queue, history, myName), now, zone)
     }.map { it.id }.toSet()
 
+    /** O que fazer ao tocar num checklist na tela do veículo. */
+    enum class StartAction { Start, AskAboutOtherDraft, AskInspectedToday }
+
+    /**
+     * Rascunho de outro veículo/checklist: pergunta se continua o anterior. Retomando o mesmo
+     * rascunho: abre direto. Veículo já inspecionado hoje: confirma antes de fazer outra.
+     */
+    fun startAction(draft: Draft?, vehicleId: String, templateId: String, inspectedToday: Boolean, confirmedToday: Boolean): StartAction {
+        val resuming = draft != null && draft.vehicleId == vehicleId && draft.templateId == templateId
+        return when {
+            draft != null && !resuming -> StartAction.AskAboutOtherDraft
+            !resuming && inspectedToday && !confirmedToday -> StartAction.AskInspectedToday
+            else -> StartAction.Start
+        }
+    }
+
     /** "Última inspeção: hoje às 07:12 · Maria" / "ontem às ..." / "21/11 às ...". */
     fun lastInspectionText(last: LastInspection?, now: Instant, zone: ZoneId): String {
         val date = last?.let { runCatching { Instant.parse(it.completedAt) }.getOrNull() } ?: return "Nenhuma inspeção registrada"
