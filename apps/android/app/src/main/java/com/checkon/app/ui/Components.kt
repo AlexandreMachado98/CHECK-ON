@@ -38,6 +38,8 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
@@ -301,18 +303,43 @@ data class QrNotice(val title: String, val text: String) {
 
 /** Título de seção da inspeção, com "Marcar conformes" quando há itens sem resposta. */
 @Composable
-fun SectionHeader(name: String, progress: Pair<Int, Int>, pending: Int, onMarkCompliant: () -> Unit) {
+fun SectionHeader(
+    name: String,
+    progress: Pair<Int, Int>,
+    pending: Int,
+    onMarkCompliant: () -> Unit,
+    collapsed: Boolean = false,
+    onToggle: (() -> Unit)? = null,
+) {
     val (answered, total) = progress
-    Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            "${name.uppercase()} · $answered/$total",
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 0.5.sp,
-            modifier = Modifier.weight(1f),
-            // Seção completa fica verde.
-            color = if (total > 0 && answered == total) Palette.Primary else Palette.Muted,
-        )
+    val done = total > 0 && answered == total
+    var row = Modifier.fillMaxWidth().padding(top = 8.dp)
+    if (onToggle != null) {
+        row = row.clip(RoundedCornerShape(8.dp)).clickable(onClickLabel = if (collapsed) "Mostrar itens da seção" else "Recolher seção", onClick = onToggle)
+    }
+    Row(row, verticalAlignment = Alignment.CenterVertically) {
+        if (onToggle != null) {
+            Icon(
+                if (collapsed) Icons.Filled.KeyboardArrowRight else Icons.Filled.KeyboardArrowDown,
+                contentDescription = null,
+                tint = if (done) Palette.Primary else Palette.Muted,
+                modifier = Modifier.size(20.dp),
+            )
+            Spacer(Modifier.width(4.dp))
+        }
+        Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
+            Text(
+                "${name.uppercase()} · $answered/$total",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.5.sp,
+                // Seção completa fica verde.
+                color = if (done) Palette.Primary else Palette.Muted,
+            )
+            if (collapsed) {
+                Text(if (done) "Completa · toque para ver" else "Recolhida · toque para ver os itens", fontSize = 12.sp, color = Palette.Muted)
+            }
+        }
         if (pending > 0) {
             androidx.compose.material3.TextButton(onClick = onMarkCompliant) {
                 Icon(Icons.Filled.DoneAll, contentDescription = null, tint = Palette.Primary, modifier = Modifier.size(18.dp))

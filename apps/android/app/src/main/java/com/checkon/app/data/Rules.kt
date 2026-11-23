@@ -152,6 +152,17 @@ object Rules {
         return draft to dropped
     }
 
+    /** Linhas da inspeção: título de cada seção e, se ela não estiver recolhida, os itens dela. */
+    fun inspectionRows(template: Template, collapsed: Set<String>): List<Any> =
+        template.categories.flatMap { category -> listOf<Any>(category) + if (category.id in collapsed) emptyList() else category.items }
+
+    /** Posição de um item na lista da inspeção, abrindo a seção dele se estiver recolhida. */
+    fun rowOfItem(template: Template, collapsed: Set<String>, itemId: String): Pair<Int, Set<String>> {
+        val category = template.categories.firstOrNull { c -> c.items.any { it.id == itemId } } ?: return -1 to collapsed
+        val opened = collapsed - category.id
+        return inspectionRows(template, opened).indexOfFirst { it is TemplateItem && it.id == itemId } to opened
+    }
+
     /** O que fazer ao tocar num checklist na tela do veículo. */
     enum class StartAction { Start, AskAboutOtherDraft, AskInspectedToday }
 
