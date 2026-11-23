@@ -139,6 +139,10 @@ fun LoginScreen(vm: AppViewModel) {
             Text("CHECK-ON", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = Palette.Text)
             Muted("Inspeção de veículos")
         }
+        // Código da empresa lembrado do último acesso: o cursor já vai para a matrícula.
+        LaunchedEffect(Unit) {
+            if (companyCode.isNotBlank() && matricula.isEmpty()) runCatching { matriculaFocus.requestFocus() }
+        }
         if (sessionMessage != null && error == null) Banner("Entre de novo", sessionMessage, Tone.Warning)
         OutlinedTextField(
             value = companyCode,
