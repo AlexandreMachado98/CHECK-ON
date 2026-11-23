@@ -95,6 +95,26 @@ object Rules {
         return date.atZone(zone).toLocalDate() == now.atZone(zone).toLocalDate()
     }
 
+    /**
+     * Última inspeção do veículo juntando o que veio do servidor com o que foi feito neste celular
+     * (na fila esperando envio ou já aceito depois do último download). Assim "Inspecionado hoje"
+     * aparece na hora, mesmo sem internet. Inspeção recusada pelo servidor não conta.
+     */
+    fun latestInspection(
+        vehicleId: String,
+        server: LastInspection?,
+        queue: List<QueuedInspection>,
+        history: List<SentInspection>,
+        myName: String?,
+    ): LastInspection? {
+        val local = queue.filter { it.state != "REJECTED" && it.payload.vehicleId == vehicleId }.map { it.payload.completedAt } +
+            history.filter { it.vehicleId == vehicleId }.map { it.completedAt }
+        val candidates = listOfNotNull(server) + local.map { LastInspection(it, myName) }
+        return candidates
+            .mapNotNull { last -> runCatching { Instant.parse(last.completedAt) }.getOrNull()?.let { it to last } }
+            .maxByOrNull { it.first }?.second ?: server
+    }
+
     /** "Última inspeção: hoje às 07:12 · Maria" / "ontem às ..." / "21/11 às ...". */
     fun lastInspectionText(last: LastInspection?, now: Instant, zone: ZoneId): String {
         val date = last?.let { runCatching { Instant.parse(it.completedAt) }.getOrNull() } ?: return "Nenhuma inspeção registrada"

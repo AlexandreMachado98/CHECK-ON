@@ -34,6 +34,10 @@ import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -348,9 +352,21 @@ fun VehiclesScreen(vm: AppViewModel, onVehicle: (String) -> Unit) {
     val multipleUnits = units.size > 1
     var unitFilter by rememberSaveable { mutableStateOf<String?>(null) }
     if (unitFilter != null && units.none { it.first == unitFilter }) unitFilter = null
-    val vehicles: List<Vehicle> = allVehicles.filter {
-        Rules.matchesVehicle(it, query) && (unitFilter == null || it.fleet?.unitId == unitFilter)
+    // Última inspeção de cada veículo, contando as feitas neste celular que ainda não estão no download.
+    val queue by vm.queue.collectAsState()
+    val history by vm.history.collectAsState()
+    val session by vm.session.collectAsState()
+    val now = java.time.Instant.now()
+    val zone = java.time.ZoneId.systemDefault()
+    val inspected: Set<String> = allVehicles.filter { vehicle ->
+        Rules.inspectedToday(Rules.latestInspection(vehicle.id, vehicle.lastInspection, queue, history, session?.user?.name), now, zone)
+    }.map { it.id }.toSet()
+    var onlyPending by rememberSaveable { mutableStateOf(false) }
+    val inUnit = allVehicles.filter { unitFilter == null || it.fleet?.unitId == unitFilter }
+    val vehicles: List<Vehicle> = inUnit.filter {
+        Rules.matchesVehicle(it, query) && (!onlyPending || it.id !in inspected)
     }
+    val inspectedInUnit = inUnit.count { it.id in inspected }
     val ncCount = (bootstrap?.openNcs ?: emptyList()).groupingBy { it.vehicleId }.eachCount()
 
     PullToRefreshBox(isRefreshing = loading, onRefresh = { vm.refreshBootstrap() }, modifier = Modifier.fillMaxSize()) {
@@ -364,6 +380,12 @@ fun VehiclesScreen(vm: AppViewModel, onVehicle: (String) -> Unit) {
                 value = query,
                 onValueChange = { query = it },
                 label = { Text("Buscar placa, prefixo ou modelo") },
+                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                trailingIcon = {
+                    if (query.isNotEmpty()) {
+                        IconButton(onClick = { query = "" }) { Icon(Icons.Filled.Close, contentDescription = "Limpar busca") }
+                    }
+                },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters, autoCorrectEnabled = false),
                 modifier = Modifier.fillMaxWidth(),
@@ -392,8 +414,29 @@ fun VehiclesScreen(vm: AppViewModel, onVehicle: (String) -> Unit) {
                 }
             }
         }
+        if (inUnit.isNotEmpty()) {
+            item(key = "today-summary") {
+                androidx.compose.foundation.layout.Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Muted("Hoje: $inspectedInUnit de ${inUnit.size} inspecionados", Modifier.weight(1f))
+                    FilterChip(
+                        selected = onlyPending,
+                        onClick = { onlyPending = !onlyPending },
+                        label = { Text("Falta inspecionar (${inUnit.size - inspectedInUnit})") },
+                    )
+                }
+            }
+        }
         if (vehicles.isEmpty()) {
-            item { Muted(if (query.isBlank()) "A empresa ainda não tem veículos ativos." else "Nenhum veículo encontrado.", Modifier.fillMaxWidth().padding(24.dp)) }
+            val emptyText = when {
+                allVehicles.isEmpty() -> "A empresa ainda não tem veículos ativos."
+                query.isBlank() && onlyPending -> "Todos os veículos já foram inspecionados hoje."
+                else -> "Nenhum veículo encontrado."
+            }
+            item { Muted(emptyText, Modifier.fillMaxWidth().padding(24.dp)) }
         }
         items(vehicles.size, key = { vehicles[it].id }) { index ->
             val vehicle = vehicles[index]
@@ -407,7 +450,7 @@ fun VehiclesScreen(vm: AppViewModel, onVehicle: (String) -> Unit) {
                 )
                 androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     StatusTag(vehicle.status)
-                    if (Rules.inspectedToday(vehicle.lastInspection, java.time.Instant.now(), java.time.ZoneId.systemDefault())) {
+                    if (vehicle.id in inspected) {
                         Tag("Inspecionado hoje", Tone.Info)
                     }
                     if (ncs > 0) Text(Rules.plural(ncs, "NC em aberto", "NCs em aberto"), color = Palette.Warning, fontSize = 12.sp, fontWeight = FontWeight.Bold)
