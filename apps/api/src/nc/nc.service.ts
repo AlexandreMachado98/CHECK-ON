@@ -16,11 +16,26 @@ const NC_INCLUDE = {
   vehicle: true,
   item: true,
   answer: { include: { item: true, checklist: { include: { vehicle: true, driver: true } } } },
-  _count: { select: { recurrences: true } },
 } satisfies Prisma.NonConformityInclude;
 
 @Injectable()
 export class NcService {
+  /**
+   * Quantas reincidências cada NC tem (`_count.recurrences`), só para as NCs pedidas. O `_count` do
+   * Prisma agruparia todas as respostas do banco a cada consulta.
+   */
+  private async withRecurrenceCount<T extends { id: string }>(ncs: T[]): Promise<(T & { _count: { recurrences: number } })[]> {
+    const rows = ncs.length
+      ? await this.prisma.checklistAnswer.groupBy({
+          by: ['recurrentNcId'],
+          where: { recurrentNcId: { in: ncs.map((nc) => nc.id) } },
+          _count: { _all: true },
+        })
+      : [];
+    const byNc = new Map(rows.map((row) => [row.recurrentNcId, row._count._all]));
+    return ncs.map((nc) => ({ ...nc, _count: { recurrences: byNc.get(nc.id) ?? 0 } }));
+  }
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
@@ -41,7 +56,12 @@ export class NcService {
       },
     });
     if (!nc) throw new NotFoundException('NC não encontrada');
-    return { ...nc, item: itemAsAnswered(nc.item, nc.answer), answer: nc.answer ? withAnsweredItem(nc.answer) : nc.answer };
+    return {
+      ...nc,
+      _count: { recurrences: nc.recurrences.length },
+      item: itemAsAnswered(nc.item, nc.answer),
+      answer: nc.answer ? withAnsweredItem(nc.answer) : nc.answer,
+    };
   }
 
   /** Foto da tratativa: guardada na pasta de fotos da empresa (sai junto se a empresa for excluída). */
@@ -148,7 +168,7 @@ export class NcService {
       this.prisma.nonConformity.count({ where: { ...active, occurrences: { gt: 1 } } }),
     ]);
     return {
-      items: ncs.map((nc) => ({
+      items: (await this.withRecurrenceCount(ncs)).map((nc) => ({
         ...nc,
         item: itemAsAnswered(nc.item, nc.answer),
         answer: nc.answer ? withAnsweredItem(nc.answer) : nc.answer,

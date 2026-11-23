@@ -44,13 +44,22 @@ export class ChecklistService {
           template: { select: { id: true, name: true } },
           vehicle: { select: { id: true, plate: true, model: true, brand: true } },
           driver: { select: { id: true, name: true } },
-          _count: { select: { answers: { where: { isCompliant: false } } } },
         },
       }),
       this.prisma.checklist.count({ where }),
     ]);
+    // Itens não conformes só das inspeções desta página. (O `_count` do Prisma agruparia as respostas
+    // de todas as inspeções do banco a cada página: fica lento conforme o histórico cresce.)
+    const ncCounts = items.length
+      ? await this.prisma.checklistAnswer.groupBy({
+          by: ['checklistId'],
+          where: { checklistId: { in: items.map((item) => item.id) }, isCompliant: false },
+          _count: { _all: true },
+        })
+      : [];
+    const ncByChecklist = new Map(ncCounts.map((row) => [row.checklistId, row._count._all]));
     const result: Page<(typeof items)[number] & { ncCount: number }> = {
-      items: items.map((item) => ({ ...item, ncCount: item._count.answers })),
+      items: items.map((item) => ({ ...item, ncCount: ncByChecklist.get(item.id) ?? 0 })),
       total,
       page,
       pageSize,
@@ -63,16 +72,19 @@ export class ChecklistService {
     const tenantId = currentTenantId();
     const pattern = containsPattern(term);
     const platePattern = containsPattern(term.replace(/[^a-zA-Z0-9]/g, '') || term);
+    // Procura primeiro nas tabelas pequenas (veículos, colaboradores, modelos) e só então nas inspeções
+    // por índice; os nomes de modelo gravados na inspeção são comparados uma vez por nome, não por linha.
+    // As mais recentes primeiro: com termo muito amplo, o limite corta as antigas.
     const rows = await this.prisma.$queryRaw<{ id: string }[]>`
       SELECT c.id FROM "Checklist" c
-      JOIN "Vehicle" v ON v.id = c."vehicleId"
-      JOIN "Employee" e ON e.id = c."driverId"
-      LEFT JOIN "Template" t ON t.id = c."templateId"
       WHERE c."tenantId" = ${tenantId}
-        AND (${plain('v."plate"')} LIKE ${platePattern}
-          OR ${plain('e."name"')} LIKE ${pattern}
-          OR ${plain('c."templateName"')} LIKE ${pattern}
-          OR ${plain('t."name"')} LIKE ${pattern})
+        AND (c."vehicleId" IN (SELECT v.id FROM "Vehicle" v WHERE v."tenantId" = ${tenantId} AND ${plain('v."plate"')} LIKE ${platePattern})
+          OR c."driverId" IN (SELECT e.id FROM "Employee" e WHERE e."tenantId" = ${tenantId} AND ${plain('e."name"')} LIKE ${pattern})
+          OR c."templateId" IN (SELECT t.id FROM "Template" t WHERE t."tenantId" = ${tenantId} AND ${plain('t."name"')} LIKE ${pattern})
+          OR c."templateName" IN (
+            SELECT n."templateName" FROM (SELECT DISTINCT "templateName" FROM "Checklist" WHERE "tenantId" = ${tenantId}) n
+            WHERE ${plain('n."templateName"')} LIKE ${pattern}))
+      ORDER BY c."startedAt" DESC
       LIMIT ${SEARCH_LIMIT}`;
     return rows.map((row) => row.id);
   }

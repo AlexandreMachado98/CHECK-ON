@@ -16,13 +16,21 @@ export class VehicleService {
   }
 
   async findAll() {
-    return this.prisma.vehicle.findMany({
-      orderBy: { createdAt: 'desc' },
-      include: {
-        fleet: { select: { id: true, name: true } },
-        _count: { select: { ncs: { where: { status: { in: ACTIVE_NC_STATUSES } } } } },
-      },
-    });
+    const [vehicles, active] = await Promise.all([
+      this.prisma.vehicle.findMany({
+        orderBy: { createdAt: 'desc' },
+        include: { fleet: { select: { id: true, name: true } } },
+      }),
+      // NCs ativas por veículo (`_count.ncs`), só desta empresa: o `_count` do Prisma agruparia as NCs
+      // de todas as empresas a cada consulta.
+      this.prisma.nonConformity.groupBy({
+        by: ['vehicleId'],
+        where: { status: { in: ACTIVE_NC_STATUSES } },
+        _count: { _all: true },
+      }),
+    ]);
+    const byVehicle = new Map(active.map((row) => [row.vehicleId, row._count._all]));
+    return vehicles.map((vehicle) => ({ ...vehicle, _count: { ncs: byVehicle.get(vehicle.id) ?? 0 } }));
   }
 
   async findOne(id: string) {

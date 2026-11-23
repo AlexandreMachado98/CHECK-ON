@@ -13,6 +13,15 @@ const TENANT_FILTERED_OPERATIONS = [
   'update', 'updateMany', 'delete', 'deleteMany', 'count', 'aggregate', 'groupBy',
 ];
 
+/**
+ * Valor repetido em campo único (P2002) sempre é tratado: vira 409 no filtro de erros ou "DUPLICATE"
+ * no envio do aplicativo (o mesmo envio chegando duas vezes com internet ruim). Registrar como erro
+ * enche o log de falsos alarmes; fica como aviso.
+ */
+export function isHandledPrismaError(message: string): boolean {
+  return message.includes('Unique constraint failed');
+}
+
 export function createTenantPrismaClient() {
   const prisma = new PrismaClient({
     log: [
@@ -22,7 +31,7 @@ export function createTenantPrismaClient() {
   });
   const logger = new Logger('Prisma');
   prisma.$on('warn', (event) => logger.warn(event.message));
-  prisma.$on('error', (event) => logger.error(event.message));
+  prisma.$on('error', (event) => (isHandledPrismaError(event.message) ? logger.warn(event.message) : logger.error(event.message)));
   
   return prisma.$extends({
     query: {
