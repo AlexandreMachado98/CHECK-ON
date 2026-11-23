@@ -43,6 +43,13 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      # Android usado pelos testes de tela (Robolectric), baixado na primeira vez (~200 MB).
+      - uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/robolectric
+          key: robolectric-${{ hashFiles('apps/android/app/build.gradle.kts') }}
+          restore-keys: robolectric-
+
       - name: Testes e APK de teste
         run: ./gradlew --no-daemon testDebugUnitTest assembleDebug
 

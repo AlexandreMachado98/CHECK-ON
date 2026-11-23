@@ -275,4 +275,14 @@ class RulesTest {
         // Histórico antigo sem veículo não conta; sem nada, null.
         assertEquals(null, Rules.latestInspection("v1", null, emptyList(), listOf(sent.copy(vehicleId = null)), "Ana"))
     }
+
+    @Test
+    fun stackAnswerChoicesWhenLabelDoesNotFit() {
+        // Celular de 360dp: o cartão tem 296dp. "Não conforme" mede ~84dp na fonte normal.
+        assertFalse(Rules.stackAnswerChoices(296f, 84f))
+        // Fonte do sistema em 130%: ~109dp, não cabe no botão do meio (~100dp).
+        assertTrue(Rules.stackAnswerChoices(296f, 109f))
+        // Tela larga aguenta a fonte grande.
+        assertFalse(Rules.stackAnswerChoices(400f, 109f))
+    }
 }

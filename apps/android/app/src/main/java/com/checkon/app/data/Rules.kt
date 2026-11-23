@@ -230,6 +230,17 @@ object Rules {
             .any { it.lowercase().contains(q) }
     }
 
+    /**
+     * As três respostas (Conforme / Não conforme / N/A) ficam uma embaixo da outra quando
+     * "Não conforme" não cabe no botão do meio: fonte do sistema aumentada ou tela estreita.
+     * Lado a lado, os pesos são 1 : 1 : 0,8 com 8dp entre eles; o botão tem 4dp de respiro e
+     * 2dp de borda de cada lado.
+     */
+    fun stackAnswerChoices(widthDp: Float, longestLabelDp: Float): Boolean {
+        val middleButton = (widthDp - 16f) / 2.8f
+        return longestLabelDp + 12f > middleButton
+    }
+
     /** "1 foto" / "3 fotos": número com a palavra no singular ou no plural. */
     fun plural(count: Int, singular: String, plural: String): String = "$count ${if (count == 1) singular else plural}"
 
