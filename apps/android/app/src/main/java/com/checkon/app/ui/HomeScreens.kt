@@ -40,6 +40,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.animation.graphics.res.animatedVectorResource
+import androidx.compose.animation.graphics.vector.AnimatedImageVector
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -124,7 +126,7 @@ fun LoginScreen(vm: AppViewModel) {
                 contentAlignment = Alignment.Center,
             ) {
                 Image(
-                    painterResource(R.drawable.ic_launcher_foreground),
+                    animatedLogoPainter(),
                     contentDescription = "CHECK-ON",
                     modifier = Modifier.requiredSize(126.dp),
                 )
@@ -419,3 +421,17 @@ fun CenteredMessage(title: String, text: String) {
         Banner(title, text, Tone.Warning)
     }
 }
+
+/**
+ * Logo da tela de login com a mesma animação da abertura: o arco do medidor se preenche e o "V"
+ * de ok é desenhado e dá um pulo. Roda uma vez ao abrir a tela.
+ */
+@OptIn(androidx.compose.animation.graphics.ExperimentalAnimationGraphicsApi::class)
+@Composable
+private fun animatedLogoPainter(): androidx.compose.ui.graphics.painter.Painter {
+    val image = AnimatedImageVector.animatedVectorResource(R.drawable.ic_logo_animated)
+    var atEnd by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { atEnd = true }
+    return androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter(image, atEnd)
+}
+

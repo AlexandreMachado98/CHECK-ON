@@ -3,7 +3,9 @@
 package com.checkon.app
 
 import android.graphics.drawable.ColorDrawable
+import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.activity.compose.setContent
@@ -57,7 +59,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Antes do super.onCreate: mostra a tela de abertura e depois troca para o tema do app.
-        installSplashScreen()
+        val splash = installSplashScreen()
+        // Android 12+: segura a abertura até a animação do logo terminar (no máximo 1,35 s, só ao abrir o app).
+        val openedAt = SystemClock.uptimeMillis()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            splash.setKeepOnScreenCondition { SystemClock.uptimeMillis() - openedAt < SPLASH_ANIMATION_MS }
+        }
         super.onCreate(savedInstanceState)
         // Ao voltar para o app: atualiza os dados e envia a fila.
         lifecycleScope.launch {
@@ -74,6 +81,9 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+
+/** Duração da animação do logo na abertura (res/drawable/ic_logo_animated.xml). */
+private const val SPLASH_ANIMATION_MS = 1350L
 
 private val TITLES = mapOf(
     "home" to "CHECK-ON",

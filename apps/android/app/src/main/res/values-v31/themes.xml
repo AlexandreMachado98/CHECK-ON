@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Android 12+: tela de abertura com o logo animado (arco se preenche e o "V" dá um pulo).
+        Nas versões antigas a abertura não anima e fica com o ícone parado (values/themes.xml).
+    -->
+    <style name="Theme.CheckOn.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_logo_animated</item>
+        <item name="windowSplashScreenAnimationDuration">1350</item>
+        <item name="postSplashScreenTheme">@style/Theme.CheckOn</item>
+    </style>
+</resources>
