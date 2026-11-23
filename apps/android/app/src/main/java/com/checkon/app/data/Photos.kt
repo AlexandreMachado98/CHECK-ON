@@ -29,8 +29,9 @@ class Photos(private val context: Context) {
     }
 
     /**
-     * Reduz a foto para no máximo 1600 px e JPEG 70% (a API aceita até 4 MB),
+     * Reduz a foto logo depois de tirada: no máximo [MAX_SIDE] px no lado maior e JPEG [JPEG_QUALITY]%,
      * já na orientação certa. Devolve o caminho, ou null se a câmera não gravou nada.
+     * A foto original da câmera (vários MB) não fica guardada: só esta versão vai para a fila e para a API.
      */
     suspend fun finish(file: File): String? = withContext(Dispatchers.IO) {
         if (!file.exists() || file.length() == 0L) {
@@ -56,7 +57,7 @@ class Photos(private val context: Context) {
                 if (rotation != 0f) postRotate(rotation)
             }
             val output = Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true)
-            file.outputStream().use { output.compress(Bitmap.CompressFormat.JPEG, 70, it) }
+            file.outputStream().use { output.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, it) }
             if (output !== decoded) output.recycle()
             decoded.recycle()
         }
@@ -111,7 +112,13 @@ class Photos(private val context: Context) {
     }
 
     companion object {
-        private const val MAX_SIDE = 1600
+        /**
+         * Lado maior da foto, em pixels, e qualidade do JPEG. Eram 1600 px e 70% (~370 KB por foto);
+         * 1280 px e 60% ficam com ~55% do tamanho e mantêm legíveis placa, DOT do pneu e etiquetas
+         * (comparação em docs/BENCHMARK.md). Menos armazenamento e envio mais rápido no 4G fraco.
+         */
+        const val MAX_SIDE = 1280
+        const val JPEG_QUALITY = 60
         /** Tamanho da imagem da assinatura (mesma proporção 3:1 da área de assinar). */
         const val SIGNATURE_WIDTH = 900
         const val SIGNATURE_HEIGHT = 300

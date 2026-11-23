@@ -125,6 +125,23 @@ Com 40 fotos, porém, a inspeção pode levar minutos para chegar ao portal num 
 
 Só as fotos. O banco (respostas, NCs) fica em ~420 MB para 90 dias, igual com ou sem fotos.
 
+### Qualidade das fotos reduzida no app (versão 1.4.16)
+
+O app reduz a foto logo depois de tirada. Antes: até **1600 px, JPEG 70%**. Agora: até **1280 px,
+JPEG 60%**, cerca de **55% do tamanho** (medido em fotos reais e nas de teste: 50 a 60%).
+
+![Mesma foto nas três configurações, ampliada igual](img/qualidade-fotos.png)
+
+- **Legibilidade:** placa, DOT do pneu e etiquetas pequenas continuam legíveis.
+- **Opção mais forte:** 1024 px economizaria mais (~40% do tamanho). Mas perde detalhe quando a placa ou o pneu ocupam só um pedaço da foto.
+- **Fotos antigas:** as fotos já enviadas não mudam.
+
+| Fotos por inspeção | Armazenamento por mês | Em 1 ano | Envio em 4G fraco |
+| ---: | ---: | ---: | ---: |
+| 1 | ~1,5 GB (era ~2,8) | ~18 GB | ~2 s |
+| 4 | ~6 GB (era ~11) | ~75 GB | ~7 s |
+| 40 | ~60 GB (era ~110) | ~0,7 TB | ~1 min |
+
 ### Portal e PDF
 
 | Fotos na inspeção | Abrir o detalhe | Fotos baixadas ao rolar tudo | PDF: tempo / tamanho / páginas |
