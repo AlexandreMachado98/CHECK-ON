@@ -34,7 +34,7 @@ alta tende a ser **melhor** que aqui, onde um único processo atende tudo.
 | Lista de inspeções (1ª página / página 400) | 12 / 19 ms | 14 / 23 ms |
 | Busca por placa | 53 ms | 72 ms |
 | Detalhe da inspeção (40 respostas) | 9 ms | 12 ms |
-| Lista de NCs ativas | 23 ms | 28 ms |
+| Lista de NCs ativas (70 KB por página de 50) | 17 ms | 21 ms |
 | Veículos (250) / colaboradores (300) | 11 / 30 ms | 14 / 38 ms |
 | Login do portal (senha com bcrypt, proposital) | 73 ms | 77 ms |
 
@@ -201,9 +201,10 @@ Antes das correções, 60 s de uso contínuo gravavam 1.426 inspeções; depois,
    - A tela de Relatórios agora tem período: 7 dias, **30 dias (padrão)**, 90 dias, 12 meses ou tudo.
    - Com 90 dias de histórico: 7 dias = 31 ms, 30 dias = 52 ms, tudo = 72 ms.
    - O padrão não cresce com os anos de uso.
-3. **Lista de NCs pesada (~180 KB por página de 50).**
-   - Traz o cadastro completo do motorista e do veículo de cada NC.
-   - Enxugar para os campos que a tela usa.
+3. ~~**Lista de NCs pesada.**~~ Feito:
+   - A página de 50 NCs caiu de ~180 KB para **70 KB** (23 → 17 ms), com só os campos que as telas usam; o detalhe da NC continua completo.
+   - O painel pedia as 100 NCs mais recentes para mostrar as 3 mais graves, e errava: com 43 críticas ativas, mostrava 3 médias, porque as críticas eram mais antigas.
+   - Agora a API ordena por gravidade (`sort=severity`) e o painel baixa só 3 NCs (4 KB).
 4. **Miniaturas das fotos no portal.**
    - O detalhe da inspeção carrega cada foto em tamanho cheio para mostrar uma miniatura de ~64 px.
    - Com 40 fotos são ~15 MB.

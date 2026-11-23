@@ -24,7 +24,8 @@ export default function DashboardPage() {
         // Só as NCs ativas, já paginadas: a tela mostra as 3 mais graves e o total.
         const [sumRes, ncsRes] = await Promise.allSettled([
           api.get<DashboardSummary>('/dashboard/summary'),
-          api.get<{ items: NC[]; total: number }>('/ncs', { params: { page: 1, pageSize: 100, status: 'ACTIVE' } }),
+          // Só as 3 mais graves (o servidor ordena por gravidade); o total vem junto.
+          api.get<{ items: NC[]; total: number }>('/ncs', { params: { page: 1, pageSize: 3, status: 'ACTIVE', sort: 'severity' } }),
         ]);
 
         if (sumRes.status === 'fulfilled') setSummary(sumRes.value.data);
