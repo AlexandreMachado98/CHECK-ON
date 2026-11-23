@@ -52,6 +52,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -271,13 +272,23 @@ fun InspectionScreen(
         }
     }
 
+    // Tela acesa durante a inspeção: o motorista anda em volta do veículo com o celular na mão.
+    DisposableEffect(view) {
+        view.keepScreenOn = true
+        onDispose { view.keepScreenOn = false }
+    }
+
     // "Voltar" (do celular ou da barra do topo) com respostas marcadas: avisa que nada se perde.
     BackHandler(enabled = current.answers.isNotEmpty() && !saving) { confirmLeave = true }
 
     Column(Modifier.fillMaxSize().imePadding()) {
         Column(Modifier.fillMaxWidth().background(Palette.Surface).padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(template.name, fontWeight = FontWeight.Bold, color = Palette.Text, modifier = Modifier.weight(1f))
+                // Placa em destaque: confere que está inspecionando o veículo certo.
+                Column(Modifier.weight(1f)) {
+                    Text(vehicle.label, fontWeight = FontWeight.ExtraBold, fontSize = 17.sp, color = Palette.Text)
+                    Text(template.name, fontSize = 13.sp, color = Palette.Muted, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                }
                 TextButton(onClick = { confirmDiscard = true }) { Text("Descartar", color = Palette.Danger) }
             }
             LinearProgressIndicator(
@@ -359,16 +370,11 @@ fun InspectionScreen(
         )
     }
     if (confirm) {
-        val critical = nonCompliant.count { it.isCritical }
         AlertDialog(
             onDismissRequest = { confirm = false },
             title = { Text("Concluir inspeção?") },
             text = {
-                Text(
-                    "${vehicle.label} · ${template.name}\n\n" +
-                        if (nonCompliant.isEmpty()) "Todos os itens conformes."
-                        else Rules.plural(nonCompliant.size, "item não conforme", "itens não conformes") + (if (critical > 0) ", ${Rules.plural(critical, "crítico", "críticos")}" else "") + ". O gestor vai receber a não conformidade no portal.",
-                )
+                Text("${vehicle.label} · ${template.name}\n\n" + Rules.nonCompliantList(nonCompliant))
             },
             confirmButton = { TextButton(onClick = { confirm = false; save() }) { Text("Concluir") } },
             dismissButton = { TextButton(onClick = { confirm = false }) { Text("Revisar") } },
