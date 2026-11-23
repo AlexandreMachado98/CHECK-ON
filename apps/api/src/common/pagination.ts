@@ -45,4 +45,12 @@ export class NcPageQueryDto extends PageQueryDto {
   @IsOptional()
   @IsIn(['ALL', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'])
   severity?: string;
+
+  /**
+   * recent (padrão): mais novas primeiro. severity: mais graves primeiro (críticas, altas, médias,
+   * baixas) e, em cada gravidade, as mais novas. Usado pelo painel para mostrar as mais graves.
+   */
+  @IsOptional()
+  @IsIn(['recent', 'severity'])
+  sort?: 'recent' | 'severity';
 }

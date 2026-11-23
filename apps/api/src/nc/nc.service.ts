@@ -12,6 +12,43 @@ import { autoBlockCriticalNc } from '../company/company-settings';
 import { SEARCH_LIMIT, containsPattern, currentTenantId, plain } from '../common/search-sql';
 import { Prisma } from '@prisma/client';
 
+/**
+ * Lista de NCs (tela de NCs e painel): só o que as telas mostram. Antes vinham o cadastro inteiro do
+ * veículo, do item, da inspeção e do motorista em cada linha (~3,5 KB por NC, ~180 KB por página);
+ * o detalhe da NC (findOne) continua completo.
+ */
+const VEHICLE_IN_LIST = { select: { id: true, plate: true, model: true, status: true } } as const;
+const ITEM_IN_LIST = { select: { id: true, text: true, type: true, isCritical: true } } as const;
+const NC_LIST_INCLUDE = {
+  vehicle: VEHICLE_IN_LIST,
+  item: ITEM_IN_LIST,
+  answer: {
+    select: {
+      id: true,
+      checklistId: true,
+      photoUrl: true,
+      observations: true,
+      // Cópia da pergunta no momento da resposta (o item pode ter mudado depois).
+      itemText: true,
+      itemType: true,
+      itemIsCritical: true,
+      categoryName: true,
+      item: ITEM_IN_LIST,
+      checklist: {
+        select: {
+          id: true,
+          completedAt: true,
+          vehicle: VEHICLE_IN_LIST,
+          driver: { select: { id: true, name: true } },
+        },
+      },
+    },
+  },
+} satisfies Prisma.NonConformityInclude;
+
+/** Da mais grave para a menos grave. */
+const SEVERITY_ORDER = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const;
+
 const NC_INCLUDE = {
   vehicle: true,
   item: true,
@@ -161,7 +198,9 @@ export class NcService {
     };
     const active = { status: { in: ACTIVE_NC_STATUSES } };
     const [ncs, total, activeCount, critical, recurrent] = await Promise.all([
-      this.prisma.nonConformity.findMany({ where, include: NC_INCLUDE, orderBy: { createdAt: 'desc' }, skip, take }),
+      query.sort === 'severity'
+        ? this.findBySeverity(where, skip, take)
+        : this.prisma.nonConformity.findMany({ where, include: NC_LIST_INCLUDE, orderBy: { createdAt: 'desc' }, skip, take }),
       this.prisma.nonConformity.count({ where }),
       this.prisma.nonConformity.count({ where: active }),
       this.prisma.nonConformity.count({ where: { ...active, severity: 'CRITICAL' } }),
@@ -178,6 +217,38 @@ export class NcService {
       pageSize,
       counts: { active: activeCount, critical, recurrent },
     };
+  }
+
+  /**
+   * Mais graves primeiro. A gravidade é texto no banco (ordem alfabética não serve), então busca
+   * gravidade por gravidade, só o que falta para completar a página.
+   */
+  private async findBySeverity(where: Prisma.NonConformityWhereInput, skip: number, take: number) {
+    const found: Prisma.NonConformityGetPayload<{ include: typeof NC_LIST_INCLUDE }>[] = [];
+    let toSkip = skip;
+    for (const severity of SEVERITY_ORDER) {
+      if (found.length >= take) break;
+      if (where.severity && where.severity !== severity) continue;
+      const scoped = { ...where, severity };
+      if (toSkip > 0) {
+        const count = await this.prisma.nonConformity.count({ where: scoped });
+        if (count <= toSkip) {
+          toSkip -= count;
+          continue;
+        }
+      }
+      found.push(
+        ...(await this.prisma.nonConformity.findMany({
+          where: scoped,
+          include: NC_LIST_INCLUDE,
+          orderBy: { createdAt: 'desc' },
+          skip: toSkip,
+          take: take - found.length,
+        })),
+      );
+      toSkip = 0;
+    }
+    return found;
   }
 
   /** NCs cuja placa, item, motorista ou anotação contém o termo, sem diferenciar acentos e maiúsculas. */
