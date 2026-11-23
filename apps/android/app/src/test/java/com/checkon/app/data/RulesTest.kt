@@ -335,4 +335,17 @@ class RulesTest {
         val sentToday = SentInspection("s", "CCC3C33", "Diário", "2026-11-23T12:00:00Z", sentAt = 0, vehicleId = "v3")
         assertEquals(setOf("v1", "v3"), Rules.inspectedTodayIds(vehicles, emptyList(), listOf(sentToday), "Ana", now, zone))
     }
+
+    @Test
+    fun startActionAsksBeforeRepeatingToday() {
+        val other = Draft("c", "v2", "BBB", "t1", "Diário", 1, "2026-11-23T10:00:00Z")
+        val same = other.copy(vehicleId = "v1")
+        assertEquals(Rules.StartAction.Start, Rules.startAction(null, "v1", "t1", inspectedToday = false, confirmedToday = false))
+        assertEquals(Rules.StartAction.AskInspectedToday, Rules.startAction(null, "v1", "t1", inspectedToday = true, confirmedToday = false))
+        assertEquals(Rules.StartAction.Start, Rules.startAction(null, "v1", "t1", inspectedToday = true, confirmedToday = true))
+        // Rascunho de outro veículo vem antes do aviso de "hoje".
+        assertEquals(Rules.StartAction.AskAboutOtherDraft, Rules.startAction(other, "v1", "t1", inspectedToday = true, confirmedToday = false))
+        // Retomando o mesmo rascunho: não pergunta nada.
+        assertEquals(Rules.StartAction.Start, Rules.startAction(same, "v1", "t1", inspectedToday = true, confirmedToday = false))
+    }
 }

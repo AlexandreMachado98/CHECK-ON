@@ -42,6 +42,7 @@ fun VehicleScreen(vm: AppViewModel, vehicleId: String, onStart: (vehicleId: Stri
     val vehicle = bootstrap?.vehicles?.firstOrNull { it.id == vehicleId }
     var freshNcs by remember { mutableStateOf<List<OpenNc>?>(null) }
     var pendingDraft by remember { mutableStateOf<Pair<Draft, Template>?>(null) }
+    var againToday by remember { mutableStateOf<Template?>(null) }
     val scope = rememberCoroutineScope()
 
     // Com internet, confere as NCs na hora (outro motorista pode ter apontado algo hoje).
@@ -57,13 +58,18 @@ fun VehicleScreen(vm: AppViewModel, vehicleId: String, onStart: (vehicleId: Stri
     // Só os checklists que valem na frente de trabalho deste veículo.
     val templates = Rules.templatesForVehicle(bootstrap?.templates ?: emptyList(), vehicle)
 
-    fun start(template: Template) {
+    // Última inspeção (servidor + este celular), para evitar inspecionar duas vezes no mesmo dia.
+    val last = Rules.latestInspection(vehicle.id, vehicle.lastInspection, queue, history, session?.user?.name)
+    val zone = java.time.ZoneId.systemDefault()
+
+    fun start(template: Template, confirmedToday: Boolean = false) {
         scope.launch {
             val draft = vm.repository.readDraft()
-            if (draft != null && (draft.vehicleId != vehicle.id || draft.templateId != template.id)) {
-                pendingDraft = draft to template
-            } else {
-                onStart(vehicle.id, template.id)
+            val today = Rules.inspectedToday(last, java.time.Instant.now(), zone)
+            when (Rules.startAction(draft, vehicle.id, template.id, today, confirmedToday)) {
+                Rules.StartAction.AskAboutOtherDraft -> pendingDraft = draft!! to template
+                Rules.StartAction.AskInspectedToday -> againToday = template
+                Rules.StartAction.Start -> onStart(vehicle.id, template.id)
             }
         }
     }
@@ -84,8 +90,6 @@ fun VehicleScreen(vm: AppViewModel, vehicleId: String, onStart: (vehicleId: Stri
             )
             // Evita inspecionar de novo o que um colega acabou de inspecionar.
             val now = java.time.Instant.now()
-            val zone = java.time.ZoneId.systemDefault()
-            val last = Rules.latestInspection(vehicle.id, vehicle.lastInspection, queue, history, session?.user?.name)
             val today = Rules.inspectedToday(last, now, zone)
             Text(
                 Rules.lastInspectionText(last, now, zone),
@@ -96,6 +100,19 @@ fun VehicleScreen(vm: AppViewModel, vehicleId: String, onStart: (vehicleId: Stri
         }
         if (vehicle.status == "BLOQUEADO") {
             Banner("Veículo bloqueado", "Este veículo tem problema crítico em aberto e não deve circular até ser liberado pelo gestor.", Tone.Danger)
+        }
+
+        SectionTitle("Escolha o checklist")
+        if (templates.isEmpty()) Muted("Não há checklist ativo para a frente de trabalho deste veículo. Fale com o seu gestor.")
+        templates.forEach { template ->
+            AppCard(onClick = { start(template) }) {
+                IconRow(Icons.AutoMirrored.Filled.Assignment, Palette.Primary) {
+                    Column {
+                        Text(template.name, fontWeight = FontWeight.Bold, color = Palette.Text)
+                        Muted(Rules.plural(template.allItems.size, "item", "itens") + (template.description?.let { " · $it" } ?: ""))
+                    }
+                }
+            }
         }
 
         SectionTitle("NCs em aberto (${ncs.size})")
@@ -110,19 +127,6 @@ fun VehicleScreen(vm: AppViewModel, vehicleId: String, onStart: (vehicleId: Stri
                 }
                 nc.notes?.takeIf { it.isNotBlank() }?.let { Muted(it) }
                 Muted("Desde ${formatDateTime(nc.createdAt)}")
-            }
-        }
-
-        SectionTitle("Escolha o checklist")
-        if (templates.isEmpty()) Muted("Não há checklist ativo para a frente de trabalho deste veículo. Fale com o seu gestor.")
-        templates.forEach { template ->
-            AppCard(onClick = { start(template) }) {
-                IconRow(Icons.AutoMirrored.Filled.Assignment, Palette.Primary) {
-                    Column {
-                        Text(template.name, fontWeight = FontWeight.Bold, color = Palette.Text)
-                        Muted("${template.allItems.size} itens" + (template.description?.let { " · $it" } ?: ""))
-                    }
-                }
             }
         }
     }
@@ -148,6 +152,25 @@ fun VehicleScreen(vm: AppViewModel, vehicleId: String, onStart: (vehicleId: Stri
                     }
                 }) { Text("Descartar e começar esta", color = Palette.Danger) }
             },
+        )
+    }
+    againToday?.let { template ->
+        AlertDialog(
+            onDismissRequest = { againToday = null },
+            title = { Text("Já inspecionado hoje") },
+            text = {
+                Text(
+                    "${Rules.lastInspectionText(last, java.time.Instant.now(), zone)}.\n\n" +
+                        "Faça outra só se algo mudou (troca de turno, problema novo). Senão, o gestor recebe inspeções repetidas.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    againToday = null
+                    start(template, confirmedToday = true)
+                }) { Text("Fazer outra") }
+            },
+            dismissButton = { TextButton(onClick = { againToday = null }) { Text("Cancelar") } },
         )
     }
 }
