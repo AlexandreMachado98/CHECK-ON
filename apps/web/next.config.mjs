@@ -1,5 +1,3 @@
-import path from 'node:path';
-
 /** @type {import('next').NextConfig} */
 const securityHeaders = [
   // O portal nunca é aberto dentro de outro site (evita clickjacking).
@@ -18,10 +16,6 @@ const nextConfig = {
       // Crachá público: não entra em buscadores nem em cache compartilhado.
       { source: '/badge/:path*', headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow, noarchive' }, { key: 'Referrer-Policy', value: 'no-referrer' }] },
     ];
-  },
-  webpack(config) {
-    config.resolve.alias['@'] = path.resolve(process.cwd(), 'src');
-    return config;
   },
 };
 

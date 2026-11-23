@@ -20,11 +20,16 @@ export function accessChannel(roleName?: string | null): 'APP' | 'PORTAL' {
   return roleName === 'MOTORISTA' ? 'APP' : 'PORTAL';
 }
 
+/** Login bloqueado por senha errada repetida (até `lockedUntil`). */
+export function isLoginLocked(lockedUntil?: string | null, now: number = Date.now()): boolean {
+  return !!lockedUntil && new Date(lockedUntil).getTime() > now;
+}
+
 /** Situação do acesso na lista de colaboradores. */
 export function AccessBadge({ access }: { access?: EmployeeAccess | null }) {
   if (!access) return <span className="text-xs text-slate-400">Sem acesso</span>;
   const channel = accessChannel(access.role.name);
-  const locked = access.lockedUntil && new Date(access.lockedUntil).getTime() > Date.now();
+  const locked = isLoginLocked(access.lockedUntil);
   return (
     <div className="space-y-1">
       <Badge
