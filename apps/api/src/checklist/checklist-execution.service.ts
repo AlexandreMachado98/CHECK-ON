@@ -8,6 +8,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
 import { ClsService } from 'nestjs-cls';
 import { autoBlockCriticalNc } from '../company/company-settings';
 import { PrismaService } from '../prisma/prisma.service';
@@ -50,6 +51,13 @@ export type SyncItemResult =
 
 /** Perfis que podem registrar checklist em nome de outro motorista. */
 const MANAGER_ROLES = ['ADMIN_EMPRESA', 'GESTOR', 'SUPERVISOR'];
+
+/**
+ * Envio de inspeção: no pico da manhã muitos envios chegam juntos e disputam as poucas conexões do
+ * banco (5 por instância em produção). Esperar até 10 s por uma conexão é melhor do que devolver
+ * "erro temporário" e o app reenviar depois; 20 s cobre uma inspeção grande com o banco distante.
+ */
+export const SUBMIT_TRANSACTION = { maxWait: 10_000, timeout: 20_000 } as const;
 
 @Injectable()
 export class ChecklistExecutionService {
@@ -155,31 +163,44 @@ export class ChecklistExecutionService {
         let ncsOpened = 0;
         let ncsRecurrent = 0;
 
-        for (const answer of answers) {
+        // NCs ativas do veículo numa consulta só: a constatação de um item que já tem NC ativa é
+        // reincidência (agrupa na NC existente em vez de abrir outra).
+        const activeNcByItem = new Map<string, { id: string; severity: string }>();
+        for (const nc of await tx.nonConformity.findMany({
+          where: { vehicleId: vehicle.id, status: { in: ACTIVE_NC_STATUSES } },
+          orderBy: { createdAt: 'asc' },
+          select: { id: true, itemId: true, severity: true },
+        })) {
+          if (nc.itemId && !activeNcByItem.has(nc.itemId)) activeNcByItem.set(nc.itemId, nc);
+        }
+
+        // Todas as respostas num comando só (antes: uma ida ao banco por item). Com o banco longe da
+        // API, 40 idas seguidas seguravam a conexão por segundos e o pico da manhã esgotava o pool.
+        // O id é gerado aqui para ligar as NCs novas às respostas sem precisar ler de volta.
+        const rows = answers.map((answer) => {
           const item = itemsById.get(answer.itemId)!;
-          const created = await tx.checklistAnswer.create({
-            data: {
-              tenantId,
-              checklistId: checklist.id,
-              ...answer,
-              // Cópia da pergunta: editar o modelo depois não muda o que foi respondido.
-              itemText: item.text,
-              itemType: item.type,
-              itemIsCritical: item.isCritical,
-              categoryName: item.categoryName,
-            },
-          });
+          const recurrent = !answer.isCompliant ? activeNcByItem.get(item.id) : undefined;
+          return {
+            id: randomUUID(),
+            tenantId,
+            checklistId: checklist.id,
+            ...answer,
+            // Cópia da pergunta: editar o modelo depois não muda o que foi respondido.
+            itemText: item.text,
+            itemType: item.type,
+            itemIsCritical: item.isCritical,
+            categoryName: item.categoryName,
+            recurrentNcId: recurrent?.id ?? null,
+          };
+        });
+        await tx.checklistAnswer.createMany({ data: rows });
 
+        // Só os itens com problema (poucos por inspeção): reincidência atualiza a NC; senão abre uma.
+        for (const answer of rows) {
           if (answer.isCompliant) continue;
-
+          const item = itemsById.get(answer.itemId)!;
           const severity = severityFor(item);
-          // Reincidência: se já existe NC ativa do mesmo item neste veículo,
-          // agrupa a nova constatação nela em vez de abrir uma NC duplicada.
-          const activeNc = await tx.nonConformity.findFirst({
-            where: { vehicleId: vehicle.id, itemId: item.id, status: { in: ACTIVE_NC_STATUSES } },
-            orderBy: { createdAt: 'asc' },
-          });
-
+          const activeNc = activeNcByItem.get(item.id);
           if (activeNc) {
             await tx.nonConformity.update({
               where: { id: activeNc.id },
@@ -189,16 +210,12 @@ export class ChecklistExecutionService {
                 severity: maxSeverity(activeNc.severity, severity),
               },
             });
-            await tx.checklistAnswer.update({
-              where: { id: created.id },
-              data: { recurrentNcId: activeNc.id },
-            });
             ncsRecurrent++;
           } else {
             await tx.nonConformity.create({
               data: {
                 tenantId,
-                answerId: created.id,
+                answerId: answer.id,
                 vehicleId: vehicle.id,
                 itemId: item.id,
                 severity,
@@ -231,7 +248,7 @@ export class ChecklistExecutionService {
           ncsRecurrent,
           vehicleStatus,
         };
-      });
+      }, SUBMIT_TRANSACTION);
     } catch (error) {
       // Dois envios simultâneos do mesmo clientId: o segundo esbarra no índice único.
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {

@@ -30,4 +30,23 @@ Partes isoladas (com a API e a massa já prontas): `node bench.mjs latencia`, `p
 | `bench.mjs` | Tempo de resposta (1 usuário), pico de 50/200 motoristas, 60 s de uso contínuo e reenvio duplicado. Resultados em `resultados/`. |
 | `security.mjs` | Isolamento entre empresas, token adulterado, perfis, bloqueio de login, arquivos e envios inválidos. |
 
+### Com fotos
+
+```bash
+python3 make-photos.py fotos          # 12 fotos de 1600 px, JPEG 70% (~377 KB, como as do app)
+node bench-fotos.mjs                  # 1, 4 e 40 fotos por inspeção, 50 e 200 motoristas + queda no meio do envio
+node bench-fotos.mjs 40 --motoristas=200
+node fotos-portal-setup.mjs           # 3 inspeções (1, 4 e 40 fotos) no BEN0248, para abrir no portal e gerar o PDF
+```
+
+O cenário de 40 fotos com 200 motoristas grava ~3 GB em `UPLOADS_DIRECTORY` (`/tmp/checkon-bench-uploads`).
+
+### Banco longe da API (como em produção)
+
+```bash
+node latency-proxy.mjs 6432 25        # +25 ms em cada sentido = 50 ms por ida e volta
+# suba a API com DATABASE_URL=...localhost:6432/checkon_bench?connection_limit=5
+node sync-latency.mjs                 # 10 envios seguidos e 50 motoristas ao mesmo tempo
+```
+
 O resultado de referência está em [`docs/BENCHMARK.md`](../../../docs/BENCHMARK.md).

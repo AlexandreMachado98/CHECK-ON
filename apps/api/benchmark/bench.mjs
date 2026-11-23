@@ -59,7 +59,8 @@ if (phases.includes('latencia')) {
   await seq('GET /mobile/bootstrap (motorista)', () => call('GET', '/mobile/bootstrap', driver));
   await seq('POST /checklists/sync (1 inspeção, 40 itens)', (k) => call('POST', '/checklists/sync', driver, { checklists: [inspection(vehicleOf(e, k))] }));
   await seq('GET /dashboard/summary', () => call('GET', '/dashboard/summary', admin));
-  await seq('GET /dashboard/report', () => call('GET', '/dashboard/report', admin));
+  await seq('GET /dashboard/report (30 dias, padrão)', () => call('GET', '/dashboard/report', admin));
+  await seq('GET /dashboard/report?period=all', () => call('GET', '/dashboard/report?period=all', admin));
   await seq('GET /checklists (1ª página, 50)', () => call('GET', '/checklists?pageSize=50', admin));
   await seq('GET /checklists (página 400, 50)', () => call('GET', '/checklists?pageSize=50&page=400', admin));
   await seq('GET /checklists?search=BEN0123', () => call('GET', '/checklists?pageSize=50&search=BEN0123', admin));

@@ -64,15 +64,20 @@ function buildMocks() {
     employee: { findFirst: vi.fn().mockResolvedValue({ id: 'emp-1', name: 'João Motorista' }) },
     checklist: { create: vi.fn().mockResolvedValue({ id: 'chk-1' }) },
     checklistAnswer: {
-      create: vi.fn().mockImplementation(({ data }) => Promise.resolve({ id: `ans-${data.itemId}` })),
+      // Todas as respostas num comando só.
+      createMany: vi.fn().mockImplementation(({ data }) => Promise.resolve({ count: data.length })),
       update: vi.fn().mockResolvedValue({}),
     },
     nonConformity: {
-      // "luz" já tem NC ativa (reincidência); "pneu" não.
-      findFirst: vi.fn().mockImplementation(({ where }) =>
-        Promise.resolve(where.itemId === 'luz' ? { id: 'nc-luz', severity: 'MEDIUM' } : null),
+      // Antes de gravar: NCs ativas do veículo por item ("luz" já tem, é reincidência; "pneu" não).
+      // Depois de gravar: as ativas que definem o status do veículo.
+      findMany: vi.fn().mockImplementation(({ select }) =>
+        Promise.resolve(
+          select?.itemId
+            ? [{ id: 'nc-luz', itemId: 'luz', severity: 'MEDIUM' }]
+            : [{ severity: 'CRITICAL' }, { severity: 'MEDIUM' }],
+        ),
       ),
-      findMany: vi.fn().mockResolvedValue([{ severity: 'CRITICAL' }, { severity: 'MEDIUM' }]),
       create: vi.fn().mockResolvedValue({}),
       update: vi.fn().mockResolvedValue({}),
     },
@@ -99,14 +104,23 @@ describe('ChecklistExecutionService', () => {
   });
 
   it('cria execução, abre NC nova, agrupa reincidência e bloqueia o veículo', async () => {
-    const { service, tx } = buildMocks();
+    const { service, tx, prisma } = buildMocks();
     const result = await service.submit(baseDto(), motorista);
+    // Pico da manhã: espera até 10 s por uma conexão livre em vez de devolver "erro temporário".
+    expect(prisma.$transaction.mock.calls[0][1]).toEqual({ maxWait: 10_000, timeout: 20_000 });
 
     expect(result).toMatchObject({ status: 'CREATED', ncsOpened: 1, ncsRecurrent: 1, vehicleStatus: 'BLOQUEADO' });
     expect(tx.checklist.create.mock.calls[0][0].data).toMatchObject({ tenantId: 'tenant-1', driverId: 'emp-1', status: 'COMPLETED' });
     expect(tx.nonConformity.create.mock.calls[0][0].data).toMatchObject({ itemId: 'pneu', severity: 'CRITICAL', vehicleId: 'veh-1' });
     expect(tx.nonConformity.update.mock.calls[0][0]).toMatchObject({ where: { id: 'nc-luz' } });
-    expect(tx.checklistAnswer.update.mock.calls[0][0].data).toEqual({ recurrentNcId: 'nc-luz' });
+    // Respostas gravadas num comando só; a reincidência já vai ligada à NC existente.
+    expect(tx.checklistAnswer.createMany).toHaveBeenCalledTimes(1);
+    const rows = tx.checklistAnswer.createMany.mock.calls[0][0].data;
+    expect(rows.find((r: { itemId: string }) => r.itemId === 'luz').recurrentNcId).toBe('nc-luz');
+    expect(rows.find((r: { itemId: string }) => r.itemId === 'pneu').recurrentNcId).toBeNull();
+    // A NC nova aponta para a resposta que a originou (id gerado antes de gravar).
+    expect(tx.nonConformity.create.mock.calls[0][0].data.answerId).toBe(rows.find((r: { itemId: string }) => r.itemId === 'pneu').id);
+    expect(tx.checklistAnswer.update).not.toHaveBeenCalled();
     expect(tx.vehicle.update).toHaveBeenCalledWith({ where: { id: 'veh-1' }, data: { status: 'BLOQUEADO' } });
   });
 
@@ -204,7 +218,7 @@ describe('ChecklistExecutionService', () => {
       await service.submit(baseDto({ templateVersion: 3 }), motorista);
 
       expect(tx.checklist.create.mock.calls[0][0].data).toMatchObject({ templateVersion: 3, templateName: 'Inspeção diária' });
-      expect(tx.checklistAnswer.create.mock.calls[0][0].data).toMatchObject({
+      expect(tx.checklistAnswer.createMany.mock.calls[0][0].data[0]).toMatchObject({
         itemId: 'pneu',
         itemText: 'Pneus',
         itemType: 'PASS_FAIL',

@@ -1,4 +1,4 @@
-import { NestFactory } from '@nestjs/core';
+import { HttpAdapterHost, NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { Logger } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -6,6 +6,7 @@ import express from 'express';
 import { resolve } from 'node:path';
 import { PrismaExceptionFilter } from './common/prisma-exception.filter';
 import { createValidationPipe } from './common/validation';
+import { ClientAbortFilter } from './common/client-abort.filter';
 import { corsOrigins, isProduction, storageDriver, validateEnvOnStartup } from './config/env';
 
 // O Prisma devolve BigInt (ex.: Tenant.storageUsed), que o JSON padrão não sabe serializar.
@@ -39,7 +40,8 @@ async function bootstrap() {
     app.use('/uploads', express.static(uploadsDirectory, { dotfiles: 'deny', index: false, maxAge: '1d' }));
   }
 
-  app.useGlobalFilters(new PrismaExceptionFilter());
+  // O Nest consulta os filtros do último para o primeiro: Prisma primeiro, depois o geral.
+  app.useGlobalFilters(new ClientAbortFilter(app.get(HttpAdapterHost).httpAdapter), new PrismaExceptionFilter());
 
   app.useGlobalPipes(createValidationPipe());
 
