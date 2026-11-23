@@ -115,6 +115,18 @@ object Rules {
             .maxByOrNull { it.first }?.second ?: server
     }
 
+    /** Ids dos veículos com inspeção hoje (servidor + o que foi feito neste celular). */
+    fun inspectedTodayIds(
+        vehicles: List<Vehicle>,
+        queue: List<QueuedInspection>,
+        history: List<SentInspection>,
+        myName: String?,
+        now: Instant,
+        zone: ZoneId,
+    ): Set<String> = vehicles.filter { vehicle ->
+        inspectedToday(latestInspection(vehicle.id, vehicle.lastInspection, queue, history, myName), now, zone)
+    }.map { it.id }.toSet()
+
     /** "Última inspeção: hoje às 07:12 · Maria" / "ontem às ..." / "21/11 às ...". */
     fun lastInspectionText(last: LastInspection?, now: Instant, zone: ZoneId): String {
         val date = last?.let { runCatching { Instant.parse(it.completedAt) }.getOrNull() } ?: return "Nenhuma inspeção registrada"

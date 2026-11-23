@@ -368,9 +368,7 @@ fun VehiclesScreen(vm: AppViewModel, onVehicle: (String) -> Unit) {
     val session by vm.session.collectAsState()
     val now = java.time.Instant.now()
     val zone = java.time.ZoneId.systemDefault()
-    val inspected: Set<String> = allVehicles.filter { vehicle ->
-        Rules.inspectedToday(Rules.latestInspection(vehicle.id, vehicle.lastInspection, queue, history, session?.user?.name), now, zone)
-    }.map { it.id }.toSet()
+    val inspected: Set<String> = Rules.inspectedTodayIds(allVehicles, queue, history, session?.user?.name, now, zone)
     var onlyPending by rememberSaveable { mutableStateOf(false) }
     val inUnit = allVehicles.filter { unitFilter == null || it.fleet?.unitId == unitFilter }
     val vehicles: List<Vehicle> = inUnit.filter {
