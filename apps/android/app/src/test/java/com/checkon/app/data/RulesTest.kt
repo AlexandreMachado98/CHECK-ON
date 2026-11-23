@@ -285,4 +285,24 @@ class RulesTest {
         // Tela larga aguenta a fonte grande.
         assertFalse(Rules.stackAnswerChoices(400f, 109f))
     }
+
+    @Test
+    fun nonCompliantListShowsCriticalFirstAndLimits() {
+        assertEquals("Todos os itens conformes.", Rules.nonCompliantList(emptyList()))
+        val items = listOf(
+            TemplateItem("1", "Pneus"),
+            TemplateItem("2", "Freio", isCritical = true),
+            TemplateItem("3", "Buzina"),
+        )
+        assertEquals(
+            "3 itens não conformes:\n• Freio (crítico)\n• Pneus\n• Buzina\n\nO gestor vai receber a não conformidade no portal.",
+            Rules.nonCompliantList(items),
+        )
+        val many = (1..7).map { TemplateItem("$it", "Item $it") }
+        val text = Rules.nonCompliantList(many, max = 5)
+        assertTrue(text.startsWith("7 itens não conformes:\n• Item 1"))
+        assertTrue(text.contains("• Item 5\n...e mais 2"))
+        assertFalse(text.contains("Item 6"))
+        assertTrue(Rules.nonCompliantList(listOf(TemplateItem("1", "Óleo"))).startsWith("1 item não conforme:"))
+    }
 }

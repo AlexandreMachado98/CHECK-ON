@@ -241,6 +241,19 @@ object Rules {
         return longestLabelDp + 12f > middleButton
     }
 
+    /**
+     * Texto da confirmação de concluir: quais itens ficaram não conformes (críticos primeiro),
+     * até [max] nomes e "...e mais N" no fim, para o motorista revisar antes de enviar.
+     */
+    fun nonCompliantList(items: List<TemplateItem>, max: Int = 5): String {
+        if (items.isEmpty()) return "Todos os itens conformes."
+        val ordered = items.sortedByDescending { it.isCritical }
+        val lines = ordered.take(max).map { "• ${it.text}" + if (it.isCritical) " (crítico)" else "" }
+        val more = if (items.size > max) listOf("...e mais ${items.size - max}") else emptyList()
+        return (listOf(plural(items.size, "item não conforme:", "itens não conformes:")) + lines + more).joinToString("\n") +
+            "\n\nO gestor vai receber a não conformidade no portal."
+    }
+
     /** "1 foto" / "3 fotos": número com a palavra no singular ou no plural. */
     fun plural(count: Int, singular: String, plural: String): String = "$count ${if (count == 1) singular else plural}"
 
