@@ -152,9 +152,10 @@ private fun AppNavigation(vm: AppViewModel) {
                         clientId = back.arguments?.getString("clientId") ?: "",
                         onNew = { nav.goHomeThen("vehicles") },
                         onHome = { nav.popBackStack("home", inclusive = false) },
+                        onOpenInspection = { v, t -> nav.goHomeThen("inspection/$v/$t") },
                     )
                 }
-                composable("queue") { QueueScreen(vm) }
+                composable("queue") { QueueScreen(vm, onOpenInspection = { v, t -> nav.goHomeThen("inspection/$v/$t") }) }
             }
         }
     }

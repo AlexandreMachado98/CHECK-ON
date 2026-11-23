@@ -79,6 +79,21 @@ class Repository(
         }
     }
 
+    /**
+     * Refaz uma inspeção recusada: vira o rascunho atual (com as respostas que ainda valem) e sai
+     * da fila. Fotos aproveitadas continuam no celular; as outras e a assinatura são apagadas.
+     */
+    suspend fun redoRejected(clientId: String, template: Template): Draft? {
+        val id = userId() ?: return null
+        val item = store.readQueue(id).firstOrNull { it.clientId == clientId && it.state == "REJECTED" } ?: return null
+        val (draft, dropped) = Rules.draftFromRejected(item, template, java.util.UUID.randomUUID().toString(), java.time.Instant.now())
+        // Primeiro grava o rascunho; só depois tira da fila (se o app fechar no meio, nada se perde).
+        store.saveDraft(id, draft)
+        _queue.value = store.updateQueue(id) { queue -> queue.filter { it.clientId != clientId } }
+        dropped.forEach { photos.delete(it) }
+        return draft
+    }
+
     /** Envia a fila. Chamadas ao mesmo tempo esperam o envio em andamento. */
     suspend fun sync(): SyncSummary? = syncLock.withLock {
         val id = userId() ?: return null
