@@ -1,5 +1,6 @@
 package com.checkon.app.ui
 
+import androidx.compose.animation.graphics.res.animatedVectorResource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,7 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material3.AlertDialog
@@ -46,6 +46,22 @@ fun DoneScreen(vm: AppViewModel, clientId: String, onNew: () -> Unit, onHome: ()
     val rejected = item?.state == "REJECTED"
     // Resultado devolvido pelo servidor (situação do veículo e NCs), quando já foi aceita.
     val result = history.firstOrNull { it.clientId == clientId }
+    // Quantos veículos já foram inspecionados hoje (contando esta).
+    val bootstrap by vm.bootstrap.collectAsState()
+    val session by vm.session.collectAsState()
+    val vehicles = bootstrap?.vehicles ?: emptyList()
+    val inspectedToday = Rules.inspectedTodayIds(
+        vehicles, queue, history, session?.user?.name, java.time.Instant.now(), java.time.ZoneId.systemDefault(),
+    ).size
+    // Vibra uma vez quando o servidor aceita (na hora ou quando a internet volta com a tela aberta).
+    val view = androidx.compose.ui.platform.LocalView.current
+    var celebrated by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(sent) {
+        if (sent && !celebrated) {
+            celebrated = true
+            view.answerHaptic(AnswerFeel.Confirm)
+        }
+    }
 
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(ScreenPadding),
@@ -53,20 +69,17 @@ fun DoneScreen(vm: AppViewModel, clientId: String, onNew: () -> Unit, onHome: ()
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Spacer(Modifier.height(32.dp))
-        Icon(
-            when {
-                sent -> Icons.Filled.CheckCircle
-                rejected -> Icons.Filled.ErrorOutline
-                else -> Icons.Filled.CloudUpload
-            },
-            contentDescription = null,
-            tint = when {
-                sent -> Palette.Primary
-                rejected -> Palette.Danger
-                else -> Palette.Warning
-            },
-            modifier = Modifier.size(88.dp),
-        )
+        if (sent) {
+            // Mesmo desenho do logo: o arco se preenche e o "V" de ok aparece.
+            SuccessMark(Modifier.size(120.dp))
+        } else {
+            Icon(
+                if (rejected) Icons.Filled.ErrorOutline else Icons.Filled.CloudUpload,
+                contentDescription = null,
+                tint = if (rejected) Palette.Danger else Palette.Warning,
+                modifier = Modifier.size(88.dp),
+            )
+        }
         Text(
             when {
                 sent -> "Inspeção enviada"
@@ -88,6 +101,13 @@ fun DoneScreen(vm: AppViewModel, clientId: String, onNew: () -> Unit, onHome: ()
         if (sent && result != null) SentResultCard(result)
         if (rejected) Banner("Motivo", item?.message, Tone.Danger)
         if (item?.state == "PENDING" && online && !syncing) SecondaryButton("Tentar enviar agora", onClick = vm::syncNow)
+        if (!rejected && vehicles.size > 1) {
+            Muted(
+                if (inspectedToday >= vehicles.size) "Todos os ${vehicles.size} veículos já foram inspecionados hoje."
+                else "Hoje: $inspectedToday de ${vehicles.size} veículos inspecionados.",
+                Modifier.fillMaxWidth(),
+            )
+        }
         PrimaryButton("Nova inspeção", onClick = onNew)
         SecondaryButton("Voltar ao início", onClick = onHome)
     }
@@ -175,5 +195,19 @@ private fun SentResultCard(item: SentInspection) {
             else -> null
         },
         tone = tone,
+    )
+}
+
+/** Marca de sucesso animada (logo do app): toca uma vez ao aparecer. */
+@OptIn(androidx.compose.animation.graphics.ExperimentalAnimationGraphicsApi::class)
+@Composable
+private fun SuccessMark(modifier: Modifier) {
+    val image = androidx.compose.animation.graphics.vector.AnimatedImageVector.animatedVectorResource(com.checkon.app.R.drawable.ic_logo_animated)
+    var atEnd by remember { mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(Unit) { atEnd = true }
+    androidx.compose.foundation.Image(
+        painter = androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter(image, atEnd),
+        contentDescription = "Inspeção enviada",
+        modifier = modifier,
     )
 }

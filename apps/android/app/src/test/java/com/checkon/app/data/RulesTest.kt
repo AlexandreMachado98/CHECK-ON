@@ -322,4 +322,17 @@ class RulesTest {
         assertEquals("Começada ontem às 20:30" to true, Rules.draftStarted("2026-11-22T23:30:00Z", now, zone))
         assertEquals("" to false, Rules.draftStarted("x", now, zone))
     }
+
+    @Test
+    fun inspectedTodayIdsMixesServerAndPhone() {
+        val zone = java.time.ZoneId.of("America/Sao_Paulo")
+        val now = java.time.Instant.parse("2026-11-23T13:00:00Z")
+        val vehicles = listOf(
+            Vehicle("v1", "AAA1A11", lastInspection = LastInspection("2026-11-23T10:00:00Z")), // servidor: hoje
+            Vehicle("v2", "BBB2B22", lastInspection = LastInspection("2026-11-22T10:00:00Z")), // servidor: ontem
+            Vehicle("v3", "CCC3C33"),
+        )
+        val sentToday = SentInspection("s", "CCC3C33", "Diário", "2026-11-23T12:00:00Z", sentAt = 0, vehicleId = "v3")
+        assertEquals(setOf("v1", "v3"), Rules.inspectedTodayIds(vehicles, emptyList(), listOf(sentToday), "Ana", now, zone))
+    }
 }
