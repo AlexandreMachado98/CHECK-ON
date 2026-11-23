@@ -9,5 +9,9 @@
   "scripts": {
     "dev:api": "npm run start:dev --workspace=api",
     "build:api": "npm run build --workspace=api"
+  },
+  "overrides": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0"
   }
 }

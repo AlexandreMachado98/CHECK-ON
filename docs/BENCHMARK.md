@@ -100,10 +100,11 @@ Antes das correções, 60 s de uso contínuo gravavam 1.426 inspeções; depois,
 
 ## Pendências recomendadas (não corrigidas aqui)
 
-1. **Atualizar bibliotecas do portal com alerta de segurança.**
-   - `npm audit` aponta 22 alertas (2 críticos).
-   - Os críticos, `next` 14 → 16 e `jspdf` 2 → 4, são atualizações de versão principal: precisam de PR próprio e de teste do portal.
-   - Os demais (ex.: `multer`, `body-parser` na API) saem com atualização simples, mas o `npm audit fix` automático esbarra em conflito de versões entre pacotes.
+1. ~~**Atualizar bibliotecas do portal com alerta de segurança.**~~ Feito:
+   - `next` 14 → 16.4.6, React 18 → 19, `jspdf` 2 → 4.2.1, `jspdf-autotable` 3 → 5.0.9;
+   - `multer`, `body-parser` e outras com correção simples;
+   - `shadcn`, que é ferramenta de linha de comando, passou para `devDependencies`, e saiu o `zod`, que não era usado.
+   - `npm audit --omit=dev`: **0 alertas** (antes: 22, 2 críticos). Restam 15 só em ferramentas de desenvolvimento (lint/CLI), nenhum crítico.
 2. **Relatório do painel sobre todo o histórico** (83 ms com 90 dias).
    - Cresce com o tempo: ~2 anos de uso devem passar de 0,5 s.
    - Sugestão: filtrar por período (ex.: últimos 90 dias), como já faz o resumo.
