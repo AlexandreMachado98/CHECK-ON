@@ -305,4 +305,21 @@ class RulesTest {
         assertFalse(text.contains("Item 6"))
         assertTrue(Rules.nonCompliantList(listOf(TemplateItem("1", "Óleo"))).startsWith("1 item não conforme:"))
     }
+
+    @Test
+    fun greetingAndDraftAge() {
+        assertEquals("Bom dia", Rules.greeting(5))
+        assertEquals("Bom dia", Rules.greeting(11))
+        assertEquals("Boa tarde", Rules.greeting(12))
+        assertEquals("Boa tarde", Rules.greeting(17))
+        assertEquals("Boa noite", Rules.greeting(18))
+        assertEquals("Boa noite", Rules.greeting(2))
+
+        val zone = java.time.ZoneId.of("America/Sao_Paulo")
+        val now = java.time.Instant.parse("2026-11-23T13:00:00Z") // 10:00
+        assertEquals("Começada hoje às 07:10" to false, Rules.draftStarted("2026-11-23T10:10:00Z", now, zone))
+        // 20:30 de ontem: 13h30 atrás, rascunho antigo.
+        assertEquals("Começada ontem às 20:30" to true, Rules.draftStarted("2026-11-22T23:30:00Z", now, zone))
+        assertEquals("" to false, Rules.draftStarted("x", now, zone))
+    }
 }

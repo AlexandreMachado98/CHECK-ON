@@ -118,6 +118,12 @@ object Rules {
     /** "Última inspeção: hoje às 07:12 · Maria" / "ontem às ..." / "21/11 às ...". */
     fun lastInspectionText(last: LastInspection?, now: Instant, zone: ZoneId): String {
         val date = last?.let { runCatching { Instant.parse(it.completedAt) }.getOrNull() } ?: return "Nenhuma inspeção registrada"
+        val who = last.driverName?.takeIf { it.isNotBlank() }?.let { " · $it" } ?: ""
+        return "Última inspeção: ${dayAndTime(date, now, zone)}$who"
+    }
+
+    /** "hoje às 07:12" / "ontem às 17:30" / "20/11 às 08:05", no fuso do celular. */
+    fun dayAndTime(date: Instant, now: Instant, zone: ZoneId): String {
         val local = date.atZone(zone)
         val today = now.atZone(zone).toLocalDate()
         val time = local.format(DateTimeFormatter.ofPattern("HH:mm"))
@@ -126,8 +132,27 @@ object Rules {
             today.minusDays(1) -> "ontem"
             else -> local.format(DateTimeFormatter.ofPattern("dd/MM"))
         }
-        val who = last.driverName?.takeIf { it.isNotBlank() }?.let { " · $it" } ?: ""
-        return "Última inspeção: $day às $time$who"
+        return "$day às $time"
+    }
+
+    /** "Bom dia" (5h–11h), "Boa tarde" (12h–17h) ou "Boa noite". */
+    fun greeting(hour: Int): String = when (hour) {
+        in 5..11 -> "Bom dia"
+        in 12..17 -> "Boa tarde"
+        else -> "Boa noite"
+    }
+
+    /** Rascunho começado há mais de 12 horas: a situação do veículo pode ter mudado. */
+    const val OLD_DRAFT_HOURS = 12L
+
+    /**
+     * Linha do cartão "Continuar inspeção": quando começou e, se for antigo, o alerta.
+     * Retorna o texto e se é antigo.
+     */
+    fun draftStarted(startedAt: String, now: Instant, zone: ZoneId): Pair<String, Boolean> {
+        val date = runCatching { Instant.parse(startedAt) }.getOrNull() ?: return "" to false
+        val old = java.time.Duration.between(date, now).toHours() >= OLD_DRAFT_HOURS
+        return "Começada ${dayAndTime(date, now, zone)}" to old
     }
 
     /** Dados do celular com mais de 24 horas: vale avisar para atualizar. */
