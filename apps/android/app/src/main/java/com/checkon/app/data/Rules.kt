@@ -1,6 +1,9 @@
 package com.checkon.app.data
 
 import java.text.Normalizer
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 /**
  * Regras da inspeção, iguais às da API (apps/api/src/checklist/checklist-rules.ts),
@@ -85,6 +88,27 @@ object Rules {
     /** Itens respondidos e total da seção (para o título: "RODAGEM · 3/5"). */
     fun sectionProgress(category: TemplateCategory, answers: Map<String, Answer>): Pair<Int, Int> =
         category.items.count { isAnswered(it, answers[it.id]) } to category.items.size
+
+    /** Inspeção concluída hoje (no fuso do celular). */
+    fun inspectedToday(last: LastInspection?, now: Instant, zone: ZoneId): Boolean {
+        val date = last?.let { runCatching { Instant.parse(it.completedAt) }.getOrNull() } ?: return false
+        return date.atZone(zone).toLocalDate() == now.atZone(zone).toLocalDate()
+    }
+
+    /** "Última inspeção: hoje às 07:12 · Maria" / "ontem às ..." / "21/11 às ...". */
+    fun lastInspectionText(last: LastInspection?, now: Instant, zone: ZoneId): String {
+        val date = last?.let { runCatching { Instant.parse(it.completedAt) }.getOrNull() } ?: return "Nenhuma inspeção registrada"
+        val local = date.atZone(zone)
+        val today = now.atZone(zone).toLocalDate()
+        val time = local.format(DateTimeFormatter.ofPattern("HH:mm"))
+        val day = when (local.toLocalDate()) {
+            today -> "hoje"
+            today.minusDays(1) -> "ontem"
+            else -> local.format(DateTimeFormatter.ofPattern("dd/MM"))
+        }
+        val who = last.driverName?.takeIf { it.isNotBlank() }?.let { " · $it" } ?: ""
+        return "Última inspeção: $day às $time$who"
+    }
 
     /** Dados do celular com mais de 24 horas: vale avisar para atualizar. */
     fun isStale(downloadedAt: Long, now: Long): Boolean = downloadedAt > 0 && now - downloadedAt > 24 * 60 * 60 * 1000L

@@ -73,6 +73,8 @@ data class Vehicle(
     val status: String = "LIBERADO", // LIBERADO, ATENCAO, BLOQUEADO
     val qrCode: String? = null,
     val fleet: Fleet? = null,
+    /** Última inspeção concluída do veículo (de qualquer motorista), quando o servidor informa. */
+    val lastInspection: LastInspection? = null,
 ) {
     val label: String get() = if (prefix.isNullOrBlank()) plate else "$plate · $prefix"
     val description: String get() = listOfNotNull(brand, model, year?.toString()).joinToString(" ")
@@ -203,3 +205,7 @@ data class SyncRequest(val checklists: List<SubmitPayload>)
 
 @Serializable
 data class PhotoResponse(val photoUrl: String)
+
+/** Última inspeção de um veículo: quando foi concluída e por quem. */
+@Serializable
+data class LastInspection(val completedAt: String, val driverName: String? = null)

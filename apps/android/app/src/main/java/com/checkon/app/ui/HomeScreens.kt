@@ -407,6 +407,9 @@ fun VehiclesScreen(vm: AppViewModel, onVehicle: (String) -> Unit) {
                 )
                 androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     StatusTag(vehicle.status)
+                    if (Rules.inspectedToday(vehicle.lastInspection, java.time.Instant.now(), java.time.ZoneId.systemDefault())) {
+                        Tag("Inspecionado hoje", Tone.Info)
+                    }
                     if (ncs > 0) Text(Rules.plural(ncs, "NC em aberto", "NCs em aberto"), color = Palette.Warning, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
