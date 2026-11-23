@@ -116,6 +116,7 @@ class SyncEngine(
                             vehicleLabel = item.vehicleLabel,
                             templateName = item.templateName,
                             completedAt = item.payload.completedAt,
+                            vehicleId = item.payload.vehicleId,
                             sentAt = now(),
                             vehicleStatus = result.vehicleStatus,
                             ncsOpened = result.ncsOpened,

@@ -132,6 +132,7 @@ class SyncEngineTest {
         val sent = summary.accepted[0]
         assertEquals("c1", sent.clientId)
         assertEquals("ABC1D23", sent.vehicleLabel)
+        assertEquals("v", sent.vehicleId)
         assertEquals("BLOQUEADO", sent.vehicleStatus)
         assertEquals(2, sent.ncsOpened)
         assertEquals(1, sent.ncsRecurrent)

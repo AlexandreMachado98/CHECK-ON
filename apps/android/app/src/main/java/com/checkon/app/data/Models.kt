@@ -195,6 +195,8 @@ data class SentInspection(
     val vehicleStatus: String? = null,
     val ncsOpened: Int = 0,
     val ncsRecurrent: Int = 0,
+    /** Veículo inspecionado (vazio no histórico gravado antes da 1.4.5). */
+    val vehicleId: String? = null,
 )
 
 @Serializable

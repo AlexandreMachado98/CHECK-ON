@@ -36,6 +36,9 @@ import kotlinx.coroutines.launch
 fun VehicleScreen(vm: AppViewModel, vehicleId: String, onStart: (vehicleId: String, templateId: String) -> Unit) {
     val bootstrap by vm.bootstrap.collectAsState()
     val online by vm.online.collectAsState()
+    val queue by vm.queue.collectAsState()
+    val history by vm.history.collectAsState()
+    val session by vm.session.collectAsState()
     val vehicle = bootstrap?.vehicles?.firstOrNull { it.id == vehicleId }
     var freshNcs by remember { mutableStateOf<List<OpenNc>?>(null) }
     var pendingDraft by remember { mutableStateOf<Pair<Draft, Template>?>(null) }
@@ -82,9 +85,10 @@ fun VehicleScreen(vm: AppViewModel, vehicleId: String, onStart: (vehicleId: Stri
             // Evita inspecionar de novo o que um colega acabou de inspecionar.
             val now = java.time.Instant.now()
             val zone = java.time.ZoneId.systemDefault()
-            val today = Rules.inspectedToday(vehicle.lastInspection, now, zone)
+            val last = Rules.latestInspection(vehicle.id, vehicle.lastInspection, queue, history, session?.user?.name)
+            val today = Rules.inspectedToday(last, now, zone)
             Text(
-                Rules.lastInspectionText(vehicle.lastInspection, now, zone),
+                Rules.lastInspectionText(last, now, zone),
                 color = if (today) Palette.Info else Palette.Muted,
                 fontSize = 14.sp,
                 fontWeight = if (today) FontWeight.SemiBold else FontWeight.Normal,

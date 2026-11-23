@@ -244,4 +244,35 @@ class RulesTest {
         assertEquals("Última inspeção: 20/11 às 08:05", Rules.lastInspectionText(older, now, zone))
         assertEquals("Nenhuma inspeção registrada", Rules.lastInspectionText(null, now, zone))
     }
+
+    @Test
+    fun latestInspectionCountsWhatThisPhoneDid() {
+        val server = LastInspection("2026-11-22T20:30:00Z", "João")
+        fun queued(vehicleId: String, completedAt: String, state: String = "PENDING") = QueuedInspection(
+            clientId = "c-$vehicleId-$completedAt",
+            payload = SubmitPayload(
+                clientId = "c", templateId = "t", templateVersion = 1, vehicleId = vehicleId,
+                startedAt = completedAt, completedAt = completedAt, answers = emptyList(),
+            ),
+            vehicleLabel = "ABC", templateName = "Diário", state = state,
+        )
+        val sent = SentInspection("s1", "ABC", "Diário", "2026-11-23T09:00:00Z", vehicleId = "v1", sentAt = 0)
+
+        // Sem nada no celular: fica o do servidor.
+        assertEquals(server, Rules.latestInspection("v1", server, emptyList(), emptyList(), "Ana"))
+        // Na fila esperando envio: conta, com o nome de quem está no celular.
+        assertEquals(
+            LastInspection("2026-11-23T10:00:00Z", "Ana"),
+            Rules.latestInspection("v1", server, listOf(queued("v1", "2026-11-23T10:00:00Z")), listOf(sent), "Ana"),
+        )
+        // Já aceito pelo servidor depois do download.
+        assertEquals(LastInspection("2026-11-23T09:00:00Z", "Ana"), Rules.latestInspection("v1", server, emptyList(), listOf(sent), "Ana"))
+        // Recusada ou de outro veículo: não conta.
+        assertEquals(
+            server,
+            Rules.latestInspection("v1", server, listOf(queued("v1", "2026-11-23T10:00:00Z", "REJECTED"), queued("v2", "2026-11-23T11:00:00Z")), emptyList(), "Ana"),
+        )
+        // Histórico antigo sem veículo não conta; sem nada, null.
+        assertEquals(null, Rules.latestInspection("v1", null, emptyList(), listOf(sent.copy(vehicleId = null)), "Ana"))
+    }
 }
