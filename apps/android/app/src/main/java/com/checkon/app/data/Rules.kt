@@ -343,6 +343,17 @@ object Rules {
             "\n\nO gestor vai receber a não conformidade no portal."
     }
 
+    /**
+     * Texto do envio em andamento: com fotos, "Enviando fotos: 12 de 40"; depois das fotos,
+     * "Enviando inspeção..."; sem fotos, "Enviando...". No 4G fraco, 40 fotos levam mais de um
+     * minuto: o número mostra que está andando e evita a pessoa fechar o app achando que travou.
+     */
+    fun syncingText(progress: SyncProgress?): String = when {
+        progress == null || progress.photosTotal <= 0 -> "Enviando..."
+        progress.photosSent < progress.photosTotal -> "Enviando fotos: ${progress.photosSent} de ${progress.photosTotal}"
+        else -> "Enviando inspeção..."
+    }
+
     /** "1 foto" / "3 fotos": número com a palavra no singular ou no plural. */
     fun plural(count: Int, singular: String, plural: String): String = "$count ${if (count == 1) singular else plural}"
 

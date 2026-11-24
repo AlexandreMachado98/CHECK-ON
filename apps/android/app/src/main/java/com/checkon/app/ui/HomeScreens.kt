@@ -186,6 +186,7 @@ fun HomeScreen(
     val history by vm.history.collectAsState()
     val online by vm.online.collectAsState()
     val syncing by vm.syncing.collectAsState()
+    val syncProgress by vm.syncProgress.collectAsState()
     val loading by vm.loadingBootstrap.collectAsState()
     val bootstrapError by vm.bootstrapError.collectAsState()
     var confirmLogout by remember { mutableStateOf(false) }
@@ -290,7 +291,7 @@ fun HomeScreen(
                         )
                         Muted(
                             when {
-                                syncing -> "Enviando..."
+                                syncing -> Rules.syncingText(syncProgress)
                                 rejected > 0 -> "Toque para ver o motivo."
                                 pending > 0 && online -> "Toque para enviar agora."
                                 pending > 0 -> "Serão enviadas quando houver internet."

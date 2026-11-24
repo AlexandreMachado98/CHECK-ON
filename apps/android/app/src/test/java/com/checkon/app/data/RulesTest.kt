@@ -391,4 +391,12 @@ class RulesTest {
         assertEquals(2 to setOf("b"), Rules.rowOfItem(template, setOf("a", "b"), "a2"))
         assertEquals(-1 to setOf("a"), Rules.rowOfItem(template, setOf("a"), "x"))
     }
+
+    @Test fun `texto do envio em andamento`() {
+        assertEquals("Enviando...", Rules.syncingText(null))
+        assertEquals("Enviando...", Rules.syncingText(SyncProgress(0, 0)))
+        assertEquals("Enviando fotos: 0 de 40", Rules.syncingText(SyncProgress(0, 40)))
+        assertEquals("Enviando fotos: 12 de 40", Rules.syncingText(SyncProgress(12, 40)))
+        assertEquals("Enviando inspeção...", Rules.syncingText(SyncProgress(40, 40)))
+    }
 }

@@ -25,6 +25,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     val queue = repository.queue
     val history = repository.history
     val syncing = repository.syncing
+    val syncProgress = repository.syncProgress
     val lastSync = repository.lastSync
 
     private val _bootstrap = MutableStateFlow<Bootstrap?>(null)
