@@ -73,4 +73,22 @@ class PhotosTest {
         val empty = newFile().apply { createNewFile() }
         assertNull(photos.finish(empty))
     }
+
+    @Test fun `miniatura nitida no quadro de 96dp em qualquer tela`() = runBlocking {
+        // 1280x960 já reduzida pelo app. Quadro de 96dp: 288 px (xxhdpi), 384 px (xxxhdpi), 144 px (mdpi).
+        assertEquals(2, Photos.thumbnailSample(1280, 960, 288)) // 640x480: cobre 288 sem perder nitidez
+        assertEquals(2, Photos.thumbnailSample(1280, 960, 384))
+        assertEquals(4, Photos.thumbnailSample(1280, 960, 144))
+        assertEquals(1, Photos.thumbnailSample(200, 150, 288)) // foto pequena: lê inteira
+        val path = photos.finish(cameraPhoto(4000, 3000))!!
+        val thumb = Photos.decodeThumbnail(path, 288)!!
+        assertTrue("lado menor ${thumb.height} cobre o quadro de 288 px", minOf(thumb.width, thumb.height) >= 288)
+        assertTrue("leve: ${thumb.width}x${thumb.height}", thumb.width <= 640)
+    }
+
+    @Test fun `miniatura de arquivo ilegivel ou ausente`() = runBlocking {
+        assertNull(Photos.decodeThumbnail(File(context.filesDir, "nao-existe.jpg").path, 288))
+        val junk = newFile().apply { writeText("isto não é uma foto") }
+        assertNull(Photos.decodeThumbnail(junk.path, 288))
+    }
 }

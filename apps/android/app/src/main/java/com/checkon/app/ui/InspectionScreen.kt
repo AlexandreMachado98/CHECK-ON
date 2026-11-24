@@ -4,7 +4,6 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
-import android.graphics.BitmapFactory
 import android.location.Location
 import android.location.LocationManager
 import androidx.activity.compose.BackHandler
@@ -94,6 +93,9 @@ import kotlinx.coroutines.launch
 import java.io.File
 import java.time.Instant
 import java.util.UUID
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.platform.LocalDensity
+import com.checkon.app.data.Photos
 
 @Composable
 fun InspectionScreen(
@@ -690,32 +692,41 @@ private fun Choice(
 
 @Composable
 private fun PhotoThumb(path: String, onOpen: () -> Unit) {
-    // Miniatura leve (1/8 do tamanho) para não pesar na memória.
-    val bitmap = remember(path, File(path).lastModified()) {
-        runCatching { BitmapFactory.decodeFile(path, BitmapFactory.Options().apply { inSampleSize = 8 })?.asImageBitmap() }.getOrNull()
+    // Miniatura lida fora da thread da tela, no tamanho do quadro (nítida e leve na memória).
+    val targetPx = with(LocalDensity.current) { 96.dp.roundToPx() }
+    // null = carregando; Result vazio = foto ilegível (não mostra nada, como antes).
+    var loaded by remember(path, targetPx) { mutableStateOf<Result<ImageBitmap>?>(null) }
+    LaunchedEffect(path, targetPx) {
+        loaded = Photos.decodeThumbnail(path, targetPx)?.let { Result.success(it.asImageBitmap()) }
+            ?: Result.failure(IllegalStateException("Foto ilegível"))
     }
-    if (bitmap != null) {
-        // Toque abre a foto em tela cheia para conferir os detalhes.
-        Box(
-            Modifier
-                .size(96.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(Palette.Border)
-                .clickable(onClickLabel = "Ampliar foto", onClick = onOpen),
-        ) {
-            Image(bitmap, contentDescription = "Foto do item", contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
-            Icon(
-                Icons.Filled.ZoomIn,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(4.dp)
-                    .background(Color.Black.copy(alpha = 0.55f), CircleShape)
-                    .padding(4.dp)
-                    .size(18.dp),
-            )
-        }
+    val state = loaded
+    if (state == null) {
+        // Mesmo tamanho enquanto carrega: a lista não pula quando a foto aparece.
+        Box(Modifier.size(96.dp).clip(RoundedCornerShape(10.dp)).background(Palette.Border))
+        return
+    }
+    val bitmap = state.getOrNull() ?: return
+    // Toque abre a foto em tela cheia para conferir os detalhes.
+    Box(
+        Modifier
+            .size(96.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(Palette.Border)
+            .clickable(onClickLabel = "Ampliar foto", onClick = onOpen),
+    ) {
+        Image(bitmap, contentDescription = "Foto do item", contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
+        Icon(
+            Icons.Filled.ZoomIn,
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(4.dp)
+                .background(Color.Black.copy(alpha = 0.55f), CircleShape)
+                .padding(4.dp)
+                .size(18.dp),
+        )
     }
 }
 
