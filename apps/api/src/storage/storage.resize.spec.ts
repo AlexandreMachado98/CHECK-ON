@@ -64,6 +64,17 @@ describe('versões reduzidas das fotos (miniatura do portal e PDF)', () => {
     expect(small.width).toBe(200);
   });
 
+  it('foto de colaborador em PNG transparente vira miniatura com fundo branco', async () => {
+    const png = await sharp({ create: { width: 600, height: 800, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } }).png().toBuffer();
+    const url = await storage.uploadFile(png, 'foto.png', 'image/png');
+    const key = url.slice(url.indexOf('employee-photos/'));
+    const thumb = await read((await storage.getResizedPhoto(key, 320))!.body);
+    const { data, info } = await sharp(thumb).raw().toBuffer({ resolveWithObject: true });
+    expect(info.width).toBe(240);
+    expect(info.height).toBe(320);
+    expect([data[0], data[1], data[2]].every((v) => v > 245)).toBe(true);
+  });
+
   it('só os tamanhos combinados e só chaves de foto válidas', async () => {
     await expect(storage.getResizedPhoto(key, 640 as never)).resolves.toBeNull();
     await expect(storage.getResizedPhoto('../.env', 320)).resolves.toBeNull();

@@ -212,6 +212,7 @@ Antes das correções, 60 s de uso contínuo gravavam 1.426 inspeções; depois,
    - Foto de 1600 px (405 KB): miniatura de **12 KB** gerada em 0,14 s; dali em diante, 2 ms. 900 px: 90 KB.
    - Detalhe com 40 fotos: 14,6 MB → **0,5 MB**. Funciona também para as fotos antigas, sem atualizar o app.
    - Assinaturas (PNG transparente) continuam na original.
+   - Fotos de colaborador também: lista de colaboradores com 60 fotos baixava **20,1 MB**, agora **0,6 MB**; a verificação do crachá pelo QR (celular, 4G) baixa a miniatura em vez da foto inteira. PNG transparente vira fundo branco.
 5. **Banco e API na mesma região** (Neon em São Paulo), ver acima.
 6. **Testes em aparelho e na infraestrutura real.**
    - Este benchmark mede a API.

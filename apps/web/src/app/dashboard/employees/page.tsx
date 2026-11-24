@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { photoAtWidth } from '@/lib/photo-url';
 import {
   Activity, AlertTriangle, BriefcaseBusiness, Building2, CalendarDays, Camera, Check, CheckCircle2,
   Clock3, Copy, Edit2, ExternalLink, GraduationCap, Hash, KeyRound, Plus, QrCode, RotateCcw, Search,
@@ -435,7 +436,7 @@ function BadgeDialog({
             <div className="flex min-w-0 gap-4">
               <div className="flex h-28 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-100 text-slate-400 sm:h-32 sm:w-28">
                 {employee.photoUrl ? (
-                  <img src={employee.photoUrl} alt={`Foto de ${employee.name}`} className="h-full w-full object-cover" />
+                  <img src={photoAtWidth(employee.photoUrl, 320)} alt={`Foto de ${employee.name}`} className="h-full w-full object-cover" />
                 ) : (
                   <User className="h-10 w-10" aria-hidden="true" />
                 )}
@@ -801,7 +802,7 @@ export default function EmployeesPage() {
                       <TableCell>
                         <div className="flex min-w-0 items-center gap-3">
                           <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100 text-slate-400">
-                            {employee.photoUrl ? <img src={employee.photoUrl} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" /> : <User className="h-5 w-5" aria-hidden="true" />}
+                            {employee.photoUrl ? <img src={photoAtWidth(employee.photoUrl, 320)} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" /> : <User className="h-5 w-5" aria-hidden="true" />}
                           </div>
                           <div className="min-w-0">
                             <p className="truncate font-semibold text-slate-900">{employee.name}</p>

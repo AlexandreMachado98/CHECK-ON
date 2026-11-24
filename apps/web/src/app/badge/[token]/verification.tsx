@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import api from '@/lib/api';
+import { photoAtWidth } from '@/lib/photo-url';
 import {
   AlertTriangle, BadgeCheck, BriefcaseBusiness, Building2, CalendarDays, CheckCircle2,
   GraduationCap, Hash, LoaderCircle, ShieldCheck, User,
@@ -166,7 +167,7 @@ export default function BadgeVerification({ token }: { token: string }) {
             <div className="grid gap-6 p-5 sm:grid-cols-[180px_minmax(0,1fr)] sm:p-8">
               <div className="flex flex-col items-center text-center sm:items-start sm:text-left">
                 <div className="flex h-40 w-36 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 text-slate-400 shadow-sm">
-                  {badge.photoUrl ? <img src={badge.photoUrl} alt={`Foto de identificação de ${badge.name}`} className="h-full w-full object-cover" /> : <User className="h-14 w-14" aria-hidden="true" />}
+                  {badge.photoUrl ? <img src={photoAtWidth(badge.photoUrl, 320)} alt={`Foto de identificação de ${badge.name}`} className="h-full w-full object-cover" /> : <User className="h-14 w-14" aria-hidden="true" />}
                 </div>
                 <h2 className="mt-4 break-words text-lg font-bold leading-tight text-slate-950">{badge.name}</h2>
                 <p className="mt-1 text-sm font-semibold text-emerald-700">{badge.jobTitle || 'Função não informada'}</p>
