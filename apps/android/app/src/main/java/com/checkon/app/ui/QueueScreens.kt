@@ -35,6 +35,9 @@ import com.checkon.app.data.QueuedInspection
 import com.checkon.app.data.SentInspection
 import com.checkon.app.data.Rules
 import kotlinx.coroutines.launch
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
 
 @Composable
 fun DoneScreen(
@@ -46,6 +49,7 @@ fun DoneScreen(
 ) {
     val queue by vm.queue.collectAsState()
     val syncing by vm.syncing.collectAsState()
+    val syncProgress by vm.syncProgress.collectAsState()
     val online by vm.online.collectAsState()
     val history by vm.history.collectAsState()
     val redo = rememberRedo(vm, onOpenInspection)
@@ -110,6 +114,18 @@ fun DoneScreen(
             },
             Modifier.fillMaxWidth(),
         )
+        val progress = syncProgress
+        if (syncing && !sent && !rejected && progress != null && progress.photosTotal > 0) {
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                LinearProgressIndicator(
+                    progress = { progress.photosSent.toFloat() / progress.photosTotal },
+                    modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                    color = Palette.Primary,
+                    trackColor = Palette.Border,
+                )
+                Muted(Rules.syncingText(progress), Modifier.fillMaxWidth())
+            }
+        }
         if (sent && result != null) SentResultCard(result)
         if (rejected) Banner("Motivo", item?.message, Tone.Danger)
         if (rejected && item != null && redo.canRedo(item)) PrimaryButton("Refazer com estas respostas", onClick = { redo.start(item) })
@@ -130,6 +146,7 @@ fun DoneScreen(
 fun QueueScreen(vm: AppViewModel, onOpenInspection: (vehicleId: String, templateId: String) -> Unit) {
     val queue by vm.queue.collectAsState()
     val syncing by vm.syncing.collectAsState()
+    val syncProgress by vm.syncProgress.collectAsState()
     val online by vm.online.collectAsState()
     val lastSync by vm.lastSync.collectAsState()
     val history by vm.history.collectAsState()
@@ -143,7 +160,7 @@ fun QueueScreen(vm: AppViewModel, onOpenInspection: (vehicleId: String, template
     ) {
         if (!online && pending > 0) Banner("Sem internet", "As inspeções serão enviadas sozinhas quando a conexão voltar.", Tone.Info)
         lastSync?.error?.let { Banner("Erro no último envio", it, Tone.Danger) }
-        if (pending > 0) PrimaryButton(if (syncing) "Enviando..." else "Enviar agora ($pending)", onClick = vm::syncNow, loading = syncing, enabled = online)
+        if (pending > 0) PrimaryButton(if (syncing) Rules.syncingText(syncProgress) else "Enviar agora ($pending)", onClick = vm::syncNow, loading = syncing, enabled = online)
         if (queue.isEmpty()) Muted("Tudo enviado. Nenhuma inspeção guardada neste celular.", Modifier.fillMaxWidth().padding(top = 8.dp))
         queue.forEach { item ->
             val photos = item.payload.answers.count { it.localPhoto != null }

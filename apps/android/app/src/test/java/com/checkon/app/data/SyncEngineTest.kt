@@ -138,4 +138,36 @@ class SyncEngineTest {
         assertEquals(1, sent.ncsRecurrent)
         assertEquals(1_000L, sent.sentAt)
     }
+
+    @Test fun `progresso conta so as fotos que faltam e avisa a cada uma`() = runBlocking {
+        val progress = mutableListOf<SyncProgress>()
+        SyncEngine(
+            uploadPhoto = { "https://storage/$it" },
+            postSync = { list -> list.map { SyncResult("CREATED", it.clientId) } },
+            persist = {},
+            onProgress = { progress += it },
+        ).run(
+            listOf(
+                // 1 foto já enviada antes (não conta de novo) e 2 a enviar.
+                queued("c1", listOf(
+                    Answer("a", isCompliant = false, localPhoto = "/1.jpg", photoUrl = "https://storage/antiga.jpg"),
+                    Answer("b", isCompliant = false, localPhoto = "/2.jpg"),
+                    Answer("c", isCompliant = true),
+                )),
+                queued("c2", listOf(Answer("d", isCompliant = false, localPhoto = "/3.jpg"))),
+            ),
+        )
+        assertEquals(listOf(SyncProgress(0, 2), SyncProgress(1, 2), SyncProgress(2, 2)), progress)
+    }
+
+    @Test fun `sem fotos nao avisa progresso`() = runBlocking {
+        val progress = mutableListOf<SyncProgress>()
+        SyncEngine(
+            uploadPhoto = { fail("sem fotos"); "" },
+            postSync = { list -> list.map { SyncResult("CREATED", it.clientId) } },
+            persist = {},
+            onProgress = { progress += it },
+        ).run(listOf(queued("c1", listOf(Answer("a", isCompliant = true)))))
+        assertTrue(progress.isEmpty())
+    }
 }

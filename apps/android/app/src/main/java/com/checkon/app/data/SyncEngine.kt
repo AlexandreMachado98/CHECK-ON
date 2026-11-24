@@ -18,6 +18,9 @@ data class SyncSummary(
     val error: String? = null,
 )
 
+/** Andamento do envio: fotos das inspeções já enviadas neste envio e o total a enviar. */
+data class SyncProgress(val photosSent: Int, val photosTotal: Int)
+
 /**
  * Envio da fila, sem dependência de Android (testado em SyncEngineTest).
  * Primeiro as fotos (cada uma uma vez só), depois as inspeções em lote.
@@ -30,6 +33,8 @@ class SyncEngine(
     private val postSync: suspend (List<SubmitPayload>) -> List<SyncResult>,
     /** Grava a fila depois de cada mudança (não perde foto já enviada se o app fechar). */
     private val persist: suspend (List<QueuedInspection>) -> Unit,
+    /** Avisa a cada foto enviada (para a tela mostrar "Enviando fotos: 12 de 40"). */
+    private val onProgress: (SyncProgress) -> Unit = {},
 ) {
     suspend fun run(initial: List<QueuedInspection>): Pair<List<QueuedInspection>, SyncSummary> {
         val queue = initial.toMutableList()
@@ -37,6 +42,11 @@ class SyncEngine(
         var error: String? = null
         val photosToDelete = mutableListOf<String>()
         val accepted = mutableListOf<SentInspection>()
+        // Só as fotos que ainda faltam subir (as já enviadas num envio anterior não contam de novo).
+        val photosTotal = queue.filter { it.state == "PENDING" }
+            .sumOf { item -> item.payload.answers.count { it.localPhoto != null && it.photoUrl == null } }
+        var photosSent = 0
+        if (photosTotal > 0) onProgress(SyncProgress(0, photosTotal))
         val ready = mutableListOf<String>()
 
         for (index in queue.indices) {
@@ -75,6 +85,8 @@ class SyncEngine(
                     item = item.copy(payload = item.payload.copy(answers = answers))
                     queue[index] = item
                     persist(queue.toList())
+                    photosSent++
+                    onProgress(SyncProgress(photosSent, photosTotal))
                 } catch (e: ApiException) {
                     if (e.offline) {
                         offline = true

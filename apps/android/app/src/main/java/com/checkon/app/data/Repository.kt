@@ -17,6 +17,9 @@ class Repository(
     val queue: StateFlow<List<QueuedInspection>> = _queue
     private val _syncing = MutableStateFlow(false)
     val syncing: StateFlow<Boolean> = _syncing
+    private val _syncProgress = MutableStateFlow<SyncProgress?>(null)
+    /** Fotos enviadas / total durante o envio; null fora do envio ou sem fotos. */
+    val syncProgress: StateFlow<SyncProgress?> = _syncProgress
     private val _history = MutableStateFlow<List<SentInspection>>(emptyList())
     /** Últimas inspeções aceitas pelo servidor, deste celular (mais recentes primeiro). */
     val history: StateFlow<List<SentInspection>> = _history
@@ -115,6 +118,7 @@ class Repository(
                         result.filter { it.clientId in storedIds } + stored.filter { it.clientId !in snapshotIds }
                     }
                 },
+                onProgress = { _syncProgress.value = it },
             )
             val (_, summary) = engine.run(snapshot)
             if (summary.accepted.isNotEmpty()) _history.value = store.addHistory(id, summary.accepted)
@@ -124,6 +128,7 @@ class Repository(
             return summary
         } finally {
             _syncing.value = false
+            _syncProgress.value = null
             _queue.value = store.readQueue(id)
         }
     }
