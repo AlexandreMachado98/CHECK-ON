@@ -113,6 +113,29 @@ class Photos(private val context: Context) {
 
     companion object {
         /**
+         * Miniatura para mostrar num quadro de [targetPx] px (corte para preencher): lê a foto
+         * reduzida pela maior potência de 2 que ainda deixa o lado menor com pelo menos [targetPx].
+         * Nítida em qualquer densidade de tela e leve na memória. Roda fora da thread da tela.
+         */
+        suspend fun decodeThumbnail(path: String, targetPx: Int): Bitmap? = withContext(Dispatchers.IO) {
+            runCatching {
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeFile(path, bounds)
+                if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return@runCatching null
+                val sample = thumbnailSample(bounds.outWidth, bounds.outHeight, targetPx)
+                BitmapFactory.decodeFile(path, BitmapFactory.Options().apply { inSampleSize = sample })
+            }.getOrNull()
+        }
+
+        /** Redução (potência de 2) que mantém o lado menor com pelo menos [targetPx]. */
+        fun thumbnailSample(width: Int, height: Int, targetPx: Int): Int {
+            val shortSide = minOf(width, height)
+            var sample = 1
+            while (shortSide / (sample * 2) >= targetPx.coerceAtLeast(1)) sample *= 2
+            return sample
+        }
+
+        /**
          * Lado maior da foto, em pixels, e qualidade do JPEG. Eram 1600 px e 70% (~370 KB por foto);
          * 1280 px e 60% ficam com ~55% do tamanho e mantêm legíveis placa, DOT do pneu e etiquetas
          * (comparação em docs/BENCHMARK.md). Menos armazenamento e envio mais rápido no 4G fraco.

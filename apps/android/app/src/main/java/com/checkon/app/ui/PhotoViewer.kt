@@ -17,10 +17,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -52,8 +52,9 @@ private const val DOUBLE_TAP_ZOOM = 2.5f
  */
 @Composable
 fun PhotoViewer(path: String, title: String, onClose: () -> Unit) {
-    val bitmap by produceState<Result<ImageBitmap>?>(null, path) {
-        value = withContext(Dispatchers.IO) {
+    var bitmap by remember(path) { mutableStateOf<Result<ImageBitmap>?>(null) }
+    LaunchedEffect(path) {
+        bitmap = withContext(Dispatchers.IO) {
             runCatching {
                 BitmapFactory.decodeFile(path)?.asImageBitmap() ?: error("Foto ilegível")
             }
