@@ -6,6 +6,7 @@
 
 import type { Checklist, ChecklistAnswer } from './types';
 import { NC_SEVERITY, NC_STATUS } from './status';
+import { photoAtWidth } from './photo-url';
 
 const BRAND: [number, number, number] = [5, 150, 105]; // verde CHECK-ON
 const TEXT: [number, number, number] = [15, 23, 42];
@@ -271,7 +272,7 @@ export async function downloadChecklistPdf(checklist: Checklist, context: PdfCon
   // ── Fotos ──
   const withPhotos = answers.filter((answer) => answer.photoUrl);
   if (withPhotos.length) {
-    const photos = await Promise.all(withPhotos.map((answer) => loadPhoto(answer.photoUrl as string)));
+    const photos = await Promise.all(withPhotos.map((answer) => loadPhoto(photoAtWidth(answer.photoUrl as string, 900))));
     const columnWidth = (contentWidth - 6) / 2;
     const boxHeight = 62;
     doc.addPage();

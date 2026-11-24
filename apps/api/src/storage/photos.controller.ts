@@ -1,6 +1,6 @@
-import { Controller, Get, Logger, NotFoundException, Req, Res } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Logger, NotFoundException, Req, Res } from '@nestjs/common';
 import type { Request, Response } from 'express';
-import { PHOTO_ROUTE, StorageService } from './storage.service';
+import { PHOTO_ROUTE, PHOTO_WIDTHS, PhotoWidth, StorageService } from './storage.service';
 
 /**
  * Entrega as fotos (inspeções e crachás) lendo do armazenamento: o bucket pode ser privado.
@@ -18,9 +18,16 @@ export class PhotosController {
   async get(@Req() req: Request, @Res() res: Response) {
     const raw = (req.params as Record<string, string | string[]>).key ?? '';
     const key = Array.isArray(raw) ? raw.join('/') : decodeURIComponent(raw);
+    // ?w=320 (miniatura) ou ?w=900 (PDF): versão reduzida; sem "w", a foto original.
+    const w = req.query.w;
+    let width: PhotoWidth | undefined;
+    if (w !== undefined) {
+      width = Number(w) as PhotoWidth;
+      if (!PHOTO_WIDTHS.includes(width)) throw new BadRequestException(`Tamanho inválido. Use w=${PHOTO_WIDTHS.join(' ou w=')}.`);
+    }
     let file;
     try {
-      file = await this.storage.getPhoto(key);
+      file = width ? await this.storage.getResizedPhoto(key, width) : await this.storage.getPhoto(key);
     } catch (error) {
       this.logger.error(`Falha ao ler a foto ${key}: ${(error as Error).message}`);
       res.status(502).json({ statusCode: 502, message: 'Não foi possível ler a foto no armazenamento.' });

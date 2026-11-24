@@ -146,12 +146,13 @@ JPEG 60%**, cerca de **55% do tamanho** (medido em fotos reais e nas de teste: 5
 
 | Fotos na inspeção | Abrir o detalhe | Fotos baixadas ao rolar tudo | PDF: tempo / tamanho / páginas |
 | ---: | ---: | ---: | ---: |
-| 1 | 0,1 s | 0,3 MB | 0,1 s / 151 KB / 3 |
-| 4 | 0,1 s | 1,3 MB | 0,1 s / 483 KB / 3 |
-| 40 | 0,2 s | **14,6 MB** | 0,8 s / 1,5 MB / 10 |
+| 1 | 0,1 s | 0,3 MB → **~13 KB** | 0,1 s / 151 KB → 137 KB / 3 |
+| 4 | 0,1 s | 1,3 MB → **~50 KB** | 0,1 s / 483 KB → 421 KB / 3 |
+| 40 | 0,2 s | 14,6 MB → **0,5 MB** | 0,8 s → 0,7 s / 1,5 MB → 1,3 MB / 10 |
 
-O PDF reduz as fotos para 900 px, por isso fica leve. Já o detalhe mostra miniaturas pequenas, mas
-carrega a foto inteira (1600 px), e uma inspeção com 40 fotos baixa ~15 MB no navegador do gestor.
+Com miniaturas (ver pendência 4): o detalhe baixa a foto em 320 px, e o PDF pede ao servidor
+a versão de 900 px em vez de baixar a original e reduzir no navegador. A foto em tamanho real
+continua a um clique.
 
 ### Envio com o banco longe da API (como em produção)
 
@@ -205,10 +206,12 @@ Antes das correções, 60 s de uso contínuo gravavam 1.426 inspeções; depois,
    - A página de 50 NCs caiu de ~180 KB para **70 KB** (23 → 17 ms), com só os campos que as telas usam; o detalhe da NC continua completo.
    - O painel pedia as 100 NCs mais recentes para mostrar as 3 mais graves, e errava: com 43 críticas ativas, mostrava 3 médias, porque as críticas eram mais antigas.
    - Agora a API ordena por gravidade (`sort=severity`) e o painel baixa só 3 NCs (4 KB).
-4. **Miniaturas das fotos no portal.**
-   - O detalhe da inspeção carrega cada foto em tamanho cheio para mostrar uma miniatura de ~64 px.
-   - Com 40 fotos são ~15 MB.
-   - Sugestão: o app enviar também uma miniatura (~20 KB), ou o servidor gerá-la no upload.
+4. ~~**Miniaturas das fotos no portal.**~~ Feito:
+   - O endereço da foto aceita `?w=320` (miniatura) ou `?w=900` (PDF); outro valor responde 400.
+   - A versão reduzida é gerada no primeiro pedido e guardada ao lado da original (`<id>.w320.jpg`); apagar a foto apaga as versões.
+   - Foto de 1600 px (405 KB): miniatura de **12 KB** gerada em 0,14 s; dali em diante, 2 ms. 900 px: 90 KB.
+   - Detalhe com 40 fotos: 14,6 MB → **0,5 MB**. Funciona também para as fotos antigas, sem atualizar o app.
+   - Assinaturas (PNG transparente) continuam na original.
 5. **Banco e API na mesma região** (Neon em São Paulo), ver acima.
 6. **Testes em aparelho e na infraestrutura real.**
    - Este benchmark mede a API.

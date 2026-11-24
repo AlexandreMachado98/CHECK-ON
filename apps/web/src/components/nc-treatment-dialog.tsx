@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { photoAtWidth } from '@/lib/photo-url';
 
 const MAX_PHOTOS = 3;
 const ACTIVE: NCStatus[] = ['OPEN', 'IN_PROGRESS'];
@@ -31,7 +32,7 @@ function Thumb({ src, alt, onRemove }: { src: string; alt: string; onRemove?: ()
       ) : (
         <a href={src} target="_blank" rel="noreferrer" title="Abrir foto em tamanho real">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={src} alt={alt} loading="lazy" decoding="async" onError={() => setBroken(true)} className="h-24 w-24 rounded-md border border-slate-200 object-cover" />
+          <img src={photoAtWidth(src, 320)} alt={alt} loading="lazy" decoding="async" onError={() => setBroken(true)} className="h-24 w-24 rounded-md border border-slate-200 object-cover" />
         </a>
       )}
       {onRemove && (

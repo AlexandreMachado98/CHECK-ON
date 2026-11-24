@@ -6,6 +6,7 @@ import { Readable } from 'node:stream';
 import { dirname, resolve, sep } from 'node:path';
 import { DeleteObjectCommand, DeleteObjectsCommand, GetObjectCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { publicApiUrl, s3Config, storageDriver } from '../config/env';
+import sharp from 'sharp';
 
 /** Pastas (prefixos) que a API pode gravar e apagar. */
 const ALLOWED_PREFIXES = ['employee-photos/', 'checklist-photos/'];
@@ -14,6 +15,18 @@ export const PHOTO_ROUTE = 'fotos';
 
 /** Chaves que a API entrega: fotos de crachá e de inspeção (nomes UUID, sem subpastas inesperadas). */
 const SERVABLE_KEY = /^(employee-photos\/|checklist-photos\/[A-Za-z0-9-]+\/)[0-9a-f-]{36}\.(jpg|png|webp)$/;
+
+/**
+ * Larguras das versões reduzidas (/fotos/<chave>?w=320): miniatura do portal e foto do PDF.
+ * Só estas: ninguém consegue pedir tamanhos arbitrários e encher o armazenamento.
+ */
+export const PHOTO_WIDTHS = [320, 900] as const;
+export type PhotoWidth = (typeof PHOTO_WIDTHS)[number];
+
+/** Chave da versão reduzida, ao lado da original: <uuid>.jpg -> <uuid>.w320.jpg (sai junto ao apagar a pasta). */
+export function resizedKey(key: string, width: PhotoWidth): string {
+  return key.replace(/\.(jpg|png|webp)$/, `.w${width}.jpg`);
+}
 
 export type StoredFile = { body: Readable; contentType: string; length?: number };
 
@@ -189,6 +202,30 @@ export class StorageService {
   }
 
   /**
+   * Versão reduzida da foto (miniatura do portal, foto do PDF): feita na primeira vez que alguém pede
+   * e guardada ao lado da original; dali em diante é só leitura. Vale para fotos antigas, sem migração.
+   * Uma foto de 1280 px (~200 KB) vira ~15 KB em 320 px.
+   */
+  async getResizedPhoto(key: string, width: PhotoWidth): Promise<StoredFile | null> {
+    if (!SERVABLE_KEY.test(key) || !PHOTO_WIDTHS.includes(width)) return null;
+    const target = resizedKey(key, width);
+    const cached = await this.driver.get(target);
+    if (cached) return cached;
+    const original = await this.driver.get(key);
+    if (!original) return null;
+    const chunks: Buffer[] = [];
+    for await (const chunk of original.body) chunks.push(chunk as Buffer);
+    const resized = await sharp(Buffer.concat(chunks))
+      .rotate() // respeita a orientação gravada pela câmera
+      .resize({ width, height: width, fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 70, mozjpeg: true })
+      .toBuffer();
+    // Guardar é só para as próximas vezes: se falhar, a foto reduzida sai do mesmo jeito.
+    await this.driver.put(target, resized, 'image/jpeg').catch((error: Error) => this.logger.warn(`Miniatura não guardada (${target}): ${error.message}`));
+    return { body: Readable.from(resized), contentType: 'image/jpeg', length: resized.length };
+  }
+
+  /**
    * Endereço que o portal usa para mostrar a foto: a própria API (/fotos/<chave>), lendo do armazenamento.
    * Funciona com o bucket privado e não depende do endereço público do armazenamento.
    */
@@ -215,6 +252,10 @@ export class StorageService {
     const key = this.keyFromUrl(publicUrl);
     if (!key || !ALLOWED_PREFIXES.some((prefix) => key.startsWith(prefix))) return;
     await this.driver.remove(key);
+    // Versões reduzidas, se existirem (a remoção de arquivo inexistente não dá erro).
+    if (SERVABLE_KEY.test(key)) {
+      await Promise.all(PHOTO_WIDTHS.map((width) => this.driver.remove(resizedKey(key, width)).catch(() => undefined)));
+    }
   }
 
   /** Converte uma URL pública na chave do arquivo, ou null se não for deste armazenamento. */
