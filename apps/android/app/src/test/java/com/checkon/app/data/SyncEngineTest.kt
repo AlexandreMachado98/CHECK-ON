@@ -21,6 +21,7 @@ class SyncEngineTest {
         val uploads = mutableListOf<String>()
         val sent = mutableListOf<SubmitPayload>()
         val engine = SyncEngine(
+            fileExists = { true }, // caminhos de mentira: os arquivos "existem"
             uploadPhoto = { uploads += it; "https://storage/1.jpg" },
             postSync = { list ->
                 sent += list
@@ -40,6 +41,7 @@ class SyncEngineTest {
         var saved = emptyList<QueuedInspection>()
         var calls = 0
         val first = SyncEngine(
+            fileExists = { true }, // caminhos de mentira: os arquivos "existem"
             uploadPhoto = { calls++; if (calls == 2) throw offline(); "https://storage/1.jpg" },
             postSync = { fail("não deveria enviar sem as fotos"); emptyList() },
             persist = { saved = it },
@@ -50,6 +52,7 @@ class SyncEngineTest {
 
         val uploads = mutableListOf<String>()
         val second = SyncEngine(
+            fileExists = { true }, // caminhos de mentira: os arquivos "existem"
             uploadPhoto = { uploads += it; "https://storage/2.jpg" },
             postSync = { listOf(SyncResult("CREATED", "c1")) },
             persist = {},
@@ -60,6 +63,7 @@ class SyncEngineTest {
 
     @Test fun `recusa fica marcada e erro temporario continua pendente`() = runBlocking {
         val (queue, summary) = SyncEngine(
+            fileExists = { true }, // caminhos de mentira: os arquivos "existem"
             uploadPhoto = { "x" },
             postSync = { listOf(SyncResult("REJECTED", "c1", "Veículo não encontrado ou inativo."), SyncResult("RETRY", "c2", "Erro temporário")) },
             persist = {},
@@ -73,6 +77,7 @@ class SyncEngineTest {
 
     @Test fun `inspecao recusada nao e reenviada`() = runBlocking {
         val (_, summary) = SyncEngine(
+            fileExists = { true }, // caminhos de mentira: os arquivos "existem"
             uploadPhoto = { "x" },
             postSync = { fail("não deveria enviar"); emptyList() },
             persist = {},
@@ -94,6 +99,7 @@ class SyncEngineTest {
         val sent = mutableListOf<SubmitPayload>()
         val signed = queued("c1").let { it.copy(payload = it.payload.copy(signatureLocal = "/assinatura.png", signedName = "Maria")) }
         val (rest, summary) = SyncEngine(
+            fileExists = { true }, // caminhos de mentira: os arquivos "existem"
             uploadPhoto = { uploads += it; "https://storage/assinatura.png" },
             postSync = { list -> sent += list; listOf(SyncResult("CREATED", "c1")) },
             persist = {},
@@ -112,6 +118,7 @@ class SyncEngineTest {
         }
         var uploads = 0
         val (rest, summary) = SyncEngine(
+            fileExists = { true }, // caminhos de mentira: os arquivos "existem"
             uploadPhoto = { uploads++; "x" },
             postSync = { throw offline() },
             persist = {},
@@ -123,6 +130,7 @@ class SyncEngineTest {
 
     @Test fun `inspecao aceita entra no historico com o resultado do servidor`() = runBlocking {
         val (_, summary) = SyncEngine(
+            fileExists = { true }, // caminhos de mentira: os arquivos "existem"
             uploadPhoto = { "x" },
             now = { 1_000L },
             postSync = { listOf(SyncResult("CREATED", "c1", vehicleStatus = "BLOQUEADO", ncsOpened = 2, ncsRecurrent = 1), SyncResult("REJECTED", "c2", "erro")) },
@@ -142,6 +150,7 @@ class SyncEngineTest {
     @Test fun `progresso conta so as fotos que faltam e avisa a cada uma`() = runBlocking {
         val progress = mutableListOf<SyncProgress>()
         SyncEngine(
+            fileExists = { true }, // caminhos de mentira: os arquivos "existem"
             uploadPhoto = { "https://storage/$it" },
             postSync = { list -> list.map { SyncResult("CREATED", it.clientId) } },
             persist = {},
@@ -163,11 +172,53 @@ class SyncEngineTest {
     @Test fun `sem fotos nao avisa progresso`() = runBlocking {
         val progress = mutableListOf<SyncProgress>()
         SyncEngine(
+            fileExists = { true }, // caminhos de mentira: os arquivos "existem"
             uploadPhoto = { fail("sem fotos"); "" },
             postSync = { list -> list.map { SyncResult("CREATED", it.clientId) } },
             persist = {},
             onProgress = { progress += it },
         ).run(listOf(queued("c1", listOf(Answer("a", isCompliant = true)))))
         assertTrue(progress.isEmpty())
+    }
+
+    @Test fun `foto apagada do celular recusa so aquela inspecao e nao trava a fila`() = runBlocking {
+        val uploads = mutableListOf<String>()
+        val posted = mutableListOf<String>()
+        val (queue, summary) = SyncEngine(
+            fileExists = { it != "/apagada.jpg" },
+            uploadPhoto = { uploads += it; "https://storage/$it" },
+            postSync = { list -> posted += list.map { it.clientId }; list.map { SyncResult("CREATED", it.clientId) } },
+            persist = {},
+        ).run(
+            listOf(
+                queued("c1", listOf(Answer("a", isCompliant = false, localPhoto = "/ok1.jpg"), Answer("b", isCompliant = false, localPhoto = "/apagada.jpg"))),
+                queued("c2", listOf(Answer("c", isCompliant = false, localPhoto = "/ok2.jpg"))),
+            ),
+        )
+        assertEquals(listOf("/ok2.jpg"), uploads) // nem tenta subir as fotos da inspeção quebrada
+        assertEquals(listOf("c2"), posted)
+        assertEquals(1, queue.size)
+        assertEquals("REJECTED", queue[0].state)
+        assertEquals(MISSING_FILE_MESSAGE, queue[0].message)
+        assertEquals(1, summary.sent)
+        assertTrue(!summary.offline)
+    }
+
+    @Test fun `assinatura apagada tambem recusa, mas foto ja enviada antes nao importa`() = runBlocking {
+        val semAssinatura = queued("c1").let { it.copy(payload = it.payload.copy(signatureLocal = "/assinatura.png")) }
+        val (queue, _) = SyncEngine(
+            fileExists = { false },
+            uploadPhoto = { fail("nada a subir"); "" },
+            postSync = { list -> list.map { SyncResult("CREATED", it.clientId) } },
+            persist = {},
+        ).run(
+            listOf(
+                semAssinatura,
+                // Foto apagada do celular, mas já está no servidor: segue normalmente.
+                queued("c2", listOf(Answer("a", isCompliant = false, localPhoto = "/sumiu.jpg", photoUrl = "https://storage/x.jpg"))),
+            ),
+        )
+        assertEquals(listOf("c1"), queue.map { it.clientId })
+        assertEquals("REJECTED", queue[0].state)
     }
 }
