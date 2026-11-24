@@ -16,6 +16,7 @@ import { getStoredUser } from '@/lib/session';
 import { NC_SEVERITY, NC_STATUS } from '@/lib/status';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { photoAtWidth } from '@/lib/photo-url';
 
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -471,7 +472,7 @@ function AnswerValue({ answer }: { answer: ChecklistAnswer }) {
         <a href={answer.photoUrl} target="_blank" rel="noreferrer" className="mt-2 block w-fit" title="Abrir foto em tamanho real">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={answer.photoUrl}
+            src={photoAtWidth(answer.photoUrl, 320)}
             alt={`Foto do item ${answer.item?.text ?? ''}`}
             loading="lazy"
             className="h-24 w-32 rounded-md border border-slate-200 object-cover"
