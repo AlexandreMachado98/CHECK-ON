@@ -216,7 +216,9 @@ export class StorageService {
     const chunks: Buffer[] = [];
     for await (const chunk of original.body) chunks.push(chunk as Buffer);
     const resized = await sharp(Buffer.concat(chunks))
-      .rotate() // respeita a orientação gravada pela câmera
+      .rotate()
+      // PNG com transparência (foto de crachá) vira JPEG com fundo branco, não preto.
+      .flatten({ background: '#ffffff' }) // respeita a orientação gravada pela câmera
       .resize({ width, height: width, fit: 'inside', withoutEnlargement: true })
       .jpeg({ quality: 70, mozjpeg: true })
       .toBuffer();
