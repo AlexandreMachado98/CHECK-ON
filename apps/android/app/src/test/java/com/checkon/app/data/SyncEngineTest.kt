@@ -264,4 +264,27 @@ class SyncEngineTest {
         ).run(listOf(queued("c1", listOf(Answer("a", isCompliant = false, localPhoto = "/1.jpg")))))
         assertEquals("REJECTED", queue.single().state)
     }
+
+    @Test fun `wi-fi com pagina de login deixa na fila e mostra o motivo`() = runBlocking {
+        val (queue, summary) = SyncEngine(
+            fileExists = { true },
+            uploadPhoto = { throw ApiException(Api.UNEXPECTED_RESPONSE, 0, offline = true) },
+            postSync = { fail("não deveria enviar"); emptyList() },
+            persist = {},
+        ).run(listOf(queued("c1", listOf(Answer("a", isCompliant = false, localPhoto = "/1.jpg")))))
+        assertEquals("PENDING", queue.single().state)
+        assertTrue(summary.offline)
+        assertEquals(Api.UNEXPECTED_RESPONSE, summary.error)
+    }
+
+    @Test fun `sem internet de verdade nao repete o aviso em erro`() = runBlocking {
+        val (_, summary) = SyncEngine(
+            fileExists = { true },
+            uploadPhoto = { throw offline() },
+            postSync = { emptyList() },
+            persist = {},
+        ).run(listOf(queued("c1", listOf(Answer("a", isCompliant = false, localPhoto = "/1.jpg")))))
+        assertTrue(summary.offline)
+        assertNull(summary.error)
+    }
 }

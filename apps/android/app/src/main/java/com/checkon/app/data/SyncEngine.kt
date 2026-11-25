@@ -46,6 +46,13 @@ class SyncEngine(
      */
     private fun retryLater(e: ApiException): Boolean = e.offline || e.status == 429
 
+    /**
+     * Motivo que aparece em "Erro no último envio" mesmo tentando de novo depois. Sem internet não
+     * precisa (a tela já avisa). Já o Wi-Fi com página de login parece conectado, então sem o motivo
+     * o envio só ficaria parado sem explicação.
+     */
+    private fun showsReason(e: ApiException): Boolean = !e.offline || e.message == Api.UNEXPECTED_RESPONSE
+
     /** Algum arquivo que ainda falta subir (foto ou assinatura) sumiu do celular? */
     private fun hasMissingFile(item: QueuedInspection): Boolean {
         val toUpload = listOfNotNull(item.payload.signatureLocal.takeIf { item.payload.signatureUrl == null }) +
@@ -92,7 +99,7 @@ class SyncEngine(
                     if (e is SessionEndedException) throw e // fica na fila; a pessoa entra de novo e o envio continua
                     if (retryLater(e)) {
                         offline = true
-                        if (!e.offline) error = error ?: e.message
+                        if (showsReason(e)) error = error ?: e.message
                     } else {
                         item = item.copy(state = "REJECTED", message = "Não foi possível enviar a assinatura: ${e.message}")
                         queue[index] = item
@@ -120,7 +127,7 @@ class SyncEngine(
                     if (e is SessionEndedException) throw e
                     if (retryLater(e)) {
                         offline = true
-                        if (!e.offline) error = error ?: e.message
+                        if (showsReason(e)) error = error ?: e.message
                     } else {
                         item = item.copy(state = "REJECTED", message = "Não foi possível enviar uma foto: ${e.message}")
                         queue[index] = item
@@ -142,7 +149,8 @@ class SyncEngine(
                 postSync(payloads)
             } catch (e: ApiException) {
                 if (e is SessionEndedException) throw e
-                if (e.offline) offline = true else error = error ?: e.message
+                if (e.offline) offline = true
+                if (!e.offline || showsReason(e)) error = error ?: e.message
                 break
             }
             val byId = results.associateBy { it.clientId }

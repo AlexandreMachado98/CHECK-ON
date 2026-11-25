@@ -1,4 +1,4 @@
-# Roteiro de teste no celular (app 1.4.20)
+# Roteiro de teste no celular (app 1.4.21)
 
 Teste final antes de entregar ao cliente: o que os testes automáticos não cobrem (aparelho, câmera,
 rede de verdade). Leva cerca de 1 hora. Marque cada item e anote o que estranhar.
@@ -11,7 +11,7 @@ rede de verdade). Leva cerca de 1 hora. Marque cada item e anote o que estranhar
   - 1 colaborador de teste com acesso ao app;
   - 2 veículos ativos, cada um com QR Code impresso ou na tela de outro aparelho;
   - 1 checklist com pelo menos 1 item crítico e itens de foto obrigatória.
-- **Instalação:** o APK da última versão, baixado nas Releases do GitHub. A tag `app-v1.4.20-33` é publicada sozinha quando o PR da 1.4.20 entra na `main`. Se a release disser "Versão de TESTE", desinstale a versão anterior antes.
+- **Instalação:** o APK da última versão, baixado nas Releases do GitHub. A tag `app-v1.4.21-34` é publicada sozinha quando o PR da 1.4.21 entra na `main`. Se a release disser "Versão de TESTE", desinstale a versão anterior antes.
 - **Anotações:** a cada problema, anote o número do item, o que fez, o que esperava e o que
   aconteceu, com print se possível.
 
@@ -64,6 +64,13 @@ Use dados móveis com 1 ou 2 barras de sinal, ou o modo "rede lenta" do celular,
   As duas inspeções chegam ao portal em alguns minutos.
 - [ ] 4.5 Ligar o modo avião **no meio do envio** de uma inspeção com fotos, e depois desligar.
   O envio continua de onde parou e nada é duplicado no portal.
+
+- [ ] 4.6 Conectar num **Wi-Fi que pede login** (posto, hotel, shopping) **sem** fazer o login dele e tentar enviar:
+  - o app não fecha;
+  - a inspeção fica guardada;
+  - aparece "Erro no último envio" pedindo para entrar no Wi-Fi ou usar os dados móveis.
+
+  Depois de trocar para os dados móveis, a inspeção é enviada.
 
 ## 5. Interrupções
 
