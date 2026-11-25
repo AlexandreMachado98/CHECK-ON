@@ -221,4 +221,47 @@ class SyncEngineTest {
         assertEquals(listOf("c1"), queue.map { it.clientId })
         assertEquals("REJECTED", queue[0].state)
     }
+
+    @Test fun `sessao encerrada no meio nao recusa a inspecao e guarda a foto ja enviada`() = runBlocking {
+        var saved: List<QueuedInspection> = emptyList()
+        var calls = 0
+        val thrown = runCatching {
+            SyncEngine(
+                fileExists = { true },
+                uploadPhoto = { calls++; if (calls == 2) throw SessionEndedException("Sua sessão terminou. Entre de novo."); "https://storage/$it" },
+                postSync = { fail("não deveria enviar"); emptyList() },
+                persist = { saved = it },
+            ).run(listOf(queued("c1", listOf(Answer("a", isCompliant = false, localPhoto = "/1.jpg"), Answer("b", isCompliant = false, localPhoto = "/2.jpg")))))
+        }.exceptionOrNull()
+        assertTrue(thrown is SessionEndedException)
+        // Continua na fila, pendente, com a primeira foto já marcada como enviada.
+        assertEquals("PENDING", saved.single().state)
+        assertEquals("https://storage//1.jpg", saved.single().payload.answers[0].photoUrl)
+        assertNull(saved.single().payload.answers[1].photoUrl)
+    }
+
+    @Test fun `muitas tentativas (429) deixa na fila para tentar depois`() = runBlocking {
+        val (queue, summary) = SyncEngine(
+            fileExists = { true },
+            uploadPhoto = { throw ApiException("Muitas tentativas. Aguarde alguns minutos.", 429) },
+            postSync = { fail("não deveria enviar"); emptyList() },
+            persist = {},
+        ).run(listOf(
+            queued("c1", listOf(Answer("a", isCompliant = false, localPhoto = "/1.jpg"))),
+            queued("c2", listOf(Answer("b", isCompliant = false, localPhoto = "/2.jpg"))),
+        ))
+        assertEquals(listOf("PENDING", "PENDING"), queue.map { it.state })
+        assertTrue(summary.offline) // o envio em segundo plano tenta de novo
+        assertEquals("Muitas tentativas. Aguarde alguns minutos.", summary.error)
+    }
+
+    @Test fun `erro definitivo na foto continua recusando`() = runBlocking {
+        val (queue, _) = SyncEngine(
+            fileExists = { true },
+            uploadPhoto = { throw ApiException("Envie uma imagem JPEG, PNG ou WebP válida.", 400) },
+            postSync = { emptyList() },
+            persist = {},
+        ).run(listOf(queued("c1", listOf(Answer("a", isCompliant = false, localPhoto = "/1.jpg")))))
+        assertEquals("REJECTED", queue.single().state)
+    }
 }
