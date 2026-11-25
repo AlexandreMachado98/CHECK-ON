@@ -1,4 +1,4 @@
-# Roteiro de teste no celular (app 1.4.21)
+# Roteiro de teste no celular (app 1.4.22)
 
 Teste final antes de entregar ao cliente: o que os testes automáticos não cobrem (aparelho, câmera,
 rede de verdade). Leva cerca de 1 hora. Marque cada item e anote o que estranhar.
@@ -11,7 +11,7 @@ rede de verdade). Leva cerca de 1 hora. Marque cada item e anote o que estranhar
   - 1 colaborador de teste com acesso ao app;
   - 2 veículos ativos, cada um com QR Code impresso ou na tela de outro aparelho;
   - 1 checklist com pelo menos 1 item crítico e itens de foto obrigatória.
-- **Instalação:** o APK da última versão, baixado nas Releases do GitHub. A tag `app-v1.4.21-34` é publicada sozinha quando o PR da 1.4.21 entra na `main`. Se a release disser "Versão de TESTE", desinstale a versão anterior antes.
+- **Instalação:** o APK da última versão, baixado nas Releases do GitHub. A tag `app-v1.4.22-35` é publicada sozinha quando o PR da 1.4.22 entra na `main`. Se a release disser "Versão de TESTE", desinstale a versão anterior antes.
 - **Anotações:** a cada problema, anote o número do item, o que fez, o que esperava e o que
   aconteceu, com print se possível.
 
