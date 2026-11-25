@@ -46,7 +46,16 @@ class LocalStore(context: Context) {
     private fun file(userId: String, name: String) = File(File(root, userId.filter { it.isLetterOrDigit() || it == '-' }), name)
 
     private suspend fun <T> read(file: File, serializer: KSerializer<T>): T? = withContext(Dispatchers.IO) {
-        if (!file.exists()) null else runCatching { AppJson.decodeFromString(serializer, file.readText()) }.getOrNull()
+        if (!file.exists()) return@withContext null
+        val text = runCatching { file.readText() }.getOrNull() ?: return@withContext null
+        try {
+            AppJson.decodeFromString(serializer, text)
+        } catch (e: Exception) {
+            // Arquivo ilegível: segue como vazio para o app abrir, mas guarda uma cópia antes que a
+            // próxima gravação o substitua. Na fila, são inspeções não enviadas: dá para recuperar.
+            if (text.isNotBlank()) runCatching { file.copyTo(File(file.parentFile, "${file.name}.ilegivel-${System.currentTimeMillis()}")) }
+            null
+        }
     }
 
     private suspend fun <T> write(file: File, serializer: KSerializer<T>, value: T?) = withContext(Dispatchers.IO) {
@@ -57,7 +66,12 @@ class LocalStore(context: Context) {
         file.parentFile?.mkdirs()
         // Grava num arquivo temporário e troca: um app fechado no meio não corrompe os dados.
         val temp = File(file.parentFile, file.name + ".tmp")
-        temp.writeText(AppJson.encodeToString(serializer, value))
+        java.io.FileOutputStream(temp).use { out ->
+            out.write(AppJson.encodeToString(serializer, value).toByteArray())
+            // Garante que está no disco antes da troca: sem isso, a bateria acabando logo depois
+            // pode deixar o arquivo vazio em alguns celulares (e a fila de envio se perderia).
+            out.fd.sync()
+        }
         if (!temp.renameTo(file)) {
             file.delete()
             temp.renameTo(file)
