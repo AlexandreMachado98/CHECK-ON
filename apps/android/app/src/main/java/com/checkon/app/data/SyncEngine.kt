@@ -25,6 +25,8 @@ data class SyncProgress(val photosSent: Int, val photosTotal: Int)
  * Envio da fila, sem dependência de Android (testado em SyncEngineTest).
  * Primeiro as fotos (cada uma uma vez só), depois as inspeções em lote.
  * Sem conexão, para e mantém tudo na fila. Recusa do servidor fica marcada para a pessoa ver.
+ * Sessão encerrada no meio ([SessionEndedException]) sobe para quem chamou, com a fila intacta
+ * (o que já foi enviado fica gravado): a pessoa entra de novo e o envio continua de onde parou.
  */
 class SyncEngine(
     private val uploadPhoto: suspend (localPath: String) -> String,
@@ -38,6 +40,12 @@ class SyncEngine(
     /** O arquivo ainda está no celular? */
     private val fileExists: (String) -> Boolean,
 ) {
+    /**
+     * Falha passageira: para o envio e deixa tudo na fila para tentar de novo depois
+     * (sem internet, servidor instável ou "muitas tentativas"). Nunca recusa a inspeção por isso.
+     */
+    private fun retryLater(e: ApiException): Boolean = e.offline || e.status == 429
+
     /** Algum arquivo que ainda falta subir (foto ou assinatura) sumiu do celular? */
     private fun hasMissingFile(item: QueuedInspection): Boolean {
         val toUpload = listOfNotNull(item.payload.signatureLocal.takeIf { item.payload.signatureUrl == null }) +
@@ -81,8 +89,10 @@ class SyncEngine(
                     queue[index] = item
                     persist(queue.toList())
                 } catch (e: ApiException) {
-                    if (e.offline) {
+                    if (e is SessionEndedException) throw e // fica na fila; a pessoa entra de novo e o envio continua
+                    if (retryLater(e)) {
                         offline = true
+                        if (!e.offline) error = error ?: e.message
                     } else {
                         item = item.copy(state = "REJECTED", message = "Não foi possível enviar a assinatura: ${e.message}")
                         queue[index] = item
@@ -107,8 +117,10 @@ class SyncEngine(
                     photosSent++
                     onProgress(SyncProgress(photosSent, photosTotal))
                 } catch (e: ApiException) {
-                    if (e.offline) {
+                    if (e is SessionEndedException) throw e
+                    if (retryLater(e)) {
                         offline = true
+                        if (!e.offline) error = error ?: e.message
                     } else {
                         item = item.copy(state = "REJECTED", message = "Não foi possível enviar uma foto: ${e.message}")
                         queue[index] = item
@@ -129,6 +141,7 @@ class SyncEngine(
             val results = try {
                 postSync(payloads)
             } catch (e: ApiException) {
+                if (e is SessionEndedException) throw e
                 if (e.offline) offline = true else error = error ?: e.message
                 break
             }
