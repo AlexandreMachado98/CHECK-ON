@@ -5,6 +5,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.DeserializationStrategy
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -48,7 +50,7 @@ class Api(private val sessions: SessionStore, private val deviceInfo: String) {
         )
         val (code, text) = call(Request.Builder().url("$baseUrl/auth/app-login").post(body.toRequestBody(json)).build())
         if (code !in 200..299) throw errorFrom(code, text)
-        val session = AppJson.decodeFromString(TokenResponse.serializer(), text).toSession()
+        val session = parse(TokenResponse.serializer(), text).toSession()
         sessions.save(session)
         return session
     }
@@ -68,10 +70,10 @@ class Api(private val sessions: SessionStore, private val deviceInfo: String) {
     }
 
     suspend fun bootstrap(): Bootstrap =
-        AppJson.decodeFromString(Bootstrap.serializer(), authorized { it.url("$baseUrl/mobile/bootstrap").get() })
+        parse(Bootstrap.serializer(), authorized { it.url("$baseUrl/mobile/bootstrap").get() })
 
     suspend fun vehicleNcs(vehicleId: String): List<OpenNc> =
-        AppJson.decodeFromString(
+        parse(
             kotlinx.serialization.builtins.ListSerializer(OpenNc.serializer()),
             authorized { it.url("$baseUrl/mobile/vehicles/$vehicleId/ncs").get() },
         )
@@ -88,13 +90,13 @@ class Api(private val sessions: SessionStore, private val deviceInfo: String) {
                 .build()
             it.url("$baseUrl/checklists/photos").post(body)
         }
-        return AppJson.decodeFromString(PhotoResponse.serializer(), text).photoUrl
+        return parse(PhotoResponse.serializer(), text).photoUrl
     }
 
     suspend fun sync(payloads: List<SubmitPayload>): List<SyncResult> {
         val body = AppJson.encodeToString(SyncRequest.serializer(), SyncRequest(payloads))
         val text = authorized { it.url("$baseUrl/checklists/sync").post(body.toRequestBody(json)) }
-        return AppJson.decodeFromString(SyncResponse.serializer(), text).results
+        return parse(SyncResponse.serializer(), text).results
     }
 
     /** Chamada com o token; se ele venceu, renova e tenta de novo uma vez. */
@@ -136,7 +138,7 @@ class Api(private val sessions: SessionStore, private val deviceInfo: String) {
                 throw SessionEndedException(messageFrom(text, "Sua sessão terminou. Entre de novo."))
             }
             if (code !in 200..299) throw errorFrom(code, text)
-            sessions.save(AppJson.decodeFromString(TokenResponse.serializer(), text).toSession())
+            sessions.save(parse(TokenResponse.serializer(), text).toSession())
         }
     }
 
@@ -156,6 +158,24 @@ class Api(private val sessions: SessionStore, private val deviceInfo: String) {
     }
 
     companion object {
+        /** Aviso quando a resposta não é da API (Wi-Fi com página de login, proxy, servidor fora do ar). */
+        const val UNEXPECTED_RESPONSE =
+            "O servidor não respondeu como esperado. Se estiver num Wi-Fi que pede login (posto, hotel, pátio), " +
+                "entre nele pelo navegador ou use os dados móveis. Suas inspeções continuam guardadas."
+
+        /**
+         * Lê a resposta da API. Se não for o JSON esperado (por exemplo, a página HTML de um Wi-Fi
+         * com login, que responde 200), vira "sem conexão": a inspeção fica na fila e o envio tenta
+         * de novo depois, em vez de o erro de leitura escapar e fechar o aplicativo.
+         */
+        fun <T> parse(deserializer: DeserializationStrategy<T>, text: String): T = try {
+            AppJson.decodeFromString(deserializer, text)
+        } catch (e: SerializationException) {
+            throw ApiException(UNEXPECTED_RESPONSE, 0, offline = true)
+        } catch (e: IllegalArgumentException) {
+            throw ApiException(UNEXPECTED_RESPONSE, 0, offline = true)
+        }
+
         /** Mensagem de erro da API (NestJS devolve texto ou lista em "message"). */
         fun messageFrom(text: String, fallback: String): String = try {
             when (val message = (AppJson.parseToJsonElement(text) as? JsonObject)?.get("message")) {
