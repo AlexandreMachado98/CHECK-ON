@@ -131,11 +131,20 @@ object Rules {
      * Inspeção recusada pelo servidor vira um rascunho novo com as mesmas respostas, para o
      * motorista corrigir e reenviar sem responder tudo de novo. Só ficam as respostas de itens
      * que ainda existem no checklist atual; a assinatura é pedida de novo.
+     * Foto que não está mais no celular ([fileExists] falso) sai da resposta, para o item pedir
+     * a foto de novo; se ela já tinha subido para o servidor, continua valendo.
      * Retorna o rascunho e as fotos que não foram aproveitadas (para apagar do celular).
      */
-    fun draftFromRejected(item: QueuedInspection, template: Template, newClientId: String, now: Instant): Pair<Draft, List<String>> {
+    fun draftFromRejected(
+        item: QueuedInspection,
+        template: Template,
+        newClientId: String,
+        now: Instant,
+        fileExists: (String) -> Boolean,
+    ): Pair<Draft, List<String>> {
         val itemIds = template.allItems.map { it.id }.toSet()
         val kept = item.payload.answers.filter { it.itemId in itemIds }
+            .map { answer -> if (answer.localPhoto != null && !fileExists(answer.localPhoto)) answer.copy(localPhoto = null) else answer }
         val draft = Draft(
             clientId = newClientId,
             vehicleId = item.payload.vehicleId,

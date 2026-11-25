@@ -35,7 +35,16 @@ class SyncEngine(
     private val persist: suspend (List<QueuedInspection>) -> Unit,
     /** Avisa a cada foto enviada (para a tela mostrar "Enviando fotos: 12 de 40"). */
     private val onProgress: (SyncProgress) -> Unit = {},
+    /** O arquivo ainda está no celular? */
+    private val fileExists: (String) -> Boolean,
 ) {
+    /** Algum arquivo que ainda falta subir (foto ou assinatura) sumiu do celular? */
+    private fun hasMissingFile(item: QueuedInspection): Boolean {
+        val toUpload = listOfNotNull(item.payload.signatureLocal.takeIf { item.payload.signatureUrl == null }) +
+            item.payload.answers.filter { it.photoUrl == null }.mapNotNull { it.localPhoto }
+        return toUpload.any { !fileExists(it) }
+    }
+
     suspend fun run(initial: List<QueuedInspection>): Pair<List<QueuedInspection>, SyncSummary> {
         val queue = initial.toMutableList()
         var offline = false
@@ -43,7 +52,7 @@ class SyncEngine(
         val photosToDelete = mutableListOf<String>()
         val accepted = mutableListOf<SentInspection>()
         // Só as fotos que ainda faltam subir (as já enviadas num envio anterior não contam de novo).
-        val photosTotal = queue.filter { it.state == "PENDING" }
+        val photosTotal = queue.filter { it.state == "PENDING" && !hasMissingFile(it) }
             .sumOf { item -> item.payload.answers.count { it.localPhoto != null && it.photoUrl == null } }
         var photosSent = 0
         if (photosTotal > 0) onProgress(SyncProgress(0, photosTotal))
@@ -53,6 +62,16 @@ class SyncEngine(
             if (queue[index].state != "PENDING") continue
             var item = queue[index]
             var failed = false
+            // Arquivo apagado do celular (armazenamento limpo, por exemplo): o envio daria erro de
+            // leitura, que parece falta de internet e travaria a fila inteira para sempre. Recusa só
+            // esta inspeção, com o motivo; "Refazer com estas respostas" aproveita o resto.
+            if (hasMissingFile(item)) {
+                item = item.copy(state = "REJECTED", message = MISSING_FILE_MESSAGE)
+                queue[index] = item
+                error = error ?: item.message
+                persist(queue.toList())
+                continue
+            }
             // Assinatura primeiro: sobe como uma foto, uma vez só.
             val signature = item.payload.signatureLocal
             if (signature != null && item.payload.signatureUrl == null) {
@@ -162,3 +181,8 @@ class SyncEngine(
             payload.copy(answers = payload.answers.map { it.copy(localPhoto = null) }, signatureLocal = null)
     }
 }
+
+/** Motivo quando uma foto ou a assinatura da inspeção não está mais no celular. */
+const val MISSING_FILE_MESSAGE =
+    "Uma foto ou a assinatura desta inspeção não está mais no celular (o armazenamento do app pode ter sido limpo). " +
+        "Toque em \"Refazer com estas respostas\" e tire de novo o que faltar."

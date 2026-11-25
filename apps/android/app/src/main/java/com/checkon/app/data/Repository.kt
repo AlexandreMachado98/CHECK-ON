@@ -89,7 +89,7 @@ class Repository(
     suspend fun redoRejected(clientId: String, template: Template): Draft? {
         val id = userId() ?: return null
         val item = store.readQueue(id).firstOrNull { it.clientId == clientId && it.state == "REJECTED" } ?: return null
-        val (draft, dropped) = Rules.draftFromRejected(item, template, java.util.UUID.randomUUID().toString(), java.time.Instant.now())
+        val (draft, dropped) = Rules.draftFromRejected(item, template, java.util.UUID.randomUUID().toString(), java.time.Instant.now(), fileExists = { File(it).isFile })
         // Primeiro grava o rascunho; só depois tira da fila (se o app fechar no meio, nada se perde).
         store.saveDraft(id, draft)
         _queue.value = store.updateQueue(id) { queue -> queue.filter { it.clientId != clientId } }
@@ -119,6 +119,7 @@ class Repository(
                     }
                 },
                 onProgress = { _syncProgress.value = it },
+                fileExists = { File(it).isFile },
             )
             val (_, summary) = engine.run(snapshot)
             if (summary.accepted.isNotEmpty()) _history.value = store.addHistory(id, summary.accepted)

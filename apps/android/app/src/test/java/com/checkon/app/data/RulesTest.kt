@@ -369,7 +369,7 @@ class RulesTest {
             vehicleLabel = "ABC1D23", templateName = "Diário", state = "REJECTED", message = "Versão antiga",
         )
         val now = java.time.Instant.parse("2026-11-23T09:00:00Z")
-        val (draft, dropped) = Rules.draftFromRejected(rejected, template, "new", now)
+        val (draft, dropped) = Rules.draftFromRejected(rejected, template, "new", now, fileExists = { true })
         assertEquals("new", draft.clientId)
         assertEquals(3, draft.templateVersion)
         assertEquals("2026-11-23T09:00:00Z", draft.startedAt)
@@ -378,6 +378,34 @@ class RulesTest {
         assertEquals("/f/i1.jpg", draft.answers["i1"]?.localPhoto)
         assertTrue(draft.signature.isEmpty())
         assertEquals(listOf("/f/i9.jpg", "/f/assinatura.png"), dropped)
+    }
+
+    @Test
+    fun draftFromRejectedAsksAgainForPhotosGoneFromThePhone() {
+        val template = Template(
+            id = "t1", name = "Diário",
+            categories = listOf(TemplateCategory("c1", "Geral", items = listOf(TemplateItem("i1", "Pneus"), TemplateItem("i2", "Freio"), TemplateItem("i3", "Luzes")))),
+        )
+        val rejected = QueuedInspection(
+            clientId = "old",
+            payload = SubmitPayload(
+                clientId = "old", templateId = "t1", templateVersion = 1, vehicleId = "v1",
+                startedAt = "2026-11-23T08:00:00Z", completedAt = "2026-11-23T08:10:00Z",
+                answers = listOf(
+                    Answer("i1", isCompliant = false, observations = "Careca", localPhoto = "/f/sumiu.jpg"),
+                    Answer("i2", isCompliant = false, localPhoto = "/f/ok.jpg"),
+                    // Apagada do celular, mas já está no servidor: continua valendo.
+                    Answer("i3", isCompliant = false, localPhoto = "/f/enviada.jpg", photoUrl = "https://s/enviada.jpg"),
+                ),
+            ),
+            vehicleLabel = "ABC1D23", templateName = "Diário", state = "REJECTED", message = MISSING_FILE_MESSAGE,
+        )
+        val (draft, _) = Rules.draftFromRejected(rejected, template, "new", java.time.Instant.EPOCH, fileExists = { it == "/f/ok.jpg" })
+        assertEquals(null, draft.answers["i1"]?.localPhoto)
+        assertEquals("Careca", draft.answers["i1"]?.observations) // o resto da resposta fica
+        assertFalse(Rules.hasPhoto(draft.answers["i1"]))
+        assertEquals("/f/ok.jpg", draft.answers["i2"]?.localPhoto)
+        assertTrue(Rules.hasPhoto(draft.answers["i3"]))
     }
 
     @Test
