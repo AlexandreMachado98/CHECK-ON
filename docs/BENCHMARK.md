@@ -166,7 +166,7 @@ O envio repetia uma ida ao banco por item.
   | 50 motoristas ao mesmo tempo | **47 de 50 falharam** ("erro temporário") | **50 de 50 gravadas** |
 
 - **A correção:** respostas gravadas num comando só, NCs ativas do veículo lidas uma vez, e espera de até 10 s por uma conexão no pico, em vez de 2 s.
-- **Ainda recomendado:** o banco na mesma região da API. A Vercel está em São Paulo (`gru1`); o Neon tem região em São Paulo (`aws-sa-east-1`). Com os dois juntos, cada ida leva ~1 ms em vez de dezenas.
+- **Região:** confirmado em 25/11/2026 que o banco (Neon) está em São Paulo, como a API na Vercel (`gru1`). Cada ida ao banco fica na casa de 1 ms, não de dezenas. As correções acima seguem valendo como folga para os picos.
 
 ## Problemas encontrados e corrigidos
 
@@ -213,7 +213,7 @@ Antes das correções, 60 s de uso contínuo gravavam 1.426 inspeções; depois,
    - Detalhe com 40 fotos: 14,6 MB → **0,5 MB**. Funciona também para as fotos antigas, sem atualizar o app.
    - Assinaturas (PNG transparente) continuam na original.
    - Fotos de colaborador também: lista de colaboradores com 60 fotos baixava **20,1 MB**, agora **0,6 MB**; a verificação do crachá pelo QR (celular, 4G) baixa a miniatura em vez da foto inteira. PNG transparente vira fundo branco.
-5. **Banco e API na mesma região** (Neon em São Paulo), ver acima.
-6. **Testes em aparelho e na infraestrutura real.**
+5. ~~**Banco e API na mesma região.**~~ Confirmado: o Neon está em São Paulo, junto com a API.
+6. **Testes em aparelho e na infraestrutura real.** Roteiro em `docs/ROTEIRO-TESTE-CELULAR.md`. As miniaturas das fotos estão confirmadas em produção.
    - Este benchmark mede a API.
    - Falta medir com celulares de entrada em rede 4G fraca e o tempo de partida a frio na Vercel/Neon, de preferência num ambiente de homologação com esta mesma massa de dados.
