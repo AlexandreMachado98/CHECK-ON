@@ -246,14 +246,14 @@ export default function TenantsPage() {
                     <TableHead>Empresa</TableHead>
                     <TableHead className="hidden md:table-cell">Plano</TableHead>
                     <TableHead className="hidden sm:table-cell">Uso</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead className="hidden sm:table-cell">Status</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filtered.map((t) => (
                     <TableRow key={t.id} className="hover:bg-slate-50/50">
-                      <TableCell>
+                      <TableCell className="whitespace-normal">
                         <p className="font-medium text-slate-900">
                           {t.name}
                           {t.isPlatform && <span className="ml-2 text-[11px] font-semibold text-emerald-700">plataforma</span>}
@@ -261,6 +261,8 @@ export default function TenantsPage() {
                         <p className="text-xs text-slate-500">
                           {t.code ? <>Código <span className="font-mono font-semibold text-slate-700">{t.code}</span> · </> : null}CNPJ {formatCnpj(t.cnpj)} · desde {format(new Date(t.createdAt), 'dd/MM/yyyy')}
                         </p>
+                        {/* Celular: a situação embaixo do nome (a coluna fica escondida). */}
+                        <p className={`mt-0.5 text-xs font-medium sm:hidden ${t.isActive ? 'text-emerald-700' : 'text-slate-500'}`}>{t.isActive ? 'Ativa' : 'Desativada'}</p>
                       </TableCell>
                       <TableCell className="hidden md:table-cell text-sm text-slate-700">{planLabel(t.plan)}</TableCell>
                       <TableCell className="hidden sm:table-cell">
@@ -275,7 +277,7 @@ export default function TenantsPage() {
                           </span>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         {t.isActive ? (
                           <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200 font-medium">
                             <CheckCircle2 className="mr-1 h-3 w-3 text-emerald-500" />
@@ -290,7 +292,7 @@ export default function TenantsPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         {!t.isPlatform && (
-                          <div className="flex justify-end gap-2">
+                          <div className="flex justify-end gap-1 sm:gap-2">
                           {t.isActive && (
                             <Button
                               size="sm"
@@ -299,8 +301,9 @@ export default function TenantsPage() {
                               onClick={() => handleAccess(t)}
                               title="Entrar no painel desta empresa como administrador"
                             >
-                              <LogIn className="h-3.5 w-3.5 mr-1.5" />
-                              {accessingId === t.id ? 'Entrando...' : 'Acessar'}
+                              <LogIn className="h-3.5 w-3.5 sm:mr-1.5" />
+                              <span className="hidden sm:inline">{accessingId === t.id ? 'Entrando...' : 'Acessar'}</span>
+                              <span className="sr-only sm:hidden">{`Acessar ${t.name}`}</span>
                             </Button>
                           )}
                           <Button
@@ -312,8 +315,9 @@ export default function TenantsPage() {
                               setToggleTarget(t);
                             }}
                           >
-                            <Power className="h-3.5 w-3.5 mr-1.5" />
-                            {t.isActive ? 'Desativar' : 'Reativar'}
+                            <Power className="h-3.5 w-3.5 sm:mr-1.5" />
+                            <span className="hidden sm:inline">{t.isActive ? 'Desativar' : 'Reativar'}</span>
+                            <span className="sr-only sm:hidden">{`${t.isActive ? 'Desativar' : 'Reativar'} ${t.name}`}</span>
                           </Button>
                           </div>
                         )}
