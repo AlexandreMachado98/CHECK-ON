@@ -364,7 +364,7 @@ object Rules {
     }
 
     /** Maior diferença de km entre duas inspeções sem aviso de "confira o número". */
-    const val MAX_KM_JUMP = 2_000
+    const val MAX_KM_JUMP = 1_500
 
     /** Km digitado: só dígitos (aceita ponto de milhar), até 7 dígitos; null se vazio ou inválido. */
     fun parseKm(text: String): Int? {

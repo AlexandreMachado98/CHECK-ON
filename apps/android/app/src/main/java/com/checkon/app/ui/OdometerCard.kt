@@ -20,29 +20,29 @@ import com.checkon.app.data.Rules
  * conferência e avisa (sem impedir) quando o número parece errado: menor que o último ou um salto grande.
  */
 @Composable
-fun OdometerCard(km: Int?, lastKm: Int, highlighted: Boolean, onChange: (Int?) -> Unit) {
+fun OdometerCard(km: Int?, lastKm: Int, required: Boolean, highlighted: Boolean, onChange: (Int?) -> Unit) {
     var text by rememberSaveable { mutableStateOf(km?.toString() ?: "") }
     val parsed = Rules.parseKm(text)
-    val invalid = text.isNotBlank() && parsed == null
     val warning = Rules.kmWarning(parsed, lastKm)
     val missing = highlighted && parsed == null
     AppCard(accent = if (missing) Palette.Danger else if (warning != null) Palette.Warning else if (parsed != null) Palette.Primary else null) {
-        Text("Km do veículo", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Palette.Text)
+        Text(if (required) "KM atual do veículo (obrigatório)" else "KM atual do veículo (opcional)", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Palette.Text)
         Muted(if (lastKm > 0) "Digite o km do painel. Último registro: ${Rules.formatKm(lastKm)}." else "Digite o km que aparece no painel do veículo.")
         OutlinedTextField(
             value = text,
             onValueChange = { typed ->
-                val clean = typed.filter { it.isDigit() || it == '.' }.take(9)
-                text = clean
-                onChange(Rules.parseKm(clean))
+                val clean = typed.replace(".", "")
+                if (clean.length <= 7 && clean.all { it in '0'..'9' }) {
+                    text = clean
+                    onChange(Rules.parseKm(clean))
+                }
             },
             placeholder = { Text("Ex.: 125430") },
             suffix = { Text("km") },
             singleLine = true,
-            isError = invalid || missing,
+            isError = missing,
             supportingText = {
                 when {
-                    invalid -> Text("Digite só números, até 7 dígitos.")
                     missing -> Text("Informe o km para concluir.")
                     warning != null -> Text("Atenção: $warning", color = Palette.Text)
                 }
