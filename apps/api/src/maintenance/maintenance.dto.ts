@@ -29,6 +29,18 @@ export class CreateMaintenancePlanDto extends MaintenanceScheduleDto {
   baseKm!: number;
 }
 
+export class UpdateMaintenancePlanDto extends MaintenanceScheduleDto {
+  @IsOptional()
+  @IsUUID()
+  vehicleId?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(9_999_999)
+  baseKm?: number;
+}
+
 export class RecordMaintenanceDto {
   @IsInt()
   @Min(0)

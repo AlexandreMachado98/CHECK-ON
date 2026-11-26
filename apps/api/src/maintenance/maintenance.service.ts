@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateMaintenancePlanDto, MaintenanceScheduleDto, RecordMaintenanceDto } from './maintenance.dto';
+import { CreateMaintenancePlanDto, MaintenanceScheduleDto, UpdateMaintenancePlanDto, RecordMaintenanceDto } from './maintenance.dto';
 
 const vehicle = {
   select: { id: true, plate: true, prefix: true, mileage: true, isActive: true },
@@ -23,7 +23,7 @@ export class MaintenanceService {
   async list() {
     const plans = await this.prisma.maintenancePlan.findMany({
       select: {
-        id: true, name: true, baseKm: true, intervalKm: true, warningKm: true, archivedAt: true, vehicle,
+        id: true, name: true, baseKm: true, initialKm: true, _count: { select: { services: true } }, intervalKm: true, warningKm: true, archivedAt: true, vehicle,
       },
       orderBy: [{ name: 'asc' }, { id: 'asc' }],
     });
@@ -46,14 +46,59 @@ export class MaintenanceService {
         where: { id: dto.vehicleId, isActive: true, mileage: { lt: dto.baseKm } },
         data: { mileage: dto.baseKm },
       });
-      return tx.maintenancePlan.create({ data: { ...dto, tenantId: vehicleRecord.tenantId } });
+      return tx.maintenancePlan.create({ data: { ...dto, initialKm: dto.baseKm, tenantId: vehicleRecord.tenantId } });
     });
   }
 
-  async update(id: string, dto: MaintenanceScheduleDto) {
+  async update(id: string, dto: UpdateMaintenancePlanDto) {
     this.validateSchedule(dto);
-    const result = await this.prisma.maintenancePlan.updateMany({ where: { id, archivedAt: null }, data: dto });
-    if (!result.count) throw new NotFoundException('Plano de manutenção ativo não encontrado.');
+    const { baseKm, vehicleId, ...schedule } = dto;
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const plan = await tx.maintenancePlan.findFirst({
+          where: { id, archivedAt: null },
+          select: {
+            tenantId: true, vehicleId: true,
+            services: { select: { mileageKm: true }, orderBy: { mileageKm: 'asc' }, take: 1 },
+          },
+        });
+        if (!plan) throw new NotFoundException('Plano de manutenção ativo não encontrado.');
+        const moving = !!vehicleId && vehicleId !== plan.vehicleId;
+        const targetId = vehicleId || plan.vehicleId;
+        if (moving) {
+          const target = await tx.vehicle.findFirst({ where: { id: targetId, isActive: true } });
+          if (!target) throw new NotFoundException('Veículo ativo não encontrado.');
+          if (baseKm == null) throw new BadRequestException('Informe o km inicial do novo veículo.');
+        }
+        const first = plan.services[0];
+        if (!moving && first && baseKm != null && baseKm > first.mileageKm) {
+          throw new BadRequestException('O km inicial não pode ultrapassar o primeiro serviço registrado.');
+        }
+        if (baseKm != null) {
+          await tx.vehicle.updateMany({ where: { id: targetId, mileage: { lt: baseKm } }, data: { mileage: baseKm } });
+        }
+        if (moving && first && baseKm != null) {
+          await tx.maintenancePlan.update({ where: { id }, data: { archivedAt: new Date() } });
+          return tx.maintenancePlan.create({
+            data: { ...schedule, tenantId: plan.tenantId, vehicleId: targetId, baseKm, initialKm: baseKm },
+          });
+        }
+        return tx.maintenancePlan.update({
+          where: { id },
+          data: { ...schedule, vehicleId: targetId, initialKm: baseKm ?? undefined, baseKm: first ? undefined : baseKm ?? undefined },
+        });
+      }, { isolationLevel: 'Serializable' });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034') {
+        throw new ConflictException('O plano mudou durante a edição. Atualize e tente novamente.');
+      }
+      throw error;
+    }
+  }
+
+  async remove(id: string) {
+    const result = await this.prisma.maintenancePlan.deleteMany({ where: { id } });
+    if (!result.count) throw new NotFoundException('Plano de manutenção não encontrado.');
   }
 
   async archive(id: string) {
