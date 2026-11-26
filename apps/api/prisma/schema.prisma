@@ -58,6 +58,7 @@ model Tenant {
   accessLogs  AdminAccessLog[]
   masterLogs  MasterAuditLog[]
   ncActions   NcAction[]
+  maintenancePlans MaintenancePlan[]
 }
 
 // ---------------------------------------------------------
@@ -326,10 +327,39 @@ model Vehicle {
   updatedAt DateTime        @updatedAt
   Checklist Checklist[]
   ncs       NonConformity[]
+  maintenancePlans MaintenancePlan[]
 
   @@unique([tenantId, plate])
   @@index([tenantId, isActive, status])
   @@index([fleetId])
+}
+
+model MaintenancePlan {
+  id         String   @id @default(uuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vehicleId  String
+  vehicle    Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  name       String
+  intervalKm Int
+  warningKm  Int
+  baseKm     Int
+  archivedAt DateTime?
+  services   MaintenanceService[]
+
+  @@index([tenantId, archivedAt])
+  @@index([vehicleId])
+}
+
+model MaintenanceService {
+  id          String   @id @default(uuid())
+  planId      String
+  plan        MaintenancePlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  mileageKm   Int
+  notes       String?
+  recordedAt  DateTime @default(now())
+
+  @@unique([planId, mileageKm])
 }
 
 // ---------------------------------------------------------
