@@ -1,3 +1,8 @@
+/** Fuso usado para "hoje" e "últimos 7 dias" (o servidor da Vercel roda em UTC). */
+export function dashboardTimeZone(): string {
+  return process.env.DASHBOARD_TIMEZONE?.trim() || 'America/Sao_Paulo';
+}
+
 /**
  * Meia-noite (início do dia) de `date` no fuso `timeZone`, devolvida como instante UTC.
  * Funciona com qualquer fuso IANA, inclusive os que têm horário de verão.

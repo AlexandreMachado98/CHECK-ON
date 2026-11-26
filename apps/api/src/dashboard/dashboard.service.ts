@@ -4,7 +4,7 @@ import { Prisma } from '@prisma/client';
 import { ClsService } from 'nestjs-cls';
 import { PrismaService } from '../prisma/prisma.service';
 import { ACTIVE_NC_STATUSES } from '../checklist/checklist-rules';
-import { startOfDayInTimeZone } from './time-zone';
+import { dashboardTimeZone, startOfDayInTimeZone } from './time-zone';
 import { PANEL_ROLES } from '../role/role-definitions';
 import { ReportQueryDto, resolveReportRange } from './report-period';
 
@@ -26,10 +26,6 @@ type SummaryRow = {
   hasInspection: boolean;
 };
 
-/** Fuso usado para "hoje" e "últimos 7 dias" (o servidor da Vercel roda em UTC). */
-function dashboardTimeZone(): string {
-  return process.env.DASHBOARD_TIMEZONE?.trim() || 'America/Sao_Paulo';
-}
 
 @Injectable()
 export class DashboardService {

@@ -94,6 +94,7 @@ export function unitScopeFilter(model: string, scope: UnitScope): Record<string,
       // Planos da empresa toda (sem frota) e os das frotas das suas frentes.
       return { OR: [{ fleetId: null }, { fleet: fleetFilter(unitIds) }] };
     case 'MaintenanceRecord':
+    case 'DrivingFeedback':
       return { vehicle: vehicleFilter(unitIds) };
     case 'TemplateCategory':
       return { template: templateFilter(unitIds) };
