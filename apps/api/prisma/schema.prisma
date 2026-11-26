@@ -61,6 +61,7 @@ model Tenant {
   maintenancePlans   MaintenancePlan[]
   maintenanceRecords MaintenanceRecord[]
   drivingFeedback    DrivingFeedback[]
+  suggestions        Suggestion[]
 }
 
 // ---------------------------------------------------------
@@ -235,10 +236,11 @@ model Unit {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  fleets    Fleet[]
-  users     UserUnit[]
-  employees EmployeeUnit[]
-  templates TemplateUnit[]
+  fleets      Fleet[]
+  users       UserUnit[]
+  employees   EmployeeUnit[]
+  templates   TemplateUnit[]
+  suggestions Suggestion[]
 
   @@index([tenantId])
 }
@@ -336,6 +338,7 @@ model Vehicle {
   ncs                NonConformity[]
   maintenanceRecords MaintenanceRecord[]
   drivingFeedback    DrivingFeedback[]
+  suggestions        Suggestion[]
 
   @@unique([tenantId, plate])
   @@index([tenantId, isActive, status])
@@ -625,4 +628,47 @@ model DrivingFeedback {
   @@index([tenantId, status])
   @@index([driverId])
   @@index([vehicleId])
+}
+
+// Sugestão de melhoria enviada pelo passageiro pela página do QR do veículo. A frente é a da placa
+// (frota do veículo) no momento do envio. Só as priorizadas pelo gestor contam na nota da empresa.
+model Suggestion {
+  id            String    @id @default(uuid())
+  tenantId      String
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vehicleId     String
+  vehicle       Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  unitId        String
+  unit          Unit      @relation(fields: [unitId], references: [id])
+  // Número para o passageiro acompanhar (ex.: SG-7K3M9Q), único na empresa.
+  protocol      String
+  // Código do link de acompanhamento do passageiro (/s/<código>).
+  followToken   String    @unique
+  // CONFORTO, HORARIO, ROTA, SEGURANCA, LIMPEZA, OUTRO
+  category      String
+  text          String
+  contact       String?
+  // RECEBIDA, PRIORIZADA, EM_ANDAMENTO, RESOLVIDA, ARQUIVADA
+  status        String    @default("RECEBIDA")
+  // ALTA, MEDIA, BAIXA (definida ao priorizar)
+  priority      String?
+  dueDate       DateTime? @db.Date
+  // Priorizada em algum momento: entra na nota da empresa (arquivar tira).
+  prioritizedAt DateTime?
+  // Resposta mostrada ao passageiro (obrigatória ao resolver ou arquivar).
+  response      String?
+  resolvedAt    DateTime?
+  handledByName String?
+  // Nota do passageiro para a tratativa (depois de resolvida).
+  rating        Int?
+  ratingComment String?
+  ratedAt       DateTime?
+  deviceHash    String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([tenantId, protocol])
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
+  @@index([unitId])
 }

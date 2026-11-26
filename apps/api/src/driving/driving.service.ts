@@ -5,7 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RateLimiter } from '../common/rate-limit';
 import { dashboardTimeZone, startOfDayInTimeZone } from '../dashboard/time-zone';
 import { PassengerQrDto, SubmitDrivingFeedbackDto, TreatDrivingFeedbackDto } from './dto/driving.dto';
-import { DRIVING_TAGS, PASSENGER_TOKEN_PATTERN, REPEAT_WINDOW_HOURS, isAlert, shortName } from './driving-rules';
+import { DRIVING_TAGS, REPEAT_WINDOW_HOURS, findPassengerVehicle, isAlert, shortName } from './driving-rules';
 
 /** Envios por IP na janela: sobra para um ônibus cheio no mesmo Wi-Fi, barra robô. */
 const IP_MAX = 60;
@@ -191,14 +191,8 @@ export class DrivingService {
 
   // ── Apoio ─────────────────────────────────────────────────────────────────
 
-  private async findByToken(token: string) {
-    if (!PASSENGER_TOKEN_PATTERN.test(token)) throw new NotFoundException('Este QR Code não é válido ou foi trocado.');
-    const vehicle = await this.prisma.vehicle.findFirst({
-      where: { passengerToken: token, isActive: true, tenant: { isActive: true } },
-      select: { id: true, tenantId: true, plate: true, prefix: true, model: true, fleet: { select: { unitId: true } }, tenant: { select: { name: true } } },
-    });
-    if (!vehicle) throw new NotFoundException('Este QR Code não é válido ou foi trocado.');
-    return vehicle;
+  private findByToken(token: string) {
+    return findPassengerVehicle(this.prisma, token);
   }
 
   /**

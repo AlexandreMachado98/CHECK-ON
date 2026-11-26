@@ -11,6 +11,7 @@ import { EmployeeModule } from './employee/employee.module';
 import { FleetModule } from './fleet/fleet.module';
 import { MaintenanceModule } from './maintenance/maintenance.module';
 import { DrivingModule } from './driving/driving.module';
+import { SuggestionModule } from './suggestion/suggestion.module';
 import { VehicleModule } from './vehicle/vehicle.module';
 import { TemplateModule } from './template/template.module';
 import { ChecklistModule } from './checklist/checklist.module';
@@ -41,6 +42,7 @@ import { TenantInterceptor } from './tenant/tenant.interceptor';
     FleetModule,
     MaintenanceModule,
     DrivingModule,
+    SuggestionModule,
     VehicleModule,
     TemplateModule,
     ChecklistModule,

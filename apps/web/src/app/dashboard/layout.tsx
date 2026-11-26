@@ -26,6 +26,7 @@ import {
   FolderTree,
   Wrench,
   Star,
+  Lightbulb,
   Building2,
   KeyRound,
   Briefcase
@@ -46,6 +47,7 @@ const MENU_GROUPS = [
       { name: 'Inspeções', path: '/dashboard/executions', icon: ClipboardList },
       { name: 'Não Conformidades', path: '/dashboard/ncs', icon: AlertOctagon },
       { name: 'Como estou dirigindo', path: '/dashboard/driving', icon: Star },
+      { name: 'Sugestões de melhoria', path: '/dashboard/suggestions', icon: Lightbulb },
     ]
   },
   {

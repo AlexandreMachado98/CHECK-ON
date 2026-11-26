@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Truck, Users, ShieldCheck, FolderOpen, AlertTriangle, ArrowRight, Lock, ClipboardList, Repeat, Wrench, Star } from 'lucide-react';
+import { Truck, Users, ShieldCheck, FolderOpen, AlertTriangle, ArrowRight, Lock, ClipboardList, Repeat, Wrench, Star, Lightbulb } from 'lucide-react';
 import api from '@/lib/api';
 import type { DashboardSummary, NC } from '@/lib/types';
 import { VEHICLE_STATUS } from '@/lib/status';
@@ -18,11 +18,14 @@ export default function DashboardPage() {
   const [ncs, setNcs] = useState<NC[]>([]);
   // Avaliações de passageiros com alerta (nota 1-2 ou celular ao volante) ainda sem tratativa.
   const [drivingAlerts, setDrivingAlerts] = useState(0);
+  // Sugestões de passageiros esperando o gestor priorizar ou arquivar.
+  const [newSuggestions, setNewSuggestions] = useState(0);
   // Manutenção por km: veículos vencidos e perto de vencer (busca à parte; falha não afeta o painel).
   const [maintenance, setMaintenance] = useState<{ plans: number; overdue: number; upcoming: number } | null>(null);
   useEffect(() => {
     api.get<{ plans: number; overdue: number; upcoming: number }>('/maintenance/summary').then((res) => setMaintenance(res.data)).catch(() => setMaintenance(null));
     api.get<{ openAlerts: number }>('/driving-feedback/summary').then((res) => setDrivingAlerts(res.data.openAlerts)).catch(() => setDrivingAlerts(0));
+    api.get<{ received: number }>('/suggestions/summary').then((res) => setNewSuggestions(res.data.received)).catch(() => setNewSuggestions(0));
   }, []);
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -98,6 +101,16 @@ export default function DashboardPage() {
           <Star className="h-5 w-5 shrink-0" aria-hidden="true" />
           <span className="flex-1">
             <strong>Como estou dirigindo:</strong> {drivingAlerts} {drivingAlerts === 1 ? 'avaliação de passageiro com alerta para tratar' : 'avaliações de passageiros com alerta para tratar'}.
+          </span>
+          <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+        </Link>
+      )}
+
+      {newSuggestions > 0 && (
+        <Link href="/dashboard/suggestions" className="mb-4 flex items-center gap-3 rounded-lg border border-sky-200 bg-sky-50 p-4 text-sm text-sky-950 transition-colors hover:bg-sky-100">
+          <Lightbulb className="h-5 w-5 shrink-0" aria-hidden="true" />
+          <span className="flex-1">
+            <strong>Sugestões de melhoria:</strong> {newSuggestions} {newSuggestions === 1 ? 'sugestão nova esperando' : 'sugestões novas esperando'} priorização ou arquivamento.
           </span>
           <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
         </Link>
