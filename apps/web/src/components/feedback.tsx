@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import { AlertTriangle, CheckCircle2, Info, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -79,9 +79,7 @@ export function FeedbackHost() {
   const request = useSyncExternalStore(subscribe, () => pending, () => pending);
   // Guarda o último pedido para o texto não sumir durante a animação de fechar.
   const [shown, setShown] = useState<ConfirmRequest | null>(null);
-  useEffect(() => {
-    if (request) setShown(request);
-  }, [request]);
+  if (request && request !== shown) setShown(request);
 
   return (
     <>

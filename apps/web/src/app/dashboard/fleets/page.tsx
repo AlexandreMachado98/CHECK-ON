@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { canManage, seesAllUnits } from '@/lib/roles';
-import { getStoredUser } from '@/lib/session';
 import api from '@/lib/api';
 import { matchesSearch } from '@/lib/search';
 import { apiErrorMessage, type Fleet, type Vehicle } from '@/lib/types';
@@ -18,26 +17,22 @@ import { FolderOpen, Plus, Search, Edit2, Archive, Activity, Truck, FileUp } fro
 import { UnitBadges, UnitSelect, useUnits } from '@/components/unit-picker';
 import { notify, confirmAction } from '@/components/feedback';
 import { FleetImportDialog } from '@/components/fleet-import';
+import { useStoredUser } from '@/lib/use-stored-user';
 
 export default function FleetsPage() {
   // Supervisor consulta as frotas, mas não cadastra nem altera.
-  const [manager, setManager] = useState(false);
+  const role = useStoredUser()?.role;
+  const manager = canManage(role);
   // Administrador: a importação também cria as frentes que ainda não existem.
-  const [admin, setAdmin] = useState(false);
-  useEffect(() => {
-    const role = getStoredUser()?.role;
-    setManager(canManage(role));
-    setAdmin(seesAllUnits(role));
-  }, []);
+  const admin = seesAllUnits(role);
   const [importOpen, setImportOpen] = useState(false);
   const [fleets, setFleets] = useState<Fleet[]>([]);
   // Frentes de trabalho: cada frota pertence a uma (com uma frente só, ela já vem escolhida).
   const { active: units, reload: reloadUnits } = useUnits();
   const chooseUnit = units.length > 0;
   const [unitId, setUnitId] = useState('');
-  useEffect(() => {
-    if (units.length === 1 && !unitId) setUnitId(units[0].id);
-  }, [units, unitId]);
+  // Uma frente só: já vem escolhida (ajuste na própria renderização, quando as frentes chegam).
+  if (units.length === 1 && !unitId) setUnitId(units[0].id);
   const [editUnitId, setEditUnitId] = useState('');
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);

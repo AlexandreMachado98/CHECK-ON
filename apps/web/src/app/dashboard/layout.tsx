@@ -4,9 +4,9 @@ import { ReactNode, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import type { AuthUser } from '@/lib/types';
 import { PANEL_ROLES, canAccessPath, homePathFor, roleLabel } from '@/lib/roles';
-import { clearSession, isImpersonating, returnToPlatform, sessionExpired, setLoginNotice } from '@/lib/session';
+import { clearSession, getStoredUser, isImpersonating, returnToPlatform, sessionExpired, setLoginNotice } from '@/lib/session';
+import { useStoredUser } from '@/lib/use-stored-user';
 import { SubscriptionBanner } from '@/components/subscription-banner';
 import { FeedbackHost } from '@/components/feedback';
 import { 
@@ -31,6 +31,7 @@ import {
   KeyRound,
   Briefcase
 } from 'lucide-react';
+import { hardNavigate } from '@/lib/navigation';
 
 const MENU_GROUPS = [
   {
@@ -78,22 +79,16 @@ const MENU_GROUPS = [
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const user = useStoredUser();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // Sem sessão (ou guardada corrompida): volta ao login. Lê direto do navegador, porque na
+  // hidratação o useStoredUser ainda é null.
   useEffect(() => {
-    const stored = localStorage.getItem('user');
-    if (!stored) {
-      router.replace('/login');
-    } else {
-      try {
-        setUser(JSON.parse(stored));
-      } catch {
-        localStorage.removeItem('user');
-        localStorage.removeItem('token');
-        router.replace('/login');
-      }
-    }
+    if (getStoredUser()) return;
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    router.replace('/login');
   }, [router]);
 
   // Acesso vencido (aba aberta de um dia para o outro): avisa ao voltar para a aba e a cada minuto,
@@ -102,12 +97,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     function check() {
       if (document.visibilityState !== 'visible' || !sessionExpired()) return;
       if (isImpersonating() && returnToPlatform()) {
-        window.location.assign('/dashboard/tenants?acesso=expirado');
+        hardNavigate('/dashboard/tenants?acesso=expirado');
         return;
       }
       clearSession();
       setLoginNotice('Sua sessão expirou. Entre novamente para continuar.');
-      window.location.assign('/login');
+      hardNavigate('/login');
     }
     check();
     document.addEventListener('visibilitychange', check);
@@ -120,10 +115,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Close mobile drawer on route change
-  useEffect(() => {
+  // Troca de tela fecha o menu do celular (ajuste na própria renderização, sem efeito).
+  const [menuPath, setMenuPath] = useState(pathname);
+  if (menuPath !== pathname) {
+    setMenuPath(pathname);
     setMobileMenuOpen(false);
-  }, [pathname]);
+  }
 
   // Cada perfil só abre as telas dele (a API negaria as outras com 403).
   const hasPanelAccess = !!user && PANEL_ROLES.includes(user.role ?? '');
@@ -141,7 +138,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   function handleReturnToPlatform() {
     // Recarrega a página inteira para nenhuma tela manter dados da empresa na memória.
-    if (returnToPlatform()) window.location.assign('/dashboard/tenants');
+    if (returnToPlatform()) hardNavigate('/dashboard/tenants');
     else handleLogout();
   }
 

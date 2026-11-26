@@ -27,6 +27,7 @@ import {
   ShieldCheck, ShieldOff, Trash2, User, Users,
   Printer, FileUp,
 } from 'lucide-react';
+import { useAppOrigin, useStoredUser } from '@/lib/use-stored-user';
 
 const EMPLOYEE_ROLES = [
   { value: 'MOTORISTA', label: 'Motorista' },
@@ -114,24 +115,17 @@ function EmployeeForm({
   mode: 'create' | 'edit';
 }) {
   const [form, setForm] = useState<EmployeeFormData>(initial);
-  const [photoPreview, setPhotoPreview] = useState(initial.photoUrl);
 
-  // Cadastro novo numa empresa com uma frente só: ela já vem marcada.
-  useEffect(() => {
-    if (mode === 'create' && units.length === 1 && form.unitIds.length === 0) {
-      setForm((current) => ({ ...current, unitIds: [units[0].id] }));
-    }
-  }, [mode, units, form.unitIds.length]);
+  // Cadastro novo numa empresa com uma frente só: ela já vem marcada (ajuste na própria
+  // renderização, quando as frentes chegam; não precisa de efeito).
+  if (mode === 'create' && units.length === 1 && form.unitIds.length === 0) {
+    setForm((current) => ({ ...current, unitIds: [units[0].id] }));
+  }
 
-  useEffect(() => {
-    if (!form.photoFile) {
-      setPhotoPreview(form.photoUrl);
-      return;
-    }
-    const objectUrl = URL.createObjectURL(form.photoFile);
-    setPhotoPreview(objectUrl);
-    return () => URL.revokeObjectURL(objectUrl);
-  }, [form.photoFile, form.photoUrl]);
+  // Prévia da foto escolhida; o endereço temporário é liberado quando a foto muda ou a tela fecha.
+  const objectUrl = useMemo(() => (form.photoFile ? URL.createObjectURL(form.photoFile) : null), [form.photoFile]);
+  useEffect(() => () => { if (objectUrl) URL.revokeObjectURL(objectUrl); }, [objectUrl]);
+  const photoPreview = objectUrl ?? form.photoUrl;
 
   function setText(field: keyof EmployeeFormData) {
     return (event: ChangeEvent<HTMLInputElement>) =>
@@ -366,7 +360,7 @@ function BadgeDialog({
   onEmployeeUpdate: (employee: Employee) => void;
   canRotate?: boolean;
 }) {
-  const [origin, setOrigin] = useState('');
+  const origin = useAppOrigin();
   const [token, setToken] = useState(employee.badgeToken || '');
   const [working, setWorking] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -374,11 +368,6 @@ function BadgeDialog({
     () => token && origin ? `${origin.replace(/\/$/, '')}/badge/${token}` : '',
     [origin, token],
   );
-
-  useEffect(() => {
-    const configuredOrigin = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
-    setOrigin(configuredOrigin);
-  }, []);
 
   async function rotateToken() {
     if (token && !(await confirmAction({ message: 'O QR atual deixará de funcionar. Gerar um novo crachá?', title: 'Gerar novo crachá', confirmLabel: 'Gerar novo crachá' }))) return;
@@ -594,10 +583,9 @@ export default function EmployeesPage() {
   const [accessTarget, setAccessTarget] = useState<Employee | null>(null);
   const [issued, setIssued] = useState<{ name: string; credentials: AccessCredentials } | null>(null);
   // Supervisor consulta: não cadastra, não edita e não cria acessos.
-  const [manager, setManager] = useState(false);
+  const manager = canManage(useStoredUser()?.role);
 
   useEffect(() => {
-    setManager(canManage(getStoredUser()?.role));
     void fetchEmployees();
   }, []);
 

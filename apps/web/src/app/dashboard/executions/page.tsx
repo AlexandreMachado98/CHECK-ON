@@ -22,6 +22,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { notify, confirmAction } from '@/components/feedback';
 import { formatKm } from '@/lib/utils';
+import { useStoredUser } from '@/lib/use-stored-user';
 
 export default function ExecutionsPage() {
   const [checklists, setChecklists] = useState<Checklist[]>([]);
@@ -34,8 +35,7 @@ export default function ExecutionsPage() {
   const [detailError, setDetailError] = useState('');
   const [pdfWorking, setPdfWorking] = useState(false);
   // Excluir inspeção: só o administrador (não tem como desfazer).
-  const [canDelete, setCanDelete] = useState(false);
-  useEffect(() => { setCanDelete(seesAllUnits(getStoredUser()?.role)); }, []);
+  const canDelete = seesAllUnits(useStoredUser()?.role);
   const [deleting, setDeleting] = useState(false);
 
   async function handleDelete() {
@@ -78,10 +78,14 @@ export default function ExecutionsPage() {
   const debouncedSearch = useDebounced(search);
   const PAGE_SIZE = 50;
 
-  // Nova busca ou filtro volta para a primeira página.
-  useEffect(() => {
+  // Nova busca ou filtro volta para a primeira página, já nesta renderização: assim a busca sai
+  // uma vez só, na página 1 (antes saía também a página antiga, que podia chegar depois).
+  const filterKey = `${debouncedSearch}|${statusFilter}`;
+  const [pageFilterKey, setPageFilterKey] = useState(filterKey);
+  if (pageFilterKey !== filterKey) {
+    setPageFilterKey(filterKey);
     setPage(1);
-  }, [debouncedSearch, statusFilter]);
+  }
 
   useEffect(() => {
     fetchChecklists();
@@ -461,7 +465,6 @@ export default function ExecutionsPage() {
                 <h4 className="text-sm font-semibold text-slate-800 mb-2">Assinatura</h4>
                 {selectedChecklist.signatureUrl ? (
                   <div className="rounded-lg border bg-white p-3 text-center">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={selectedChecklist.signatureUrl} alt={`Assinatura de ${selectedChecklist.signedName ?? 'colaborador'}`} className="mx-auto h-24 w-auto max-w-full object-contain" />
                     <div className="mx-auto mt-1 w-64 max-w-full border-t border-slate-300 pt-1 text-sm font-medium text-slate-800">
                       {selectedChecklist.signedName || selectedChecklist.driver?.name}
@@ -489,7 +492,6 @@ function AnswerValue({ answer }: { answer: ChecklistAnswer }) {
       {parts.join(' · ')}
       {answer.photoUrl && (
         <a href={answer.photoUrl} target="_blank" rel="noreferrer" className="mt-2 block w-fit" title="Abrir foto em tamanho real">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={photoAtWidth(answer.photoUrl, 320)}
             alt={`Foto do item ${answer.item?.text ?? ''}`}

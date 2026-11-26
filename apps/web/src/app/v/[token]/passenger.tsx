@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArrowLeft, Bus, CheckCircle2, ChevronRight, Lightbulb, LoaderCircle, ShieldCheck, Star, ThumbsUp, TriangleAlert, UserRound } from 'lucide-react';
 import api from '@/lib/api';
 import { toggleTag, type TagGroups } from '@/lib/driving';
+import { useHydrated } from '@/lib/use-stored-user';
 import { apiErrorMessage } from '@/lib/types';
 
 type DriverOption = { checklistId: string; driverName: string; plate: string; prefix: string | null; model: string | null; completedAt: string | null };
@@ -82,8 +83,9 @@ export default function PassengerPage({ token }: { token: string }) {
   const [category, setCategory] = useState('');
   const [text, setText] = useState('');
   const [created, setCreated] = useState<SavedSuggestion | null>(null);
-  const [mine, setMine] = useState<SavedSuggestion[]>([]);
-  useEffect(() => { setMine(savedSuggestions()); }, [step]);
+  // Protocolos guardados neste celular: lidos depois da hidratação (só existem no navegador).
+  const hydrated = useHydrated();
+  const mine = hydrated ? savedSuggestions() : [];
 
   useEffect(() => {
     api.get<PublicVehicle>(`/public/vehicles/${encodeURIComponent(token)}`)

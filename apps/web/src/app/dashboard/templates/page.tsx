@@ -15,9 +15,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { ClipboardCheck, Plus, Search, Edit2, Archive, Activity, LayoutList, Copy, Trash2 } from 'lucide-react';
 import { UnitMultiPicker, useUnits } from '@/components/unit-picker';
 import { CopyTemplateDialog, TemplateUnitsLabel } from '@/components/template-units';
-import { getStoredUser } from '@/lib/session';
 import { seesAllUnits } from '@/lib/roles';
 import { notify, confirmAction } from '@/components/feedback';
+import { useStoredUser } from '@/lib/use-stored-user';
 
 export default function TemplatesPage() {
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -33,8 +33,7 @@ export default function TemplatesPage() {
   const [copyTarget, setCopyTarget] = useState<Template | null>(null);
   // Frentes de trabalho: o modelo vale em todas ou só nas escolhidas (só aparece com mais de uma frente).
   const { active: units, choose: chooseUnit } = useUnits();
-  const [admin, setAdmin] = useState(false);
-  useEffect(() => { setAdmin(seesAllUnits(getStoredUser()?.role)); }, []);
+  const admin = seesAllUnits(useStoredUser()?.role);
   const [allUnits, setAllUnits] = useState(true);
   const [unitIds, setUnitIds] = useState<string[]>([]);
 

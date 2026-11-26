@@ -70,12 +70,25 @@ export function setLoginNotice(message: string) {
 }
 
 export function takeLoginNotice(): string {
+  const message = peekLoginNotice();
+  clearLoginNotice();
+  return message;
+}
+
+/** Aviso guardado para a tela de login, sem apagar (ler na renderização é seguro). */
+export function peekLoginNotice(): string {
   try {
-    const message = window.sessionStorage.getItem(LOGIN_NOTICE) ?? '';
-    window.sessionStorage.removeItem(LOGIN_NOTICE);
-    return message;
+    return window.sessionStorage.getItem(LOGIN_NOTICE) ?? '';
   } catch {
     return '';
+  }
+}
+
+export function clearLoginNotice() {
+  try {
+    window.sessionStorage.removeItem(LOGIN_NOTICE);
+  } catch {
+    // sem sessionStorage: não há o que apagar
   }
 }
 

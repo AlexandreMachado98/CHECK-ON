@@ -11,6 +11,8 @@ import api from '@/lib/api';
 import { apiErrorMessage } from '@/lib/types';
 import { clearSession, getStoredUser, setLoginNotice } from '@/lib/session';
 import { confirmAction } from '@/components/feedback';
+import { useStoredUser } from '@/lib/use-stored-user';
+import { hardNavigate } from '@/lib/navigation';
 
 type Company = {
   id: string;
@@ -69,12 +71,11 @@ export default function SettingsPage() {
   const [loadError, setLoadError] = useState('');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
-  const [canEdit, setCanEdit] = useState(false);
+  // Só o administrador altera; o gestor consulta.
+  const role = useStoredUser()?.role;
+  const canEdit = role === 'ADMIN_EMPRESA' || role === 'SUPER_ADMIN';
 
   useEffect(() => {
-    // Só o administrador altera; o gestor consulta.
-    const role = getStoredUser()?.role;
-    setCanEdit(role === 'ADMIN_EMPRESA' || role === 'SUPER_ADMIN');
     fetchCompany();
   }, []);
 
@@ -128,7 +129,7 @@ export default function SettingsPage() {
       // A sua própria sessão também foi encerrada.
       clearSession();
       setLoginNotice('Todas as sessões da empresa foram encerradas. Entre novamente.');
-      window.location.assign('/login');
+      hardNavigate('/login');
     } catch (error) {
       setMessage({ kind: 'error', text: apiErrorMessage(error, 'Não foi possível encerrar as sessões.') });
       setSaving(false);

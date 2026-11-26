@@ -1,29 +1,26 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChangePasswordForm } from '@/components/change-password-form';
 import { ChangeEmailForm } from '@/components/change-email-form';
 import { getStoredUser } from '@/lib/session';
 import { roleLabel } from '@/lib/roles';
 import type { AuthUser } from '@/lib/types';
+import { notifyStoredUserChange, useStoredUser } from '@/lib/use-stored-user';
 
 /** Minha conta: dados do login e troca da própria senha. */
 export default function AccountPage() {
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const user = useStoredUser();
   const [changed, setChanged] = useState(false);
   const [emailChanged, setEmailChanged] = useState('');
 
   function onEmailChanged(email: string) {
     const updated = { ...(getStoredUser() ?? user), email } as AuthUser;
     localStorage.setItem('user', JSON.stringify(updated));
-    setUser(updated);
+    notifyStoredUserChange();
     setEmailChanged(email);
   }
-
-  useEffect(() => {
-    setUser(getStoredUser());
-  }, []);
 
   if (!user) return null;
 
@@ -75,7 +72,7 @@ export default function AccountPage() {
                 Senha alterada. Os outros aparelhos foram desconectados; este continua conectado.
               </p>
             ) : (
-              <ChangePasswordForm onDone={(updated) => { setUser(updated); setChanged(true); }} />
+              <ChangePasswordForm onDone={() => { notifyStoredUserChange(); setChanged(true); }} />
             )}
           </CardContent>
         </Card>

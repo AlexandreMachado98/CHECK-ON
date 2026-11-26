@@ -7,10 +7,13 @@ const config = [
   ...nextTs,
   {
     rules: {
-      // Regra nova do React 19 (eslint-plugin-react-hooks 6): aponta o padrão "carrega os dados no
-      // useEffect e guarda no estado", usado nas telas do portal. Funciona; fica como aviso até as
-      // telas migrarem para outro jeito de buscar dados.
-      'react-hooks/set-state-in-effect': 'warn',
+      // Estado regravado dentro de efeito causa renderização em cascata (tela piscando, busca dupla).
+      // As telas foram migradas (dados em .then, valores derivados na renderização, useSyncExternalStore
+      // para o navegador): agora é erro, para não voltar. Exceção legítima vai comentada na linha.
+      'react-hooks/set-state-in-effect': 'error',
+      // As fotos já chegam redimensionadas pela API (?w=320 / ?w=900, ver lib/photo-url): o <Image>
+      // do Next otimizaria de novo, com custo na Vercel e configuração de domínio. <img> é de propósito.
+      '@next/next/no-img-element': 'off',
     },
   },
   { ignores: ['.next/**', 'node_modules/**', 'next-env.d.ts'] },

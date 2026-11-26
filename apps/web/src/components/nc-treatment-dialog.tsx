@@ -32,7 +32,6 @@ function Thumb({ src, alt, onRemove }: { src: string; alt: string; onRemove?: ()
         </div>
       ) : (
         <a href={src} target="_blank" rel="noreferrer" title="Abrir foto em tamanho real">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={photoAtWidth(src, 320)} alt={alt} loading="lazy" decoding="async" onError={() => setBroken(true)} className="h-24 w-24 rounded-md border border-slate-200 object-cover" />
         </a>
       )}
@@ -64,13 +63,20 @@ export function NcTreatmentDialog({ nc, onClose, onSaved }: { nc: NC | null; onC
   const [error, setError] = useState('');
   const fileInput = useRef<HTMLInputElement>(null);
 
+  // Outra NC: o formulário recomeça (ajuste na própria renderização) e o detalhe é buscado de novo.
+  const [formFor, setFormFor] = useState<NC | null>(null);
+  if (nc !== formFor) {
+    setFormFor(nc);
+    if (nc) {
+      setDetail(null);
+      setStatus(nc.status === 'OPEN' ? 'IN_PROGRESS' : nc.status);
+      setText('');
+      setPhotos([]);
+      setError('');
+    }
+  }
   useEffect(() => {
     if (!nc) return;
-    setDetail(null);
-    setStatus(nc.status === 'OPEN' ? 'IN_PROGRESS' : nc.status);
-    setText('');
-    setPhotos([]);
-    setError('');
     api.get<NC>(`/ncs/${nc.id}`).then((res) => setDetail(res.data)).catch((err) => setError(apiErrorMessage(err, 'Não foi possível carregar a NC.')));
   }, [nc]);
 

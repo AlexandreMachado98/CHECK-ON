@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import { Building2, CheckCircle2, History, LogIn, Plus, Power, Search, ShieldOff, Truck, Users } from 'lucide-react';
 import { matchesSearch } from '@/lib/search';
 import api, { ensureList } from '@/lib/api';
+import { useHydrated } from '@/lib/use-stored-user';
 import { apiErrorMessage, type AdminAccessLog, type AuthUser, type Tenant } from '@/lib/types';
 import { startTenantAccess } from '@/lib/session';
 import { StorageCheckButton } from '@/components/storage-check';
@@ -16,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { hardNavigate } from '@/lib/navigation';
 
 const PLANS = [
   { value: 'STARTER', label: 'Starter' },
@@ -58,18 +60,23 @@ export default function TenantsPage() {
 
   const [accessingId, setAccessingId] = useState<string | null>(null);
   const [accessError, setAccessError] = useState('');
-  const [accessExpired, setAccessExpired] = useState(false);
+  // Chegou aqui porque o acesso de 1 hora a uma empresa expirou (?acesso=expirado): lido depois da
+  // hidratação, na própria renderização; o endereço é limpo logo depois.
+  const hydrated = useHydrated();
+  const [accessExpired, setAccessExpired] = useState<boolean | null>(null);
+  if (hydrated && accessExpired === null) {
+    setAccessExpired(new URLSearchParams(window.location.search).get('acesso') === 'expirado');
+  }
   const [accessLogs, setAccessLogs] = useState<AdminAccessLog[]>([]);
 
   useEffect(() => {
     fetchTenants();
     fetchAccessLogs();
-    // Chegou aqui porque o acesso de 1 hora a uma empresa expirou.
-    if (new URLSearchParams(window.location.search).get('acesso') === 'expirado') {
-      setAccessExpired(true);
-      window.history.replaceState(null, '', '/dashboard/tenants');
-    }
   }, []);
+
+  useEffect(() => {
+    if (accessExpired) window.history.replaceState(null, '', '/dashboard/tenants');
+  }, [accessExpired]);
 
   async function fetchAccessLogs() {
     try {
@@ -87,7 +94,7 @@ export default function TenantsPage() {
       const res = await api.post<{ access_token: string; user: AuthUser }>(`/admin/tenants/${tenant.id}/access`);
       startTenantAccess(res.data.access_token, res.data.user);
       // Recarrega a página inteira, já como administrador da empresa.
-      window.location.assign('/dashboard');
+      hardNavigate('/dashboard');
     } catch (error) {
       setAccessError(apiErrorMessage(error, `Não foi possível acessar ${tenant.name}.`));
       setAccessingId(null);

@@ -1,22 +1,22 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthHeading, AuthShell } from '@/components/auth-shell';
 import { ChangePasswordForm } from '@/components/change-password-form';
 import { clearSession, getStoredUser } from '@/lib/session';
 import { homePathFor } from '@/lib/roles';
 import type { AuthUser } from '@/lib/types';
+import { useStoredUser } from '@/lib/use-stored-user';
 
 /** Primeiro acesso com senha provisória: a pessoa define a própria senha antes de usar o portal. */
 export default function ForcedPasswordChangePage() {
   const router = useRouter();
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const user = useStoredUser();
 
+  // Sem sessão: volta ao login (lê direto do navegador; na hidratação o useStoredUser ainda é null).
   useEffect(() => {
-    const stored = getStoredUser();
-    if (!stored) router.replace('/login');
-    else setUser(stored);
+    if (!getStoredUser()) router.replace('/login');
   }, [router]);
 
   function done(updated: AuthUser) {

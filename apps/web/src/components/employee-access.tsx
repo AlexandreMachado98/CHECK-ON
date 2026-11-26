@@ -148,11 +148,9 @@ export function CreateAccessDialog({
   const [saving, setSaving] = useState(false);
   // Frentes do gestor/supervisor: começam com as frentes do colaborador.
   const { active: units, error: unitsError } = useUnits();
-  const [unitIds, setUnitIds] = useState<string[]>([]);
-  const [unitsTouched, setUnitsTouched] = useState(false);
-  useEffect(() => {
-    if (!unitsTouched) setUnitIds(defaultUnitIds(units, employee.units));
-  }, [units, employee.units, unitsTouched]);
+  // Até a pessoa mexer, valem as frentes do colaborador (calculadas na hora, sem estado copiado).
+  const [chosenUnitIds, setUnitIds] = useState<string[] | null>(null);
+  const unitIds = chosenUnitIds ?? defaultUnitIds(units, employee.units);
 
   useEffect(() => {
     api.get<Role[]>('/roles')
@@ -224,7 +222,7 @@ export function CreateAccessDialog({
               idPrefix="access-unit"
               units={units}
               value={unitIds}
-              onChange={(ids) => { setUnitsTouched(true); setUnitIds(ids); }}
+              onChange={(ids) => setUnitIds(ids)}
               help="Este login só vê frotas, veículos, inspeções, NCs e colaboradores das frentes marcadas."
             />
           )}

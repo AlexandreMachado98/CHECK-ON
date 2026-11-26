@@ -117,19 +117,21 @@ export default function DrivingPage() {
   const [error, setError] = useState('');
   const [treating, setTreating] = useState<DrivingFeedbackItem | null>(null);
 
-  const load = useCallback(async () => {
-    try {
-      const res = await api.get<DrivingOverview>('/driving-feedback', {
-        params: { days, ...(status !== 'ALL' ? { status } : {}), ...(alertsOnly ? { alerts: 'true' } : {}), ...(driver ? { driverId: driver.id } : {}) },
-      });
-      setData(res.data);
-      setError('');
-    } catch (err) {
-      setError(apiErrorMessage(err, 'Não foi possível carregar as avaliações.'));
-    } finally {
-      setLoading(false);
-    }
-  }, [days, status, alertsOnly, driver]);
+  // Estado só muda quando a resposta chega (nada é regravado na hora em que o efeito roda).
+  const load = useCallback(
+    () =>
+      api
+        .get<DrivingOverview>('/driving-feedback', {
+          params: { days, ...(status !== 'ALL' ? { status } : {}), ...(alertsOnly ? { alerts: 'true' } : {}), ...(driver ? { driverId: driver.id } : {}) },
+        })
+        .then((res) => {
+          setData(res.data);
+          setError('');
+        })
+        .catch((err) => setError(apiErrorMessage(err, 'Não foi possível carregar as avaliações.')))
+        .finally(() => setLoading(false)),
+    [days, status, alertsOnly, driver],
+  );
 
   useEffect(() => { void load(); }, [load]);
 

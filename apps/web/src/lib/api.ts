@@ -1,5 +1,6 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { clearSession, isImpersonating, returnToPlatform, setLoginNotice } from './session';
+import { hardNavigate } from './navigation';
 
 /**
  * Endereço base da API.
@@ -46,7 +47,7 @@ api.interceptors.response.use(undefined, async (error: AxiosError) => {
   // O acesso do super admin a uma empresa vale 1 hora: ao expirar, volta sozinho para a plataforma.
   if (error.response?.status === 401 && typeof window !== 'undefined' && isImpersonating()) {
     if (returnToPlatform()) {
-      window.location.assign('/dashboard/tenants?acesso=expirado');
+      hardNavigate('/dashboard/tenants?acesso=expirado');
       return new Promise(() => {}); // a página vai recarregar; não mostra erro na tela
     }
   }
@@ -57,13 +58,13 @@ api.interceptors.response.use(undefined, async (error: AxiosError) => {
     const reason = typeof apiMessage === 'string' && apiMessage !== 'Unauthorized' ? apiMessage : 'Sua sessão expirou. Entre novamente para continuar.';
     clearSession();
     setLoginNotice(reason);
-    if (!window.location.pathname.startsWith('/login')) window.location.assign('/login');
+    if (!window.location.pathname.startsWith('/login')) hardNavigate('/login');
     return new Promise(() => {}); // a página vai para o login; não mostra erro na tela
   }
   // Senha provisória: a API só libera a troca de senha. Leva para a tela de troca.
   const body = error.response?.data as { code?: string } | undefined;
   if (error.response?.status === 403 && body?.code === 'PASSWORD_CHANGE_REQUIRED' && typeof window !== 'undefined') {
-    if (!window.location.pathname.startsWith('/trocar-senha')) window.location.assign('/trocar-senha');
+    if (!window.location.pathname.startsWith('/trocar-senha')) hardNavigate('/trocar-senha');
     return new Promise(() => {});
   }
   if (!isRetryable(error)) throw error;

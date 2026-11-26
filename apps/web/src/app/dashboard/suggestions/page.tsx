@@ -5,7 +5,6 @@ import { format } from 'date-fns';
 import { Phone, Star } from 'lucide-react';
 import api from '@/lib/api';
 import { canManage } from '@/lib/roles';
-import { getStoredUser } from '@/lib/session';
 import { apiErrorMessage } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -14,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { notify } from '@/components/feedback';
+import { useStoredUser } from '@/lib/use-stored-user';
 
 type Status = 'RECEBIDA' | 'PRIORIZADA' | 'EM_ANDAMENTO' | 'RESOLVIDA' | 'ARQUIVADA';
 type Priority = 'ALTA' | 'MEDIA' | 'BAIXA';
@@ -161,7 +161,7 @@ function ActionDialog({ item, action, onClose, onDone }: { item: SuggestionItem;
 }
 
 export default function SuggestionsPage() {
-  const [manager, setManager] = useState(false);
+  const manager = canManage(useStoredUser()?.role);
   const [days, setDays] = useState('90');
   const [tab, setTab] = useState<Status | 'ALL'>('RECEBIDA');
   const [data, setData] = useState<Overview | null>(null);
@@ -169,19 +169,20 @@ export default function SuggestionsPage() {
   const [error, setError] = useState('');
   const [acting, setActing] = useState<{ item: SuggestionItem; action: 'PRIORIZAR' | 'RESOLVER' | 'ARQUIVAR' } | null>(null);
 
-  const load = useCallback(async () => {
-    try {
-      const res = await api.get<Overview>('/suggestions', { params: { days, ...(tab !== 'ALL' ? { status: tab } : {}) } });
-      setData(res.data);
-      setError('');
-    } catch (err) {
-      setError(apiErrorMessage(err, 'Não foi possível carregar as sugestões.'));
-    } finally {
-      setLoading(false);
-    }
-  }, [days, tab]);
+  // Estado só muda quando a resposta chega.
+  const load = useCallback(
+    () =>
+      api
+        .get<Overview>('/suggestions', { params: { days, ...(tab !== 'ALL' ? { status: tab } : {}) } })
+        .then((res) => {
+          setData(res.data);
+          setError('');
+        })
+        .catch((err) => setError(apiErrorMessage(err, 'Não foi possível carregar as sugestões.')))
+        .finally(() => setLoading(false)),
+    [days, tab],
+  );
 
-  useEffect(() => { setManager(canManage(getStoredUser()?.role)); }, []);
   useEffect(() => { void load(); }, [load]);
 
   async function quick(item: SuggestionItem, action: 'INICIAR' | 'REABRIR') {

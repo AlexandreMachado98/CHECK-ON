@@ -18,6 +18,7 @@ import { PassengerLabelsPrint, type PassengerLabel } from '@/components/passenge
 import { formatKm } from '@/lib/utils';
 import { VehicleImportDialog } from '@/components/vehicle-import';
 import { confirmAction, notify } from '@/components/feedback';
+import { useStoredUser } from '@/lib/use-stored-user';
 
 const TILES: { status: VehicleStatus; icon: React.ElementType; tone: string }[] = [
   { status: 'LIBERADO', icon: ShieldCheck, tone: 'text-emerald-700' },
@@ -26,8 +27,7 @@ const TILES: { status: VehicleStatus; icon: React.ElementType; tone: string }[] 
 ];
 
 export default function VehiclesPage() {
-  const [manager, setManager] = useState(false);
-  useEffect(() => { setManager(canManage(getStoredUser()?.role)); }, []);
+  const manager = canManage(useStoredUser()?.role);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [qrVehicle, setQrVehicle] = useState<Vehicle | null>(null);

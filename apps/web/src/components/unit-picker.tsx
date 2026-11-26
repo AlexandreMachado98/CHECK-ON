@@ -17,18 +17,22 @@ export function useUnits() {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState('');
 
-  const reload = useCallback(async () => {
-    try {
-      const response = await api.get<Unit[]>('/units');
-      setUnits(response.data);
-      setError('');
-    } catch {
-      setUnits([]);
-      setError('Não foi possível carregar as frentes de trabalho. Feche e abra de novo; se continuar, avise o suporte.');
-    } finally {
-      setLoaded(true);
-    }
-  }, []);
+  // Estado só muda quando a resposta chega.
+  const reload = useCallback(
+    () =>
+      api
+        .get<Unit[]>('/units')
+        .then((response) => {
+          setUnits(response.data);
+          setError('');
+        })
+        .catch(() => {
+          setUnits([]);
+          setError('Não foi possível carregar as frentes de trabalho. Feche e abra de novo; se continuar, avise o suporte.');
+        })
+        .finally(() => setLoaded(true)),
+    [],
+  );
 
   useEffect(() => { reload(); }, [reload]);
 

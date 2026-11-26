@@ -11,6 +11,7 @@ import { setLoginNotice } from '@/lib/session';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { hardNavigate } from '@/lib/navigation';
 
 /**
  * Esqueci minha senha: 1) informa o e-mail e recebe um código; 2) digita o código e a senha nova.
@@ -49,7 +50,7 @@ export default function ForgotPasswordPage() {
       setError('');
       const res = await api.post<{ message: string }>('/auth/reset-password-code', { email: email.trim(), code: code.trim(), newPassword: password });
       setLoginNotice(res.data.message);
-      window.location.assign('/login');
+      hardNavigate('/login');
     } catch (err) {
       setError(apiErrorMessage(err, 'Não foi possível trocar a senha.'));
       setSending(false);

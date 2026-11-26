@@ -16,6 +16,9 @@ export function ErrorFallback({ error, reset }: Props) {
 
   useEffect(() => {
     console.error('Erro na tela do painel:', error);
+    // Exceção legítima: a recarga é uma ação externa (feita aqui, no efeito) e o estado só reflete
+    // que ela foi disparada, para a tela mostrar "carregando" até o navegador recarregar.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (chunkError && reloadOnceForNewVersion()) setReloading(true);
   }, [error, chunkError]);
 
