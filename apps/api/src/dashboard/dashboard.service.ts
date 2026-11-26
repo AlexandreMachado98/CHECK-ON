@@ -25,6 +25,8 @@ type SummaryRow = {
   hasTemplate: boolean;
   hasAppAccess: boolean;
   hasInspection: boolean;
+  hasMaintenancePlan: boolean;
+  hasPassengerQr: boolean;
 };
 
 
@@ -77,7 +79,9 @@ export class DashboardService {
         -- Primeiros passos da empresa (implantação): valem para a empresa toda, sem filtro de frente.
         EXISTS (SELECT 1 FROM "Template" WHERE "tenantId" = ${tenantId} AND "isActive") AS "hasTemplate",
         EXISTS (SELECT 1 FROM "User" WHERE "tenantId" = ${tenantId} AND "isActive" AND "employeeId" IS NOT NULL) AS "hasAppAccess",
-        EXISTS (SELECT 1 FROM "Checklist" WHERE "tenantId" = ${tenantId}) AS "hasInspection"
+        EXISTS (SELECT 1 FROM "Checklist" WHERE "tenantId" = ${tenantId}) AS "hasInspection",
+        EXISTS (SELECT 1 FROM "MaintenancePlan" WHERE "tenantId" = ${tenantId} AND "isActive") AS "hasMaintenancePlan",
+        EXISTS (SELECT 1 FROM "Vehicle" WHERE "tenantId" = ${tenantId} AND "isActive" AND "passengerToken" IS NOT NULL) AS "hasPassengerQr"
     `;
 
     return {
@@ -89,7 +93,13 @@ export class DashboardService {
       ncs: { active: row.ncsActive, critical: row.ncsCritical, recurrent: row.ncsRecurrent },
       inspections: { today: row.inspectionsToday, last7Days: row.inspectionsWeek },
       // Implantação: o painel mostra "Primeiros passos" enquanto falta algum.
-      setup: { hasTemplate: row.hasTemplate, hasAppAccess: row.hasAppAccess, hasInspection: row.hasInspection },
+      setup: {
+        hasTemplate: row.hasTemplate,
+        hasAppAccess: row.hasAppAccess,
+        hasInspection: row.hasInspection,
+        hasMaintenancePlan: row.hasMaintenancePlan,
+        hasPassengerQr: row.hasPassengerQr,
+      },
     };
   }
 
