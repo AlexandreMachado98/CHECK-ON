@@ -10,6 +10,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.checkon.app.CheckOnApp
+import com.checkon.app.data.SessionEndedException
 import java.util.concurrent.TimeUnit
 
 /**
@@ -19,7 +20,15 @@ import java.util.concurrent.TimeUnit
 class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val repository = (applicationContext as CheckOnApp).repository
-        val summary = runCatching { repository.sync() }.getOrNull() ?: return Result.success()
+        val summary = try {
+            repository.sync() ?: return Result.success() // ninguém logado: nada a enviar
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: SessionEndedException) {
+            return Result.success() // envia quando a pessoa entrar de novo (o app chama o envio ao entrar)
+        } catch (e: Exception) {
+            return Result.retry() // erro inesperado: tenta de novo mais tarde em vez de desistir
+        }
         return if (summary.offline || summary.pending > 0) Result.retry() else Result.success()
     }
 
