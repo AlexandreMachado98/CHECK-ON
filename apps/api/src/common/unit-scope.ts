@@ -90,6 +90,11 @@ export function unitScopeFilter(model: string, scope: UnitScope): Record<string,
       return { nc: { vehicle: vehicleFilter(unitIds) } };
     case 'Template':
       return templateFilter(unitIds);
+    case 'MaintenancePlan':
+      // Planos da empresa toda (sem frota) e os das frotas das suas frentes.
+      return { OR: [{ fleetId: null }, { fleet: fleetFilter(unitIds) }] };
+    case 'MaintenanceRecord':
+      return { vehicle: vehicleFilter(unitIds) };
     case 'TemplateCategory':
       return { template: templateFilter(unitIds) };
     case 'TemplateItem':

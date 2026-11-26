@@ -45,20 +45,21 @@ model Tenant {
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
-  users       User[]
-  employees   Employee[]
-  roles       Role[]
-  departments Department[]
-  units       Unit[]
-  fleets      Fleet[]
-  vehicles    Vehicle[]
-  checklists  Checklist[]      @relation("TenantToChecklist")
-  templates   Template[]
-  ncs         NonConformity[]  @relation("TenantToNC")
-  accessLogs  AdminAccessLog[]
-  masterLogs  MasterAuditLog[]
-  ncActions   NcAction[]
-  maintenancePlans MaintenancePlan[]
+  users              User[]
+  employees          Employee[]
+  roles              Role[]
+  departments        Department[]
+  units              Unit[]
+  fleets             Fleet[]
+  vehicles           Vehicle[]
+  checklists         Checklist[]         @relation("TenantToChecklist")
+  templates          Template[]
+  ncs                NonConformity[]     @relation("TenantToNC")
+  accessLogs         AdminAccessLog[]
+  masterLogs         MasterAuditLog[]
+  ncActions          NcAction[]
+  maintenancePlans   MaintenancePlan[]
+  maintenanceRecords MaintenanceRecord[]
 }
 
 // ---------------------------------------------------------
@@ -301,71 +302,38 @@ model Fleet {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  vehicles Vehicle[]
+  vehicles         Vehicle[]
+  maintenancePlans MaintenancePlan[]
 
   @@index([tenantId])
   @@index([unitId])
 }
 
 model Vehicle {
-  id        String          @id @default(uuid())
-  tenantId  String
-  tenant    Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  fleetId   String
-  fleet     Fleet           @relation(fields: [fleetId], references: [id])
-  plate     String
-  prefix    String?
-  brand     String?
-  model     String?
-  year      Int?
-  status    String          @default("LIBERADO") // LIBERADO, ATENCAO, BLOQUEADO
+  id                 String              @id @default(uuid())
+  tenantId           String
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  fleetId            String
+  fleet              Fleet               @relation(fields: [fleetId], references: [id])
+  plate              String
+  prefix             String?
+  brand              String?
+  model              String?
+  year               Int?
+  status             String              @default("LIBERADO") // LIBERADO, ATENCAO, BLOQUEADO
   // Maior km informado nas inspeções (hodômetro).
-  mileage   Int             @default(0)
-  qrCode    String?         @unique
-  isActive  Boolean         @default(true)
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
-  Checklist Checklist[]
-  ncs       NonConformity[]
-  maintenancePlans MaintenancePlan[]
+  mileage            Int                 @default(0)
+  qrCode             String?             @unique
+  isActive           Boolean             @default(true)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  Checklist          Checklist[]
+  ncs                NonConformity[]
+  maintenanceRecords MaintenanceRecord[]
 
   @@unique([tenantId, plate])
   @@index([tenantId, isActive, status])
   @@index([fleetId])
-}
-
-model MaintenancePlan {
-  id         String   @id @default(uuid())
-  tenantId   String
-  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  vehicleId  String
-  vehicle    Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
-  name       String
-  intervalKm Int
-  warningKm  Int
-  intervalDays Int?
-  baseDate DateTime? @db.Date
-  initialKm  Int?
-  baseKm     Int
-  archivedAt DateTime?
-  services   MaintenanceService[]
-
-  @@index([tenantId, archivedAt])
-  @@index([vehicleId])
-}
-
-model MaintenanceService {
-  id          String   @id @default(uuid())
-  planId      String
-  plan        MaintenancePlan @relation(fields: [planId], references: [id], onDelete: Cascade)
-  serviceDate DateTime? @db.Date
-  workshop String?
-  costCents Int?
-  mileageKm   Int
-  notes       String?
-  recordedAt  DateTime @default(now())
-
-  @@unique([planId, mileageKm, serviceDate])
 }
 
 // ---------------------------------------------------------
@@ -452,14 +420,14 @@ model Checklist {
   templateVersion Int?
   templateName    String?
 
-  status      String    @default("IN_PROGRESS") // IN_PROGRESS, COMPLETED, SYNCED
-  startedAt   DateTime  @default(now())
-  completedAt DateTime?
-  syncedAt    DateTime?
-  latitude    Float?
-  longitude   Float?
+  status       String    @default("IN_PROGRESS") // IN_PROGRESS, COMPLETED, SYNCED
+  startedAt    DateTime  @default(now())
+  completedAt  DateTime?
+  syncedAt     DateTime?
+  latitude     Float?
+  longitude    Float?
   // Aparelho que enviou (auditoria do login sem senha do aplicativo)
-  deviceInfo  String?
+  deviceInfo   String?
   // Assinatura do colaborador ao concluir (imagem no armazenamento, como as fotos) e o nome de quem assinou.
   // Opcional na API: inspeções antigas e as que ainda estão na fila de apps antigos não têm.
   signatureUrl String?
@@ -567,4 +535,52 @@ model NcAction {
   createdAt  DateTime      @default(now())
 
   @@index([tenantId, ncId, createdAt])
+}
+
+// Plano de manutenção preventiva: a cada `intervalKm` (e/ou `intervalDays`) o veículo precisa da
+// manutenção. Vale para todos os veículos da empresa (fleetId vazio) ou só para os de uma frota.
+model MaintenancePlan {
+  id           String   @id @default(uuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name         String
+  intervalKm   Int
+  // Prazo também por tempo (ex.: troca de óleo a cada 10.000 km ou 6 meses, o que vier primeiro).
+  intervalDays Int?
+  // Quantos km antes do vencimento a manutenção passa a "Próxima".
+  warnBeforeKm Int      @default(1000)
+  fleetId      String?
+  fleet        Fleet?   @relation(fields: [fleetId], references: [id])
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  records MaintenanceRecord[]
+
+  @@index([tenantId])
+  @@index([fleetId])
+}
+
+// Manutenção feita num veículo. Com plano, reinicia o ciclo dele; sem plano, é corretiva/avulsa.
+model MaintenanceRecord {
+  id            String           @id @default(uuid())
+  tenantId      String
+  tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vehicleId     String
+  vehicle       Vehicle          @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  planId        String?
+  plan          MaintenancePlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+  // Nome do serviço: o do plano ou o informado (corretiva).
+  title         String
+  performedAt   DateTime
+  km            Int
+  workshop      String?
+  cost          Decimal?         @db.Decimal(12, 2)
+  notes         String?
+  createdById   String?
+  createdByName String?
+  createdAt     DateTime         @default(now())
+
+  @@index([tenantId, vehicleId])
+  @@index([vehicleId, planId, performedAt])
 }

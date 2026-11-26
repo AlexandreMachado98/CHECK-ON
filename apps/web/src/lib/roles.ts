@@ -41,6 +41,7 @@ const COMPANY_PATHS = [
   '/dashboard/ncs',
   '/dashboard/vehicles',
   '/dashboard/fleets',
+  '/dashboard/maintenance',
   '/dashboard/employees',
   '/dashboard/users',
   '/dashboard/reports',
@@ -57,6 +58,7 @@ const SUPERVISOR_PATHS = [
   '/dashboard/ncs',
   '/dashboard/vehicles',
   '/dashboard/fleets',
+  '/dashboard/maintenance',
   '/dashboard/employees',
   '/dashboard/reports',
 ];
