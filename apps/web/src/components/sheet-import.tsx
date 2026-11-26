@@ -12,7 +12,7 @@ import { notify } from '@/components/feedback';
 type Row = Record<string, string>;
 /** Resultado de cada linha como a API devolve; `key` é o campo que identifica a linha (placa, nome). */
 type Result = { line: number; ok: boolean; error?: string } & Record<string, unknown>;
-type Checked = { rows: Row[]; results: Result[]; invalid: number; fileName: string };
+type Checked = { rows: Row[]; results: Result[]; invalid: number; fileName: string; response: Record<string, unknown> };
 
 export type SheetImportConfig = {
   /** Rota da API que recebe `{ rows, dryRun }`. */
@@ -29,6 +29,10 @@ export type SheetImportConfig = {
   noun: [string, string];
   /** Campo do resultado que identifica a linha na tabela de problemas e o título da coluna. */
   resultKey: { field: string; header: string; mono?: boolean };
+  /** Aviso extra na prévia, a partir da resposta da conferência (ex.: frentes novas que serão criadas). */
+  previewNote?: (response: Record<string, unknown>) => string | null;
+  /** Mensagem depois de importar (padrão: "N itens importados."). */
+  doneMessage?: (response: Record<string, unknown>) => string;
 };
 
 /** Lê a planilha: cabeçalho na primeira linha, colunas em qualquer ordem, colunas desconhecidas ignoradas. */
@@ -79,8 +83,8 @@ export function SheetImportDialog({ config, open, onClose, onImported }: { confi
     try {
       const rows = readRows(await file.text(), config);
       if (!rows.length) throw new Error(`A planilha não tem nenhum ${one} abaixo do cabeçalho.`);
-      const res = await api.post<{ invalid: number; results: Result[] }>(config.endpoint, { rows, dryRun: true });
-      setChecked({ rows, results: res.data.results, invalid: res.data.invalid, fileName: file.name });
+      const res = await api.post<{ invalid: number; results: Result[] } & Record<string, unknown>>(config.endpoint, { rows, dryRun: true });
+      setChecked({ rows, results: res.data.results, invalid: res.data.invalid, fileName: file.name, response: res.data });
     } catch (err) {
       setError(apiErrorMessage(err, 'Não foi possível ler a planilha.'));
     } finally {
@@ -94,8 +98,8 @@ export function SheetImportDialog({ config, open, onClose, onImported }: { confi
     setBusy('importing');
     setError('');
     try {
-      const res = await api.post<{ created: number }>(config.endpoint, { rows: valid });
-      notify(`${count(res.data.created)} ${res.data.created === 1 ? 'importado' : 'importados'}.`, 'success');
+      const res = await api.post<{ created: number } & Record<string, unknown>>(config.endpoint, { rows: valid });
+      notify(config.doneMessage ? config.doneMessage(res.data) : `${count(res.data.created)} ${res.data.created === 1 ? 'importado' : 'importados'}.`, 'success');
       onImported();
       close();
     } catch (err) {
@@ -146,6 +150,10 @@ export function SheetImportDialog({ config, open, onClose, onImported }: { confi
                 </span>
               )}
             </div>
+            {(() => {
+              const note = config.previewNote?.(checked.response);
+              return note ? <p className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-950">{note}</p> : null;
+            })()}
             {problems.length > 0 && (
               <div className="max-h-56 overflow-y-auto rounded-md border border-amber-200">
                 <table className="w-full text-left text-xs">
