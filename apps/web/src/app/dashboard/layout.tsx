@@ -24,6 +24,7 @@ import {
   Menu,
   X,
   FolderTree,
+  Wrench,
   Building2,
   KeyRound,
   Briefcase
@@ -50,6 +51,7 @@ const MENU_GROUPS = [
     items: [
       { name: 'Veículos', path: '/dashboard/vehicles', icon: Truck },
       { name: 'Frotas', path: '/dashboard/fleets', icon: FolderTree },
+      { name: 'Manutenção', path: '/dashboard/maintenance', icon: Wrench },
       { name: 'Frentes de trabalho', path: '/dashboard/frentes', icon: Briefcase },
     ]
   },

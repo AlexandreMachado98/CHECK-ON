@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Truck, Users, ShieldCheck, FolderOpen, AlertTriangle, ArrowRight, Lock, ClipboardList, Repeat } from 'lucide-react';
+import { Truck, Users, ShieldCheck, FolderOpen, AlertTriangle, ArrowRight, Lock, ClipboardList, Repeat, Wrench } from 'lucide-react';
 import api from '@/lib/api';
 import type { DashboardSummary, NC } from '@/lib/types';
 import { VEHICLE_STATUS } from '@/lib/status';
@@ -16,6 +16,11 @@ import { FirstSteps } from '@/components/first-steps';
 export default function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [ncs, setNcs] = useState<NC[]>([]);
+  // Manutenção por km: veículos vencidos e perto de vencer (busca à parte; falha não afeta o painel).
+  const [maintenance, setMaintenance] = useState<{ plans: number; overdue: number; upcoming: number } | null>(null);
+  useEffect(() => {
+    api.get<{ plans: number; overdue: number; upcoming: number }>('/maintenance/summary').then((res) => setMaintenance(res.data)).catch(() => setMaintenance(null));
+  }, []);
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const [activeNcTotal, setActiveNcTotal] = useState(0);
@@ -84,6 +89,24 @@ export default function DashboardPage() {
       </div>
 
       {manager && summary && !loadFailed && <FirstSteps summary={summary} />}
+
+      {maintenance && (maintenance.overdue > 0 || maintenance.upcoming > 0) && (
+        <Link
+          href="/dashboard/maintenance"
+          className={`mb-4 flex items-center gap-3 rounded-lg border p-4 text-sm transition-colors ${maintenance.overdue > 0 ? 'border-rose-200 bg-rose-50 text-rose-900 hover:bg-rose-100' : 'border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-100'}`}
+        >
+          <Wrench className="h-5 w-5 shrink-0" aria-hidden="true" />
+          <span className="flex-1">
+            <strong>Manutenção:</strong>{' '}
+            {[
+              maintenance.overdue > 0 && `${maintenance.overdue} ${maintenance.overdue === 1 ? 'veículo com manutenção vencida' : 'veículos com manutenção vencida'}`,
+              maintenance.upcoming > 0 && `${maintenance.upcoming} perto de vencer`,
+            ].filter(Boolean).join(' e ')}
+            .
+          </span>
+          <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+        </Link>
+      )}
 
       {loadFailed && (
         <div role="alert" className="mb-4 flex flex-col gap-2 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 sm:flex-row sm:items-center sm:justify-between">
