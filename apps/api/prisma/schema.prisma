@@ -343,6 +343,7 @@ model MaintenancePlan {
   name       String
   intervalKm Int
   warningKm  Int
+  initialKm  Int?
   baseKm     Int
   archivedAt DateTime?
   services   MaintenanceService[]

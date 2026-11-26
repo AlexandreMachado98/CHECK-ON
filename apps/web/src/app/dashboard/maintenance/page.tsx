@@ -32,6 +32,8 @@ type Plan = {
   id: string;
   name: string;
   baseKm: number;
+  initialKm: number | null;
+  _count: { services: number };
   intervalKm: number;
   warningKm: number;
   dueKm: number;
@@ -83,12 +85,12 @@ export default function MaintenancePage() {
     await loadPlans();
   }
 
-  async function openCreate() {
+  async function openSchedule(plan?: Plan) {
     setBusy(true);
     try {
       const response = await api.get<Vehicle[]>('/vehicles');
-      setVehicles(response.data.filter((vehicle) => vehicle.isActive));
-      setEditor({ kind: 'create' });
+      setVehicles(response.data.filter((vehicle) => vehicle.isActive || vehicle.id === plan?.vehicle.id));
+      setEditor(plan ? { kind: 'edit', plan } : { kind: 'create' });
     } catch (error) {
       notify(apiErrorMessage(error, 'Não foi possível carregar os veículos.'));
     } finally {
@@ -96,20 +98,21 @@ export default function MaintenancePage() {
     }
   }
 
-  async function archive(plan: Plan) {
+  async function removePlan(plan: Plan, permanent = false) {
     if (!(await confirmAction({
-      title: 'Arquivar plano',
-      message: `Arquivar “${plan.name}” do veículo ${plan.vehicle.plate}? O histórico continuará disponível.`,
-      confirmLabel: 'Arquivar',
+      title: permanent ? 'Excluir plano definitivamente' : 'Arquivar plano',
+      danger: permanent,
+      message: permanent ? `Excluir “${plan.name}” do veículo ${plan.vehicle.plate} e todo o histórico de serviços deste plano? Esta ação é definitiva.` : `Arquivar “${plan.name}” do veículo ${plan.vehicle.plate}? O histórico continuará disponível.`,
+      confirmLabel: permanent ? 'Excluir definitivamente' : 'Arquivar',
     }))) return;
 
     setBusy(true);
     try {
-      await api.delete(`${endpoint}/${plan.id}`);
-      notify('Plano arquivado.');
+      await api.delete(`${endpoint}/${plan.id}${permanent ? '/permanent' : ''}`);
+      notify(permanent ? 'Plano excluído.' : 'Plano arquivado.');
       await refreshPlans();
     } catch (error) {
-      notify(apiErrorMessage(error, 'Não foi possível arquivar o plano.'));
+      notify(apiErrorMessage(error, 'Não foi possível concluir a operação.'));
     } finally {
       setBusy(false);
     }
@@ -130,7 +133,7 @@ export default function MaintenancePage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" disabled={loading || busy} onClick={refreshPlans}>Atualizar</Button>
-          {manager && <Button disabled={busy} onClick={openCreate}>Novo plano</Button>}
+          {manager && <Button disabled={busy} onClick={() => openSchedule()}>Novo plano</Button>}
         </div>
       </header>
 
@@ -180,10 +183,11 @@ export default function MaintenancePage() {
                           {manager && !plan.archivedAt && (
                             <>
                               {plan.vehicle.isActive && <Button size="sm" variant="outline" onClick={() => setEditor({ kind: 'record', plan })}>Registrar serviço</Button>}
-                              <Button size="sm" variant="ghost" onClick={() => setEditor({ kind: 'edit', plan })}>Editar</Button>
-                              <Button size="sm" variant="ghost" disabled={busy} onClick={() => archive(plan)}>Arquivar</Button>
+                              <Button size="sm" variant="ghost" disabled={busy} onClick={() => openSchedule(plan)}>Editar</Button>
+                              <Button size="sm" variant="ghost" disabled={busy} onClick={() => removePlan(plan)}>Arquivar</Button>
                             </>
                           )}
+                          {manager && <Button size="sm" variant="ghost" className="text-destructive" disabled={busy} onClick={() => removePlan(plan, true)}>Excluir</Button>}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -211,8 +215,8 @@ function PlanDialog({ editor, vehicles, close, saved }: {
   const history = editor.kind === 'history';
   const recording = editor.kind === 'record';
   const creating = editor.kind === 'create';
-  const [vehicleId, setVehicleId] = useState(vehicles[0]?.id ?? '');
-  const [baseKm, setBaseKm] = useState(String(vehicles[0]?.mileage ?? 0));
+  const [vehicleId, setVehicleId] = useState(plan?.vehicle.id ?? vehicles[0]?.id ?? '');
+  const [baseKm, setBaseKm] = useState(plan ? String(plan.initialKm ?? '') : String(vehicles[0]?.mileage ?? 0));
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [services, setServices] = useState<Service[] | null>(null);
@@ -247,7 +251,7 @@ function PlanDialog({ editor, vehicles, close, saved }: {
           warningKm: Number(data.get('warningKm')),
         };
         if (creating) await api.post(endpoint, { ...schedule, vehicleId, baseKm: Number(baseKm) });
-        else if (plan) await api.patch(`${endpoint}/${plan.id}`, schedule);
+        else if (plan) await api.patch(`${endpoint}/${plan.id}`, { ...schedule, vehicleId, baseKm: baseKm ? Number(baseKm) : undefined });
       }
       notify(recording ? 'Serviço registrado.' : 'Plano salvo.');
       close();
@@ -287,7 +291,7 @@ function PlanDialog({ editor, vehicles, close, saved }: {
           </div>
         ) : (
           <form className="space-y-4" onSubmit={submit}>
-            {creating && (
+            {(creating || editor.kind === 'edit') && (
               <>
                 <label className="grid gap-1">Veículo
                   <select className={selectClass} required value={vehicleId} onChange={(event) => {
@@ -298,8 +302,11 @@ function PlanDialog({ editor, vehicles, close, saved }: {
                     {vehicles.map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.plate}{vehicle.prefix ? ` · ${vehicle.prefix}` : ''}</option>)}
                   </select>
                 </label>
+                {!!plan?._count.services && <p className="text-muted-foreground">{vehicleId !== plan.vehicle.id
+                  ? 'Ao trocar o veículo, o plano atual será arquivado com seu histórico e um novo plano começará no veículo escolhido.'
+                  : 'O último serviço continua sendo a referência da próxima revisão. Em planos antigos, o km inicial pode estar em branco.'}</p>}
                 <label className="grid gap-1">Km inicial
-                  <Input type="number" required min={0} max={odometerMax} value={baseKm} onChange={(event) => setBaseKm(event.target.value)} />
+                  <Input type="number" required={creating || plan?.initialKm != null || vehicleId !== plan?.vehicle.id} min={0} max={odometerMax} value={baseKm} onChange={(event) => setBaseKm(event.target.value)} />
                   <span className="text-muted-foreground">Km cadastrado: {formatKm(selectedVehicle?.mileage ?? 0)}. Informe o km da última revisão ou o km atual do painel. Um valor maior atualiza também o cadastro do veículo.</span>
                 </label>
               </>
