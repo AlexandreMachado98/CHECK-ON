@@ -9,6 +9,9 @@ import { Truck, Users, ShieldCheck, FolderOpen, AlertTriangle, ArrowRight, Lock,
 import api from '@/lib/api';
 import type { DashboardSummary, NC } from '@/lib/types';
 import { VEHICLE_STATUS } from '@/lib/status';
+import { canManage, SUPER_ADMIN } from '@/lib/roles';
+import { getStoredUser } from '@/lib/session';
+import { FirstSteps } from '@/components/first-steps';
 
 export default function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
@@ -16,6 +19,13 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const [activeNcTotal, setActiveNcTotal] = useState(0);
+  // Lido depois de montar (o servidor não tem a sessão): quem pode cadastrar vê os primeiros passos.
+  const [manager, setManager] = useState(false);
+  useEffect(() => {
+    const role = getStoredUser()?.role;
+    // O administrador da plataforma não implanta frota: os passos são da empresa cliente.
+    setManager(canManage(role) && role !== SUPER_ADMIN);
+  }, []);
 
   useEffect(() => {
     async function loadData() {
@@ -72,6 +82,8 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {manager && summary && !loadFailed && <FirstSteps summary={summary} />}
 
       {loadFailed && (
         <div role="alert" className="mb-4 flex flex-col gap-2 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 sm:flex-row sm:items-center sm:justify-between">
@@ -242,10 +254,22 @@ export default function DashboardPage() {
                 <ShieldCheck className="h-6 w-6 text-emerald-600" />
               </div>
             </div>
-            <h3 className="text-base font-semibold text-slate-900">Operação 100% Conforme</h3>
-            <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
-              Não existem Não Conformidades (NCs) pendentes ou falhas críticas registradas na frota.
-            </p>
+            {/* Sem nenhuma inspeção ainda, "100% conforme" seria falso: não houve o que conferir. */}
+            {summary?.setup && !summary.setup.hasInspection ? (
+              <>
+                <h3 className="text-base font-semibold text-slate-900">Ainda não há inspeções</h3>
+                <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
+                  As não conformidades aparecem aqui quando os motoristas começarem a inspecionar pelo aplicativo.
+                </p>
+              </>
+            ) : (
+              <>
+                <h3 className="text-base font-semibold text-slate-900">Operação 100% Conforme</h3>
+                <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
+                  Não existem Não Conformidades (NCs) pendentes ou falhas críticas registradas na frota.
+                </p>
+              </>
+            )}
           </div>
         ) : (
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

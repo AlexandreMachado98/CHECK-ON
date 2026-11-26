@@ -302,6 +302,8 @@ export interface DashboardSummary {
   vehicleStatus: Record<VehicleStatus, number>;
   ncs: { active: number; critical: number; recurrent: number };
   inspections: { today: number; last7Days: number };
+  /** Implantação: modelo ativo, alguém com acesso ao app e alguma inspeção já feita. */
+  setup?: { hasTemplate: boolean; hasAppAccess: boolean; hasInspection: boolean };
 }
 
 /** Extrai a mensagem de erro devolvida pela API NestJS. */
