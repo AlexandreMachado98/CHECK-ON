@@ -11,8 +11,8 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
     
-    /* Emerald 600 */
-    --primary: 160 84% 39%; 
+    /* Emerald 700: com texto branco dá 5,5:1 (o 500 anterior dava 2,5:1, abaixo do mínimo de 4,5:1). */
+    --primary: 163 94% 24%; 
     --primary-foreground: 210 40% 98%;
     
     /* Slate 100 */
@@ -31,7 +31,7 @@
     
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 160 84% 39%;
+    --ring: 163 94% 24%;
     
     --radius: 0.5rem;
   }

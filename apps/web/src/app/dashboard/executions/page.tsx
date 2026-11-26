@@ -150,7 +150,7 @@ export default function ExecutionsPage() {
           <CardTitle className="text-base font-semibold text-slate-700">Histórico de Execuções</CardTitle>
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative w-full sm:w-60">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
               <Input 
                 type="text" 
                 placeholder="Buscar placa, motorista ou modelo..." 
@@ -160,7 +160,7 @@ export default function ExecutionsPage() {
               />
             </div>
             <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val || 'ALL')}>
-              <SelectTrigger className="h-9 w-36 text-xs bg-slate-50">
+              <SelectTrigger aria-label="Filtrar por situação" className="h-9 w-36 text-xs bg-slate-50">
                 <SelectValue placeholder="Todos os status" />
               </SelectTrigger>
               <SelectContent>
@@ -185,7 +185,7 @@ export default function ExecutionsPage() {
           ) : total === 0 && !hasFilters ? (
             <div className="py-20 px-6 text-center flex flex-col items-center bg-slate-50/30">
               <div className="h-16 w-16 bg-white rounded-full flex items-center justify-center mb-4 border border-slate-200 shadow-sm">
-                <ClipboardList className="h-8 w-8 text-slate-400" />
+                <ClipboardList className="h-8 w-8 text-slate-500" />
               </div>
               <h3 className="text-lg font-medium text-slate-900 mb-1">Nenhuma inspeção registrada</h3>
               <p className="text-sm text-slate-500 max-w-sm">
@@ -215,11 +215,11 @@ export default function ExecutionsPage() {
                     <TableCell>
                       <div className="flex flex-col">
                         <span className="font-medium text-slate-900 flex items-center">
-                          <Calendar className="h-3 w-3 mr-1.5 text-slate-400" />
+                          <Calendar className="h-3 w-3 mr-1.5 text-slate-500" />
                           {format(new Date(c.startedAt), "dd 'de' MMM, yyyy", { locale: ptBR })}
                         </span>
                         <span className="text-xs text-slate-500 flex items-center mt-0.5">
-                          <Clock className="h-3 w-3 mr-1.5 text-slate-400" />
+                          <Clock className="h-3 w-3 mr-1.5 text-slate-500" />
                           {format(new Date(c.startedAt), "HH:mm")}
                         </span>
                       </div>
@@ -230,7 +230,7 @@ export default function ExecutionsPage() {
                     <TableCell className="min-w-0">
                       {c.vehicle ? (
                         <div className="flex items-center">
-                          <Car className="h-4 w-4 mr-2 text-slate-400" />
+                          <Car className="h-4 w-4 mr-2 text-slate-500" />
                           <span className="font-medium">{c.vehicle.plate}</span>
                         </div>
                       ) : (
@@ -253,7 +253,7 @@ export default function ExecutionsPage() {
                     <TableCell className="hidden xl:table-cell">
                       {c.driver ? (
                         <div className="flex items-center">
-                          <User className="h-4 w-4 mr-2 text-slate-400" />
+                          <User className="h-4 w-4 mr-2 text-slate-500" />
                           <span className="text-sm">{c.driver.name}</span>
                         </div>
                       ) : (
@@ -265,7 +265,7 @@ export default function ExecutionsPage() {
                         const nc = c.ncCount ?? c.answers?.filter(a => !a.isCompliant).length ?? 0;
                         return nc > 0
                           ? <span className="text-sm font-semibold text-rose-700">{nc}</span>
-                          : <span className="text-sm text-slate-400">0</span>;
+                          : <span className="text-sm text-slate-500">0</span>;
                       })()}
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">
@@ -384,7 +384,7 @@ export default function ExecutionsPage() {
                     {selectedChecklist.syncedAt ? format(new Date(selectedChecklist.syncedAt), "dd/MM/yyyy HH:mm") : '—'}
                   </span>
                   {selectedChecklist.clientId && (
-                    <span className="text-[11px] text-slate-400 block font-mono" title={selectedChecklist.clientId}>
+                    <span className="text-[11px] text-slate-500 block font-mono" title={selectedChecklist.clientId}>
                       app {selectedChecklist.clientId.slice(0, 8)}
                     </span>
                   )}
@@ -419,7 +419,7 @@ export default function ExecutionsPage() {
                           <AnswerValue answer={ans} />
                           {ans.observations && (
                             <p className="mt-1 text-xs text-slate-600 flex items-start gap-1.5">
-                              <MessageSquare className="h-3.5 w-3.5 mt-0.5 text-slate-400 shrink-0" />
+                              <MessageSquare className="h-3.5 w-3.5 mt-0.5 text-slate-500 shrink-0" />
                               {ans.observations}
                             </p>
                           )}

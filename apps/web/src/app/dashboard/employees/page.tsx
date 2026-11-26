@@ -148,7 +148,7 @@ function EmployeeForm({
     <form onSubmit={async (event) => { event.preventDefault(); await onSubmit(form); }} className="space-y-6 pt-2">
       <section className="grid gap-5 sm:grid-cols-[128px_minmax(0,1fr)]">
         <div className="flex flex-col items-center gap-3">
-          <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 text-slate-400">
+          <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 text-slate-500">
             {photoPreview ? (
               // The photo is served by the API's local or configured object storage.
               <img src={photoPreview} alt="Prévia da foto do colaborador" className="h-full w-full object-cover" />
@@ -179,7 +179,7 @@ function EmployeeForm({
           </div>
           <div className="space-y-2">
             <Label htmlFor="employee-matricula" className="flex items-center gap-1.5">
-              <Hash className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" /> Matrícula *
+              <Hash className="h-3.5 w-3.5 text-slate-500" aria-hidden="true" /> Matrícula *
             </Label>
             <Input id="employee-matricula" value={form.matricula} onChange={setText('matricula')} required maxLength={40} placeholder="MAT-2026-089" />
           </div>
@@ -435,7 +435,7 @@ function BadgeDialog({
 
           <div className="grid gap-5 p-5 sm:grid-cols-[minmax(0,1fr)_168px] sm:p-7">
             <div className="flex min-w-0 gap-4">
-              <div className="flex h-28 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-100 text-slate-400 sm:h-32 sm:w-28">
+              <div className="flex h-28 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-100 text-slate-500 sm:h-32 sm:w-28">
                 {employee.photoUrl ? (
                   <img src={photoAtWidth(employee.photoUrl, 320)} alt={`Foto de ${employee.name}`} className="h-full w-full object-cover" />
                 ) : (
@@ -445,7 +445,7 @@ function BadgeDialog({
               <div className="min-w-0">
                 <p className="break-words text-lg font-bold leading-tight text-slate-950 sm:text-xl">{employee.name}</p>
                 <p className="mt-1 break-words text-sm font-medium text-emerald-700">{employee.jobTitle || 'Função não informada'}</p>
-                <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Matrícula</p>
+                <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Matrícula</p>
                 <p className="font-mono text-sm font-semibold text-slate-800">{employee.matricula || 'Não informada'}</p>
               </div>
             </div>
@@ -454,12 +454,12 @@ function BadgeDialog({
               {token ? (
                 <QRCodeSVG value={publicUrl || `/badge/${token}`} size={132} level="M" includeMargin aria-label="QR Code para verificar o crachá" />
               ) : (
-                <div className="flex h-[132px] w-[132px] items-center justify-center rounded bg-white text-slate-400">
+                <div className="flex h-[132px] w-[132px] items-center justify-center rounded bg-white text-slate-500">
                   <QrCode className="h-10 w-10" aria-hidden="true" />
                 </div>
               )}
               <p className="mt-2 text-[10px] font-semibold text-slate-600">Escaneie para verificar</p>
-              <p className="mt-0.5 text-[10px] text-slate-400">Link individual e revogável</p>
+              <p className="mt-0.5 text-[10px] text-slate-500">Link individual e revogável</p>
             </div>
           </div>
 
@@ -533,9 +533,9 @@ function BadgeDialog({
 function InfoCell({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <div className="flex min-w-0 items-start gap-2.5">
-      <span className="mt-0.5 text-slate-400 [&>svg]:h-4 [&>svg]:w-4">{icon}</span>
+      <span className="mt-0.5 text-slate-500 [&>svg]:h-4 [&>svg]:w-4">{icon}</span>
       <div className="min-w-0">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</p>
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
         <p className="mt-0.5 break-words text-xs font-medium text-slate-700">{value}</p>
       </div>
     </div>
@@ -714,11 +714,10 @@ export default function EmployeesPage() {
           <p className="mt-1 text-sm text-slate-500">Cadastros, treinamentos e crachás digitais com validade conferível por QR.</p>
         </div>
         {manager && <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogTrigger>
-            <Button className="w-full shrink-0 shadow-sm sm:w-auto">
+          {/* O próprio Trigger vira o botão (antes era um botão dentro de outro). */}
+          <DialogTrigger render={<Button className="w-full shrink-0 shadow-sm sm:w-auto" />}>
               <Plus className="mr-2 h-4 w-4" aria-hidden="true" /> Cadastrar colaborador
-            </Button>
-          </DialogTrigger>
+            </DialogTrigger>
           <DialogContent className="w-[calc(100vw-2rem)] max-w-none max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-3xl">
             <DialogHeader>
               <DialogTitle>Novo colaborador</DialogTitle>
@@ -741,7 +740,7 @@ export default function EmployeesPage() {
           <CardTitle className="text-base font-semibold text-slate-700">Relação de colaboradores</CardTitle>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <div className="relative w-full sm:w-64">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" aria-hidden="true" />
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" aria-hidden="true" />
               <Input
                 type="search"
                 placeholder="Buscar nome, matrícula ou setor…"
@@ -752,7 +751,7 @@ export default function EmployeesPage() {
               />
             </div>
             <Select value={roleFilter} onValueChange={(value) => setRoleFilter(value || 'ALL')}>
-              <SelectTrigger className="h-9 w-full bg-slate-50 text-xs sm:w-44">
+              <SelectTrigger aria-label="Filtrar por função" className="h-9 w-full bg-slate-50 text-xs sm:w-44">
                 <SelectValue placeholder="Todas as funções" />
               </SelectTrigger>
               <SelectContent>
@@ -841,7 +840,7 @@ export default function EmployeesPage() {
                     <TableRow key={employee.id}>
                       <TableCell>
                         <div className="flex min-w-0 items-center gap-3">
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100 text-slate-400">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100 text-slate-500">
                             {employee.photoUrl ? <img src={photoAtWidth(employee.photoUrl, 320)} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" /> : <User className="h-5 w-5" aria-hidden="true" />}
                           </div>
                           <div className="min-w-0">
@@ -907,7 +906,7 @@ export default function EmployeesPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className={`h-9 w-9 ${employee.isActive ? 'text-slate-400 hover:bg-amber-50 hover:text-amber-700' : 'text-emerald-700 hover:bg-emerald-50'}`}
+                            className={`h-9 w-9 ${employee.isActive ? 'text-slate-500 hover:bg-amber-50 hover:text-amber-700' : 'text-emerald-700 hover:bg-emerald-50'}`}
                             aria-label={employee.isActive ? `Inativar ${employee.name}` : `Reativar ${employee.name}`}
                             onClick={() => handleToggleActive(employee)}
                           >

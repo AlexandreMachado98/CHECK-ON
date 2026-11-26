@@ -188,11 +188,11 @@ export default function DashboardPage() {
             ) : (
               <ul className="space-y-2 text-sm">
                 <li className="flex items-center justify-between">
-                  <span className="flex items-center text-slate-600"><ClipboardList className="h-4 w-4 mr-2 text-slate-400" />Inspeções hoje</span>
+                  <span className="flex items-center text-slate-600"><ClipboardList className="h-4 w-4 mr-2 text-slate-500" />Inspeções hoje</span>
                   <span className="font-bold text-slate-900">{summary.inspections.today}</span>
                 </li>
                 <li className="flex items-center justify-between">
-                  <span className="flex items-center text-slate-600"><ClipboardList className="h-4 w-4 mr-2 text-slate-400" />Últimos 7 dias</span>
+                  <span className="flex items-center text-slate-600"><ClipboardList className="h-4 w-4 mr-2 text-slate-500" />Últimos 7 dias</span>
                   <span className="font-bold text-slate-900">{summary.inspections.last7Days}</span>
                 </li>
                 <li className="flex items-center justify-between">

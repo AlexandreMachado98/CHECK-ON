@@ -122,7 +122,7 @@ export default function VehiclesPage() {
             {statusFilter === 'ALL' ? 'Todos os veículos' : `Veículos com status ${VEHICLE_STATUS[statusFilter].label.toLowerCase()}`}
           </CardTitle>
           <div className="relative w-full sm:w-64">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
             <Input
               placeholder="Buscar placa, modelo ou frota..."
               value={search}
@@ -183,7 +183,7 @@ export default function VehiclesPage() {
                             <Link href="/dashboard/ncs" className="inline-flex items-center gap-1 font-semibold text-rose-700 hover:underline">
                               <AlertOctagon className="h-3.5 w-3.5" />{activeNcs}
                             </Link>
-                          ) : <span className="text-slate-400">0</span>}
+                          ) : <span className="text-slate-500">0</span>}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="inline-flex flex-wrap justify-end gap-2">

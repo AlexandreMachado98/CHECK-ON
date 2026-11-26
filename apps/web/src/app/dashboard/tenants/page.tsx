@@ -212,11 +212,11 @@ export default function TenantsPage() {
         <CardHeader className="pb-4 border-b border-slate-100 bg-slate-50/50">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <CardTitle className="text-lg font-semibold flex items-center">
-              <Building2 className="h-5 w-5 mr-2 text-slate-400" />
+              <Building2 className="h-5 w-5 mr-2 text-slate-500" />
               {tenants.length} {tenants.length === 1 ? 'empresa' : 'empresas'}
             </CardTitle>
             <div className="relative w-full sm:w-72">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
               <Input
                 placeholder="Buscar por nome ou CNPJ"
                 value={search}
@@ -266,11 +266,11 @@ export default function TenantsPage() {
                       <TableCell className="hidden sm:table-cell">
                         <div className="flex gap-3 text-xs text-slate-600">
                           <span className="flex items-center" title="Usuários do painel e do app">
-                            <Users className="h-3.5 w-3.5 mr-1 text-slate-400" />
+                            <Users className="h-3.5 w-3.5 mr-1 text-slate-500" />
                             {t._count.users}
                           </span>
                           <span className="flex items-center" title="Veículos">
-                            <Truck className="h-3.5 w-3.5 mr-1 text-slate-400" />
+                            <Truck className="h-3.5 w-3.5 mr-1 text-slate-500" />
                             {t._count.vehicles}
                           </span>
                         </div>
@@ -283,7 +283,7 @@ export default function TenantsPage() {
                           </Badge>
                         ) : (
                           <Badge variant="secondary" className="bg-slate-100 text-slate-500 border-slate-200 font-medium">
-                            <ShieldOff className="mr-1 h-3 w-3 text-slate-400" />
+                            <ShieldOff className="mr-1 h-3 w-3 text-slate-500" />
                             Desativada
                           </Badge>
                         )}
@@ -331,7 +331,7 @@ export default function TenantsPage() {
         <Card className="mt-6 shadow-sm border-slate-200">
           <CardHeader className="pb-3 border-b border-slate-100 bg-slate-50/50">
             <CardTitle className="text-base font-semibold flex items-center text-slate-700">
-              <History className="h-4 w-4 mr-2 text-slate-400" />
+              <History className="h-4 w-4 mr-2 text-slate-500" />
               Acessos às empresas
             </CardTitle>
           </CardHeader>

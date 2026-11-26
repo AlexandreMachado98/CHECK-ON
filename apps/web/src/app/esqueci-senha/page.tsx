@@ -70,7 +70,7 @@ export default function ForgotPasswordPage() {
                 <Input id="recovery-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus autoCapitalize="none" autoComplete="username" placeholder="nome@empresa.com.br" className="h-11" />
               </div>
               {error && <p role="alert" className="text-sm text-rose-700">{error}</p>}
-              <Button type="submit" className="h-11 w-full bg-emerald-600 font-semibold text-white hover:bg-emerald-700" disabled={sending} aria-busy={sending}>
+              <Button type="submit" className="h-11 w-full bg-emerald-700 font-semibold text-white hover:bg-emerald-800" disabled={sending} aria-busy={sending}>
                 {sending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />Enviando…</> : 'Enviar código'}
               </Button>
             </form>
@@ -96,7 +96,7 @@ export default function ForgotPasswordPage() {
                 {mismatch && <p className="text-xs text-rose-700">As senhas não são iguais.</p>}
               </div>
               {error && <p role="alert" className="text-sm text-rose-700">{error}</p>}
-              <Button type="submit" className="h-11 w-full bg-emerald-600 font-semibold text-white hover:bg-emerald-700" disabled={sending || !code || password.length < 8 || password !== confirm} aria-busy={sending}>
+              <Button type="submit" className="h-11 w-full bg-emerald-700 font-semibold text-white hover:bg-emerald-800" disabled={sending || !code || password.length < 8 || password !== confirm} aria-busy={sending}>
                 {sending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />Salvando…</> : 'Salvar nova senha'}
               </Button>
             </form>

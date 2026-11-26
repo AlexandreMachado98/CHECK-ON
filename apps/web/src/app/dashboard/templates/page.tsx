@@ -107,12 +107,11 @@ export default function TemplatesPage() {
         </div>
 
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogTrigger>
-            <Button className="shrink-0 shadow-sm" size="default">
+          {/* O próprio Trigger vira o botão (antes era um botão dentro de outro). */}
+          <DialogTrigger render={<Button className="shrink-0 shadow-sm" size="default" />}>
               <Plus className="mr-2 h-4 w-4" />
               Criar Modelo
-            </Button>
-          </DialogTrigger>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Novo Modelo de Checklist</DialogTitle>
@@ -169,7 +168,7 @@ export default function TemplatesPage() {
           <CardTitle className="text-base font-semibold text-slate-700">Modelos Cadastrados</CardTitle>
           <div className="flex w-full gap-2 sm:w-auto">
             <div className="relative w-full sm:w-64">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
               <Input 
                 type="text" 
                 placeholder="Buscar modelo..." 
@@ -189,7 +188,7 @@ export default function TemplatesPage() {
           ) : templates.length === 0 ? (
             <div className="py-20 px-6 text-center flex flex-col items-center bg-slate-50/30">
               <div className="h-16 w-16 bg-white rounded-full flex items-center justify-center mb-4 border border-slate-200 shadow-sm">
-                <ClipboardCheck className="h-8 w-8 text-slate-400" />
+                <ClipboardCheck className="h-8 w-8 text-slate-500" />
               </div>
               <h3 className="text-lg font-medium text-slate-900 mb-1">Nenhum modelo criado</h3>
               <p className="text-sm text-slate-500 max-w-sm mb-5">
@@ -218,7 +217,7 @@ export default function TemplatesPage() {
                   <TableRow key={tpl.id} className="hover:bg-slate-50/50 transition-colors">
                     <TableCell>
                       <div className="font-semibold text-slate-900 flex items-center">
-                        <LayoutList className="h-4 w-4 text-slate-400 mr-2" />
+                        <LayoutList className="h-4 w-4 text-slate-500 mr-2" />
                         {tpl.name}
                       </div>
                       {chooseUnit && <div className="mt-1"><TemplateUnitsLabel template={tpl} /></div>}
@@ -268,7 +267,7 @@ export default function TemplatesPage() {
                         {tpl.canEdit !== false && <Button
                           variant="ghost"
                           size="icon"
-                          className={`h-8 w-8 ${tpl.isActive ? 'text-slate-400 hover:text-amber-600 hover:bg-amber-50' : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'}`}
+                          className={`h-8 w-8 ${tpl.isActive ? 'text-slate-500 hover:text-amber-600 hover:bg-amber-50' : 'text-slate-500 hover:text-emerald-600 hover:bg-emerald-50'}`}
                           onClick={() => handleToggle(tpl)}
                           title={tpl.isActive ? "Arquivar modelo" : "Ativar modelo"}
                         >
@@ -277,7 +276,7 @@ export default function TemplatesPage() {
                         {tpl.canEdit !== false && <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                          className="h-8 w-8 text-slate-500 hover:text-rose-600 hover:bg-rose-50"
                           onClick={() => handleDelete(tpl)}
                           title="Excluir modelo"
                           aria-label={`Excluir modelo ${tpl.name}`}

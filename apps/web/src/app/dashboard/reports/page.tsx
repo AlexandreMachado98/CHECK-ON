@@ -203,7 +203,7 @@ export default function ReportsPage() {
                 onClick={() => choosePeriod(p.key)}
                 disabled={loading && period === p.key}
                 className={`whitespace-nowrap rounded-md px-2 py-1.5 text-sm font-medium transition-colors sm:px-3 ${
-                  period === p.key ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
+                  period === p.key ? 'bg-emerald-700 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
                 }`}
               >
                 {p.label}
@@ -341,7 +341,7 @@ export default function ReportsPage() {
               <Card className="border-slate-200 shadow-sm">
                 <CardHeader className="border-b border-slate-100">
                   <CardTitle className="text-base font-semibold text-slate-700 flex items-center gap-2">
-                    <Truck className="h-4 w-4 text-slate-400" />
+                    <Truck className="h-4 w-4 text-slate-500" />
                     Inspeções por Veículo
                   </CardTitle>
                 </CardHeader>

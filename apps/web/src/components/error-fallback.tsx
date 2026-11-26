@@ -44,7 +44,7 @@ export function ErrorFallback({ error, reset }: Props) {
             <p className="mt-1 break-words rounded bg-slate-50 p-2 font-mono text-[11px] text-slate-600">{error.message}</p>
           </details>
         )}
-        {error.digest && <p className="mt-2 font-mono text-[11px] text-slate-400">Código: {error.digest}</p>}
+        {error.digest && <p className="mt-2 font-mono text-[11px] text-slate-500">Código: {error.digest}</p>}
         <div className="mt-5 flex justify-center gap-2">
           {!chunkError && (
             <button

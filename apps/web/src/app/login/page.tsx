@@ -167,7 +167,7 @@ export default function LoginPage() {
 
         <Button
           type="submit"
-          className="h-11 w-full bg-emerald-600 text-base font-semibold text-white hover:bg-emerald-700 disabled:opacity-70"
+          className="h-11 w-full bg-emerald-700 text-base font-semibold text-white hover:bg-emerald-800 disabled:opacity-70"
           disabled={loading}
           aria-busy={loading}
         >

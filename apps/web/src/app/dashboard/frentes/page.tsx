@@ -89,7 +89,7 @@ export default function FrentesPage() {
             motoristas só veem as frentes em que estão vinculados.
           </p>
         </div>
-        <Button className="shrink-0 bg-emerald-600 text-white hover:bg-emerald-700" onClick={startCreate}>
+        <Button className="shrink-0 bg-emerald-700 text-white hover:bg-emerald-800" onClick={startCreate}>
           <Plus className="mr-2 h-4 w-4" /> Nova frente
         </Button>
       </div>
@@ -122,7 +122,7 @@ export default function FrentesPage() {
                   <TableRow key={unit.id}>
                     <TableCell className="font-medium text-slate-900">
                       <div className="flex items-center">
-                        <Briefcase className="mr-2 h-4 w-4 shrink-0 text-slate-400" />
+                        <Briefcase className="mr-2 h-4 w-4 shrink-0 text-slate-500" />
                         <span>{unit.name}</span>
                       </div>
                       {unit.client && <div className="ml-6 text-xs text-slate-500 sm:hidden">{unit.client}</div>}

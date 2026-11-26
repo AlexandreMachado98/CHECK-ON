@@ -109,7 +109,7 @@ export default function NCsPage() {
           <CardTitle className="text-base font-semibold text-slate-700">Painel de tratativas</CardTitle>
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative w-full sm:w-64">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
               <Input
                 type="text"
                 placeholder="Buscar placa, item, motorista..."
@@ -119,7 +119,7 @@ export default function NCsPage() {
               />
             </div>
             <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val || 'ACTIVE')}>
-              <SelectTrigger className="h-9 w-56 text-xs bg-slate-50">
+              <SelectTrigger aria-label="Filtrar por situação da NC" className="h-9 w-56 text-xs bg-slate-50">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -127,7 +127,7 @@ export default function NCsPage() {
               </SelectContent>
             </Select>
             <Select value={severityFilter} onValueChange={(val) => setSeverityFilter(val || 'ALL')}>
-              <SelectTrigger className="h-9 w-40 text-xs bg-slate-50">
+              <SelectTrigger aria-label="Filtrar por gravidade" className="h-9 w-40 text-xs bg-slate-50">
                 <SelectValue placeholder="Severidade" />
               </SelectTrigger>
               <SelectContent>
@@ -187,10 +187,10 @@ export default function NCsPage() {
                       <TableRow key={nc.id} className="hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => startTreatment(nc)}>
                         <TableCell className="hidden md:table-cell">
                           <div className="flex items-center text-slate-900 font-medium whitespace-nowrap">
-                            <Calendar className="h-3.5 w-3.5 mr-2 text-slate-400" />
+                            <Calendar className="h-3.5 w-3.5 mr-2 text-slate-500" />
                             {format(new Date(nc.createdAt), 'dd/MM/yyyy')}
                           </div>
-                          <span className="text-[11px] font-mono text-slate-400">#{nc.id.substring(0, 6).toUpperCase()}</span>
+                          <span className="text-[11px] font-mono text-slate-500">#{nc.id.substring(0, 6).toUpperCase()}</span>
                         </TableCell>
                         <TableCell className="max-w-xs">
                           <p className="text-sm font-medium text-slate-800">
@@ -201,7 +201,7 @@ export default function NCsPage() {
                           <div className="mt-1.5 flex flex-wrap items-center gap-1.5 sm:hidden">
                             {vehicle && (
                               <span className="flex items-center text-xs font-medium text-slate-700">
-                                <Truck className="h-3.5 w-3.5 mr-1 text-slate-400" />
+                                <Truck className="h-3.5 w-3.5 mr-1 text-slate-500" />
                                 {vehicle.plate}
                               </span>
                             )}
@@ -210,7 +210,7 @@ export default function NCsPage() {
                           </div>
                           {(nc.answer?.observations || nc.notes) && (
                             <p className="mt-0.5 flex items-start text-xs text-slate-500">
-                              <MessageSquare className="h-3.5 w-3.5 mr-1.5 mt-0.5 shrink-0 text-slate-400" />
+                              <MessageSquare className="h-3.5 w-3.5 mr-1.5 mt-0.5 shrink-0 text-slate-500" />
                               <span className="line-clamp-2">{nc.notes || nc.answer?.observations}</span>
                             </p>
                           )}
@@ -219,12 +219,12 @@ export default function NCsPage() {
                           {vehicle ? (
                             <div className="flex flex-col gap-1">
                               <span className="flex items-center font-medium whitespace-nowrap">
-                                <Truck className="h-3.5 w-3.5 mr-1.5 text-slate-400" />
+                                <Truck className="h-3.5 w-3.5 mr-1.5 text-slate-500" />
                                 {vehicle.plate}
                               </span>
                               <VehicleStatusBadge status={vehicle.status} />
                             </div>
-                          ) : <span className="text-sm text-slate-400">—</span>}
+                          ) : <span className="text-sm text-slate-500">—</span>}
                         </TableCell>
                         <TableCell className="hidden sm:table-cell"><NcSeverityBadge severity={nc.severity} /></TableCell>
                         <TableCell className="text-center hidden xl:table-cell">

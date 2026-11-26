@@ -53,7 +53,7 @@ export function UnitBadges({ links, emptyText = 'Sem frente' }: { links?: UnitLi
     <div className="flex flex-wrap gap-1">
       {links.map((link) => (
         <Badge key={link.unit.id} variant="outline" className="bg-slate-50 text-slate-700 border-slate-200 font-normal" title={unitLabel(link.unit)}>
-          <Briefcase className="mr-1 h-3 w-3 text-slate-400" />
+          <Briefcase className="mr-1 h-3 w-3 text-slate-500" />
           {link.unit.name}
         </Badge>
       ))}
@@ -112,7 +112,7 @@ export function UnitMultiPicker({
           <label
             key={unit.id}
             htmlFor={`${idPrefix}-${unit.id}`}
-            className={`flex items-center gap-2 text-sm ${allowAll && all ? 'cursor-not-allowed text-slate-400' : 'cursor-pointer text-slate-700'}`}
+            className={`flex items-center gap-2 text-sm ${allowAll && all ? 'cursor-not-allowed text-slate-500' : 'cursor-pointer text-slate-700'}`}
           >
             <input
               id={`${idPrefix}-${unit.id}`}

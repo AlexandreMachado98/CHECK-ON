@@ -188,7 +188,7 @@ export default function FleetsPage() {
           </Button>
 
           <Button 
-            className="shrink-0 shadow-sm bg-emerald-600 hover:bg-emerald-700 text-white" 
+            className="shrink-0 shadow-sm bg-emerald-700 hover:bg-emerald-800 text-white" 
             onClick={() => {
               if (activeFleets.length === 0) {
                 notify('Cadastre (ou reative) uma frota primeiro para associar seu veículo.', 'info');
@@ -254,7 +254,7 @@ export default function FleetsPage() {
         <CardHeader className="pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
           <CardTitle className="text-base font-semibold text-slate-700">Relação de Frotas & Veículos</CardTitle>
           <div className="relative w-64 hidden sm:block">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
             <Input 
               type="text" 
               placeholder="Buscar frota..." 
@@ -273,7 +273,7 @@ export default function FleetsPage() {
           ) : fleets.length === 0 ? (
             <div className="py-16 px-6 text-center flex flex-col items-center">
               <div className="h-16 w-16 bg-slate-50 rounded-full flex items-center justify-center mb-4 border border-slate-100">
-                <FolderOpen className="h-8 w-8 text-slate-400" />
+                <FolderOpen className="h-8 w-8 text-slate-500" />
               </div>
               <h3 className="text-lg font-medium text-slate-900 mb-1">Nenhuma frota cadastrada</h3>
               <p className="text-sm text-slate-500 max-w-sm mb-4">
@@ -306,7 +306,7 @@ export default function FleetsPage() {
                     <TableRow key={fleet.id} className="hover:bg-slate-50/50 transition-colors">
                       <TableCell className="font-medium text-slate-900 whitespace-normal">
                         <div className="flex items-center">
-                          <FolderOpen className="h-4 w-4 text-slate-400 mr-2 shrink-0" />
+                          <FolderOpen className="h-4 w-4 text-slate-500 mr-2 shrink-0" />
                           {fleet.name}
                         </div>
                       </TableCell>
@@ -360,7 +360,7 @@ export default function FleetsPage() {
                           <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="h-8 w-8 text-slate-400 hover:text-primary"
+                            className="h-8 w-8 text-slate-500 hover:text-primary"
                             onClick={() => startEdit(fleet)}
                             title="Editar frota"
                           >
@@ -369,7 +369,7 @@ export default function FleetsPage() {
                           <Button 
                             variant="ghost" 
                             size="icon" 
-                            className={`h-8 w-8 ${fleet.isActive ? 'text-slate-400 hover:text-amber-600 hover:bg-amber-50' : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'}`}
+                            className={`h-8 w-8 ${fleet.isActive ? 'text-slate-500 hover:text-amber-600 hover:bg-amber-50' : 'text-slate-500 hover:text-emerald-600 hover:bg-emerald-50'}`}
                             onClick={() => handleToggleStatus(fleet)}
                             title={fleet.isActive ? "Arquivar/Inativar" : "Reativar"}
                           >

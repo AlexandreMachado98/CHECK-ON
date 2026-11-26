@@ -28,7 +28,7 @@ export function isLoginLocked(lockedUntil?: string | null, now: number = Date.no
 
 /** Situação do acesso na lista de colaboradores. */
 export function AccessBadge({ access }: { access?: EmployeeAccess | null }) {
-  if (!access) return <span className="text-xs text-slate-400">Sem acesso</span>;
+  if (!access) return <span className="text-xs text-slate-500">Sem acesso</span>;
   const channel = accessChannel(access.role.name);
   const locked = isLoginLocked(access.lockedUntil);
   return (
