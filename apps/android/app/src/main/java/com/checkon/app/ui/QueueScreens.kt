@@ -259,12 +259,13 @@ private class Redo(
 private fun rememberRedo(vm: AppViewModel, onOpenInspection: (vehicleId: String, templateId: String) -> Unit): Redo {
     val bootstrap by vm.bootstrap.collectAsState()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
-    var blocked by remember { mutableStateOf<String?>(null) }
+    /** Aviso que impede refazer agora: título e texto. */
+    var blocked by remember { mutableStateOf<Pair<String, String>?>(null) }
     var busy by remember { mutableStateOf(false) }
-    blocked?.let { text ->
+    blocked?.let { (title, text) ->
         AlertDialog(
             onDismissRequest = { blocked = null },
-            title = { Text("Inspeção em andamento") },
+            title = { Text(title) },
             text = { Text(text) },
             confirmButton = { TextButton(onClick = { blocked = null }) { Text("Ok") } },
         )
@@ -280,12 +281,21 @@ private fun rememberRedo(vm: AppViewModel, onOpenInspection: (vehicleId: String,
                 val template = templateOf(item) ?: return@launch
                 val current = vm.repository.readDraft()
                 if (current != null) {
-                    blocked = "Você já tem uma inspeção começada (${current.vehicleLabel} · ${current.templateName}). " +
+                    blocked = "Inspeção em andamento" to
+                        "Você já tem uma inspeção começada (${current.vehicleLabel} · ${current.templateName}). " +
                         "Conclua ou descarte essa antes de refazer a recusada."
                     return@launch
                 }
                 busy = true
-                val draft = vm.redoRejected(item.clientId, template)
+                val draft = try {
+                    vm.redoRejected(item.clientId, template)
+                } catch (e: java.io.IOException) {
+                    // Celular sem espaço: nada foi tirado da fila (o rascunho é gravado primeiro).
+                    busy = false
+                    blocked = "Celular sem espaço" to
+                        "Não foi possível preparar a inspeção no celular. Libere espaço (fotos e vídeos antigos) e tente de novo."
+                    return@launch
+                }
                 if (draft == null) {
                     busy = false
                     return@launch

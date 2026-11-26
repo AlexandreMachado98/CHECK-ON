@@ -30,7 +30,8 @@ class Photos(private val context: Context) {
 
     /**
      * Reduz a foto logo depois de tirada: no máximo [MAX_SIDE] px no lado maior e JPEG [JPEG_QUALITY]%,
-     * já na orientação certa. Devolve o caminho, ou null se a câmera não gravou nada.
+     * já na orientação certa. Devolve o caminho, ou null se não deu para guardar uma foto legível
+     * (a câmera não gravou nada, gravou pela metade ou o celular está sem espaço).
      * A foto original da câmera (vários MB) não fica guardada: só esta versão vai para a fila e para a API.
      */
     suspend fun finish(file: File): String? = withContext(Dispatchers.IO) {
@@ -38,13 +39,16 @@ class Photos(private val context: Context) {
             file.delete()
             return@withContext null
         }
-        runCatching {
+        // Grava a versão reduzida à parte e só depois troca: se faltar espaço no meio, não sobra
+        // um arquivo cortado que pareceria foto tirada e seria recusado no envio.
+        val temp = File(file.parentFile, file.name + ".tmp")
+        val ok = runCatching {
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeFile(file.path, bounds)
             var sample = 1
             while (max(bounds.outWidth, bounds.outHeight) / (sample * 2) >= MAX_SIDE) sample *= 2
             val decoded = BitmapFactory.decodeFile(file.path, BitmapFactory.Options().apply { inSampleSize = sample })
-                ?: return@runCatching
+                ?: return@runCatching false // foto ilegível (gravada pela metade)
             val scale = MAX_SIDE.toFloat() / max(decoded.width, decoded.height)
             val rotation = when (ExifInterface(file.path).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)) {
                 ExifInterface.ORIENTATION_ROTATE_90 -> 90f
@@ -57,9 +61,19 @@ class Photos(private val context: Context) {
                 if (rotation != 0f) postRotate(rotation)
             }
             val output = Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true)
-            file.outputStream().use { output.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, it) }
+            val written = java.io.FileOutputStream(temp).use { out ->
+                val compressed = output.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, out)
+                out.fd.sync()
+                compressed
+            }
             if (output !== decoded) output.recycle()
             decoded.recycle()
+            written && temp.length() > 0 && temp.renameTo(file)
+        }.getOrDefault(false)
+        if (!ok) {
+            temp.delete()
+            file.delete()
+            return@withContext null
         }
         file.path
     }
