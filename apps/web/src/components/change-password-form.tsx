@@ -61,7 +61,7 @@ export function ChangePasswordForm({ temporary = false, onDone }: Props) {
       </div>
       {error && <p role="alert" className="text-sm text-rose-700">{error}</p>}
       <p className="text-xs text-slate-500">Ao trocar a senha, você sai dos outros aparelhos (portal e aplicativo) e continua conectado neste.</p>
-      <Button type="submit" className="h-11 w-full bg-emerald-600 font-semibold text-white hover:bg-emerald-700" disabled={!canSubmit}>
+      <Button type="submit" className="h-11 w-full bg-emerald-700 font-semibold text-white hover:bg-emerald-800" disabled={!canSubmit}>
         <KeyRound className="mr-2 h-4 w-4" />
         {saving ? 'Salvando...' : 'Salvar nova senha'}
       </Button>

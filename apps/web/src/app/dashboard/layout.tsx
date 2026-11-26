@@ -176,7 +176,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <nav className="flex-1 overflow-y-auto py-6 custom-scrollbar px-3">
         {visibleGroups.map((group, idx) => (
           <div key={idx} className="mb-6">
-            <p className="px-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2">
+            <p className="px-4 text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
               {group.title}
             </p>
             <div className="space-y-1">
@@ -215,7 +215,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           <div className="overflow-hidden">
             <p className="text-sm font-medium text-white truncate">{user.name}</p>
             <p className="text-xs text-slate-400 truncate">{roleLabel(user.role)}</p>
-            {user.tenantName && <p className="text-[11px] text-slate-500 truncate">{user.tenantName}</p>}
+            {user.tenantName && <p className="text-[11px] text-slate-400 truncate">{user.tenantName}</p>}
           </div>
         </div>
         <Link
@@ -279,7 +279,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             
             {/* Context Breadcrumb / Section Name */}
             <div className="flex items-center text-sm font-medium text-slate-700">
-              <span className="text-slate-400 hidden sm:inline">CHECK-ON /</span>
+              <span className="text-slate-500 hidden sm:inline">CHECK-ON /</span>
               <span className="max-w-[48vw] truncate font-semibold text-slate-900 sm:ml-1.5">{currentItem?.name || (pathname === '/dashboard/conta' ? 'Minha conta' : 'Operação')}</span>
             </div>
           </div>

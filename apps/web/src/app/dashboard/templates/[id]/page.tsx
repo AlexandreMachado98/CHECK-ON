@@ -85,7 +85,7 @@ function ItemDialog({ open, onClose, onSave, initial, title }: ItemDialogProps) 
           <div className="space-y-2">
             <Label>Tipo de Resposta Esperada *</Label>
             <Select value={type} onValueChange={v => setType((v || 'PASS_FAIL') as ItemType)}>
-              <SelectTrigger>
+              <SelectTrigger aria-label="Tipo de resposta esperada">
                 <SelectValue placeholder="Selecione o formato" />
               </SelectTrigger>
               <SelectContent>
@@ -218,10 +218,10 @@ function CategoryBlock({ category, categoryIndex, categoryCount, onAddItem, onUp
           <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-500 hover:text-slate-900" aria-label={`Mover seção ${category.name} para baixo`} title="Mover seção para baixo" disabled={categoryIndex === categoryCount - 1} onClick={() => onMoveCategory(category.id, 1)}>
             <ArrowDown className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-slate-700" aria-label={`Renomear seção ${category.name}`} onClick={() => setIsEditingCat(true)}>
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-500 hover:text-slate-700" aria-label={`Renomear seção ${category.name}`} onClick={() => setIsEditingCat(true)}>
             <Edit2 className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-rose-600" aria-label={`Excluir seção ${category.name}`} onClick={() => onDeleteCategory(category.id)}>
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-500 hover:text-rose-600" aria-label={`Excluir seção ${category.name}`} onClick={() => onDeleteCategory(category.id)}>
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -254,7 +254,7 @@ function CategoryBlock({ category, categoryIndex, categoryCount, onAddItem, onUp
                       )}
                     </p>
                     <div className="flex items-center mt-1">
-                      <Icon className="h-3 w-3 text-slate-400 mr-1" />
+                      <Icon className="h-3 w-3 text-slate-500 mr-1" />
                       <span className="text-xs text-slate-500">{typeConfig?.label}</span>
                     </div>
                   </div>
@@ -265,10 +265,10 @@ function CategoryBlock({ category, categoryIndex, categoryCount, onAddItem, onUp
                     <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-500 hover:text-slate-900" aria-label={`Mover regra ${item.text} para baixo`} title="Mover regra para baixo" disabled={itemIndex === category.items.length - 1} onClick={() => onMoveItem(category.id, item.id, 1)}>
                       <ArrowDown className="h-3.5 w-3.5" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-primary" aria-label={`Editar regra ${item.text}`} onClick={() => setEditItem(item)}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-500 hover:text-primary" aria-label={`Editar regra ${item.text}`} onClick={() => setEditItem(item)}>
                       <Settings2 className="h-3.5 w-3.5" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-rose-600" aria-label={`Excluir regra ${item.text}`} onClick={() => onDeleteItem(item.id)}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-500 hover:text-rose-600" aria-label={`Excluir regra ${item.text}`} onClick={() => onDeleteItem(item.id)}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
@@ -404,7 +404,7 @@ export default function TemplateBuilderPage() {
     document.getElementById(`cat-${catId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
-  if (loading) return <div className="py-20 flex justify-center"><Activity className="h-6 w-6 animate-pulse text-slate-400" /></div>;
+  if (loading) return <div className="py-20 flex justify-center"><Activity className="h-6 w-6 animate-pulse text-slate-500" /></div>;
   if (error || !template) return <div className="text-center py-10 space-y-4"><p className="text-rose-600">{error || 'Modelo não encontrado.'}</p><Button variant="outline" onClick={() => router.push('/dashboard/templates')}>Voltar</Button></div>;
 
   const readOnly = template.canEdit === false;
@@ -509,10 +509,10 @@ export default function TemplateBuilderPage() {
         {/* Right Content (Editor). Modelo compartilhado com outras frentes: só leitura. */}
         <fieldset disabled={readOnly} className="flex-1 min-w-0 lg:overflow-y-auto custom-scrollbar pb-20 lg:pr-2">
           {template.categories.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-slate-400">
+            <div className="h-full flex flex-col items-center justify-center text-slate-500">
               <LayoutList className="h-12 w-12 mb-4 text-slate-300" />
               <p className="text-lg font-medium text-slate-600 mb-2">Construa seu checklist</p>
-              <p className="text-sm max-w-sm text-center">Crie a primeira seção em "Nova seção".</p>
+              <p className="text-sm max-w-sm text-center">Crie a primeira seção em &ldquo;Nova seção&rdquo;.</p>
             </div>
           ) : (
             <div className="max-w-3xl space-y-6">

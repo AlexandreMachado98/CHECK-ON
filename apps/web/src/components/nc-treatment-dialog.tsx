@@ -26,7 +26,7 @@ function Thumb({ src, alt, onRemove }: { src: string; alt: string; onRemove?: ()
   return (
     <div className="relative">
       {broken ? (
-        <div className="flex h-24 w-24 items-center justify-center rounded-md border border-dashed border-slate-300 bg-slate-50 p-2 text-center text-[11px] text-slate-400">
+        <div className="flex h-24 w-24 items-center justify-center rounded-md border border-dashed border-slate-300 bg-slate-50 p-2 text-center text-[11px] text-slate-500">
           Foto indisponível
         </div>
       ) : (
@@ -168,7 +168,7 @@ export function NcTreatmentDialog({ nc, onClose, onSaved }: { nc: NC | null; onC
             {before.length ? (
               <div className="flex flex-wrap gap-2">{before.map((src) => <Thumb key={src} src={src} alt="Foto do problema" />)}</div>
             ) : (
-              <p className="text-xs text-slate-400">Sem foto do problema.</p>
+              <p className="text-xs text-slate-500">Sem foto do problema.</p>
             )}
           </div>
           <div>
@@ -178,7 +178,7 @@ export function NcTreatmentDialog({ nc, onClose, onSaved }: { nc: NC | null; onC
                 {(detail?.actions ?? []).flatMap((a) => a.photoUrls).map((src) => <Thumb key={src} src={src} alt="Foto da correção" />)}
               </div>
             ) : (
-              <p className="text-xs text-slate-400">Nenhuma foto da correção ainda.</p>
+              <p className="text-xs text-slate-500">Nenhuma foto da correção ainda.</p>
             )}
           </div>
         </div>
@@ -187,7 +187,7 @@ export function NcTreatmentDialog({ nc, onClose, onSaved }: { nc: NC | null; onC
         <div>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Histórico da tratativa</p>
           {!detail ? (
-            <p className="flex items-center gap-2 text-xs text-slate-400"><Loader2 className="h-3 w-3 animate-spin" /> Carregando...</p>
+            <p className="flex items-center gap-2 text-xs text-slate-500"><Loader2 className="h-3 w-3 animate-spin" /> Carregando...</p>
           ) : detail.actions?.length ? (
             <ol data-testid="nc-history" className="space-y-3 border-l-2 border-slate-200 pl-4">
               {detail.actions.map((a) => (
@@ -206,7 +206,7 @@ export function NcTreatmentDialog({ nc, onClose, onSaved }: { nc: NC | null; onC
               ))}
             </ol>
           ) : (
-            <p className="text-xs text-slate-400">{current.notes ? `Parecer anterior: ${current.notes}` : 'Nenhum registro ainda.'}</p>
+            <p className="text-xs text-slate-500">{current.notes ? `Parecer anterior: ${current.notes}` : 'Nenhum registro ainda.'}</p>
           )}
         </div>
 
