@@ -54,7 +54,12 @@ class Repository(
     suspend fun downloadBootstrap(): Bootstrap {
         val id = userId() ?: throw SessionEndedException("Entre no aplicativo.")
         val data = api.bootstrap().copy(downloadedAt = System.currentTimeMillis())
-        store.saveBootstrap(id, data)
+        // Sem espaço, só não fica guardado para usar sem internet: os dados novos valem nesta sessão.
+        try {
+            store.saveBootstrap(id, data)
+        } catch (e: java.io.IOException) {
+            // segue com os dados em memória
+        }
         return data
     }
 
@@ -128,8 +133,24 @@ class Repository(
                 onProgress = { _syncProgress.value = it },
                 fileExists = { File(it).isFile },
             )
-            val (_, summary) = engine.run(snapshot)
-            if (summary.accepted.isNotEmpty()) _history.value = store.addHistory(id, summary.accepted)
+            val (_, summary) = try {
+                engine.run(snapshot)
+            } catch (e: java.io.IOException) {
+                // Celular sem espaço para gravar a fila: nada se perde (o que não foi gravado é
+                // reenviado na próxima vez; o servidor não duplica a inspeção). Avisa e tenta depois.
+                val pending = snapshot.count { it.state == "PENDING" }
+                val failed = SyncSummary(pending = pending, error = NO_SPACE_MESSAGE)
+                _lastSync.value = failed
+                return failed
+            }
+            if (summary.accepted.isNotEmpty()) {
+                // Histórico é só para consulta no celular: sem espaço, fica sem as últimas, mas o envio valeu.
+                try {
+                    _history.value = store.addHistory(id, summary.accepted)
+                } catch (e: java.io.IOException) {
+                    _history.value = (summary.accepted + _history.value).distinctBy { it.clientId }
+                }
+            }
             summary.photosToDelete.forEach { photos.delete(it) }
             if (summary.sent > 0) cleanupPhotos(id)
             _lastSync.value = summary
@@ -147,3 +168,8 @@ class Repository(
         photos.cleanOrphans(inUse)
     }
 }
+
+/** Aviso quando o celular não tem espaço para guardar a fila de envio. */
+const val NO_SPACE_MESSAGE =
+    "O celular está sem espaço para guardar o andamento do envio. Libere espaço (fotos e vídeos antigos); " +
+        "as inspeções continuam guardadas e são enviadas em seguida."
