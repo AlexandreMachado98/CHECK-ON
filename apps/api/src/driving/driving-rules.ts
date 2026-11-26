@@ -1,8 +1,17 @@
 import { NotFoundException } from '@nestjs/common';
 import type { PrismaService } from '../prisma/prisma.service';
 
-/** Pontos que o passageiro pode marcar na avaliação, com o texto mostrado na página e no portal. */
-export const DRIVING_TAGS = {
+/** Pontos positivos que o passageiro pode marcar (texto mostrado na página e no portal). */
+export const POSITIVE_TAGS = {
+  DIRECAO_SEGURA: 'Direção segura',
+  EDUCADO: 'Motorista educado',
+  PONTUAL: 'Pontual',
+  TRANQUILA: 'Viagem tranquila',
+  VEICULO_LIMPO: 'Veículo limpo',
+} as const;
+
+/** Pontos de atenção (negativos). */
+export const ATTENTION_TAGS = {
   VELOCIDADE: 'Excesso de velocidade',
   FREADAS: 'Freadas ou curvas bruscas',
   CELULAR: 'Celular ao volante',
@@ -10,8 +19,29 @@ export const DRIVING_TAGS = {
   PONTUALIDADE: 'Atraso',
   LIMPEZA: 'Veículo sujo',
 } as const;
+
+/** Todos os pontos, com o texto (o portal mostra qualquer um que esteja gravado). */
+export const DRIVING_TAGS = { ...POSITIVE_TAGS, ...ATTENTION_TAGS } as const;
 export type DrivingTag = keyof typeof DRIVING_TAGS;
 export const DRIVING_TAG_KEYS = Object.keys(DRIVING_TAGS) as DrivingTag[];
+export const TAG_GROUPS = { positive: Object.keys(POSITIVE_TAGS), attention: Object.keys(ATTENTION_TAGS) };
+
+/** Pontos que se contradizem: marcar um desmarca o outro na página, e a API recusa os dois juntos. */
+export const OPPOSITE_TAGS: [DrivingTag, DrivingTag][] = [
+  ['DIRECAO_SEGURA', 'VELOCIDADE'],
+  ['DIRECAO_SEGURA', 'FREADAS'],
+  ['DIRECAO_SEGURA', 'CELULAR'],
+  ['EDUCADO', 'CORTESIA'],
+  ['PONTUAL', 'PONTUALIDADE'],
+  ['VEICULO_LIMPO', 'LIMPEZA'],
+  ['TRANQUILA', 'FREADAS'],
+];
+
+/** Primeiro par contraditório marcado (ou null). */
+export function contradiction(tags: string[]): [string, string] | null {
+  const pair = OPPOSITE_TAGS.find(([a, b]) => tags.includes(a) && tags.includes(b));
+  return pair ? [DRIVING_TAGS[pair[0]], DRIVING_TAGS[pair[1]]] : null;
+}
 
 export const FEEDBACK_STATUSES = ['NOVA', 'EM_ANALISE', 'TRATADA'] as const;
 export type FeedbackStatus = (typeof FEEDBACK_STATUSES)[number];

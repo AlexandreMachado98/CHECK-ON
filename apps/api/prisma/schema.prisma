@@ -609,7 +609,8 @@ model DrivingFeedback {
   driverId      String?
   driver        Employee?  @relation(fields: [driverId], references: [id], onDelete: SetNull)
   rating        Int
-  // Pontos marcados: VELOCIDADE, FREADAS, CELULAR, CORTESIA, PONTUALIDADE, LIMPEZA.
+  // Pontos marcados: positivos (DIRECAO_SEGURA, EDUCADO, PONTUAL, TRANQUILA, VEICULO_LIMPO) e de
+  // atenção (VELOCIDADE, FREADAS, CELULAR, CORTESIA, PONTUALIDADE, LIMPEZA).
   tags          String[]
   comment       String?
   contact       String?
