@@ -12,9 +12,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Activity, AlertOctagon, Lock, Search, ShieldCheck, TriangleAlert, Truck, LockOpen, QrCode } from 'lucide-react';
-import { VehicleQrDialog } from '@/components/vehicle-qr';
-import { confirmAction } from '@/components/feedback';
+import { Activity, AlertOctagon, Lock, Search, ShieldCheck, TriangleAlert, Truck, LockOpen, QrCode, Printer } from 'lucide-react';
+import { VehicleLabelsPrint, VehicleQrDialog, openLabelsWindow } from '@/components/vehicle-qr';
+import { confirmAction, notify } from '@/components/feedback';
 
 const TILES: { status: VehicleStatus; icon: React.ElementType; tone: string }[] = [
   { status: 'LIBERADO', icon: ShieldCheck, tone: 'text-emerald-700' },
@@ -28,6 +28,8 @@ export default function VehiclesPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [qrVehicle, setQrVehicle] = useState<Vehicle | null>(null);
+  // Impressão em lote das etiquetas: veículos da lista atual e a janela aberta no clique.
+  const [batch, setBatch] = useState<{ vehicles: Vehicle[]; win: Window } | null>(null);
   const [loadError, setLoadError] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<VehicleStatus | 'ALL'>('ALL');
@@ -87,9 +89,24 @@ export default function VehiclesPage() {
             Situação operacional de cada veículo, calculada pelas não conformidades ativas.
           </p>
         </div>
-        {manager && <Link href="/dashboard/fleets">
-          <Button variant="outline"><Truck className="h-4 w-4 mr-2" />Cadastrar em Frotas</Button>
-        </Link>}
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            disabled={loading || !filtered.some((v) => v.isActive)}
+            onClick={() => {
+              const list = filtered.filter((v) => v.isActive);
+              const win = openLabelsWindow();
+              if (!win) { notify('O navegador bloqueou a janela de impressão. Permita janelas deste site e tente de novo.'); return; }
+              setBatch({ vehicles: list, win });
+            }}
+            title="Etiquetas de QR Code dos veículos da lista, 6 por folha A4"
+          >
+            <Printer className="h-4 w-4 mr-2" />Imprimir etiquetas ({filtered.filter((v) => v.isActive).length})
+          </Button>
+          {manager && <Link href="/dashboard/fleets">
+            <Button variant="outline"><Truck className="h-4 w-4 mr-2" />Cadastrar em Frotas</Button>
+          </Link>}
+        </div>
       </div>
 
       {/* No celular os três cabem lado a lado (antes ocupavam a primeira tela inteira). */}
@@ -216,6 +233,7 @@ export default function VehiclesPage() {
         </CardContent>
       </Card>
       <VehicleQrDialog vehicle={qrVehicle} onClose={() => setQrVehicle(null)} />
+      {batch && <VehicleLabelsPrint vehicles={batch.vehicles} win={batch.win} onDone={() => setBatch(null)} />}
     </>
   );
 }
