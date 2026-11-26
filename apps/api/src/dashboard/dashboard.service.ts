@@ -7,6 +7,7 @@ import { ACTIVE_NC_STATUSES } from '../checklist/checklist-rules';
 import { dashboardTimeZone, startOfDayInTimeZone } from './time-zone';
 import { PANEL_ROLES } from '../role/role-definitions';
 import { ReportQueryDto, resolveReportRange } from './report-period';
+import { suggestionScore } from '../suggestion/suggestion-rules';
 
 type SummaryRow = {
   activeVehicles: number;
@@ -104,7 +105,7 @@ export class DashboardService {
     const unit = await this.reportUnit(query.unitId);
     const vehicleFilter = (column: string) => Prisma.sql`${sqlVehicleInScope(column)}${unit ? sqlVehicleInUnit(column, unit.id) : Prisma.empty}`;
 
-    const [current, previous, bySeverity, topVehicles] = await Promise.all([
+    const [current, previous, bySeverity, topVehicles, passengers] = await Promise.all([
       this.reportTotals(tenantId, range.from, range.to, vehicleFilter),
       range.previous ? this.reportTotals(tenantId, range.previous.from, range.previous.to, vehicleFilter) : null,
       this.prisma.$queryRaw<{ severity: string; count: number }[]>`
@@ -116,6 +117,7 @@ export class DashboardService {
         FROM "Checklist" c JOIN "Vehicle" v ON v.id = c."vehicleId"
         WHERE c."tenantId" = ${tenantId}${checklistInRange('c.', range.from, range.to)}${vehicleFilter('c."vehicleId"')}
         GROUP BY c."vehicleId", v."plate" ORDER BY "count" DESC, v."plate" LIMIT 5`,
+      this.passengerTotals(range.from, range.to, unit?.id ?? null),
     ]);
 
     return {
@@ -133,6 +135,7 @@ export class DashboardService {
         bySeverity: Object.fromEntries(bySeverity.map((row) => [row.severity, row.count])) as Record<string, number>,
       },
       topVehicles,
+      passengers,
       previous: previous && range.previous
         ? { from: range.previous.from.toISOString(), to: range.previous.to.toISOString(), ...previous }
         : null,
@@ -182,6 +185,36 @@ export class DashboardService {
       complianceRate: row.completed > 0 ? Math.round(((row.completed - row.withNc) / row.completed) * 100) : null,
       lastInspection: row.lastInspection ? new Date(row.lastInspection).toISOString() : null,
     }));
+  }
+
+  /**
+   * Canais do passageiro no período: avaliações de direção (nota média e alertas) e sugestões de
+   * melhoria (nota da empresa, que conta só as priorizadas). A extensão do Prisma já limita à
+   * empresa e às frentes de quem pede; o filtro de frente do relatório vem da placa (frota do veículo)
+   * nas avaliações e da frente gravada na sugestão.
+   */
+  private async passengerTotals(from: Date | null, to: Date | null, unitId: string | null) {
+    const createdAt = from || to ? { createdAt: { ...(from ? { gte: from } : {}), ...(to ? { lt: to } : {}) } } : {};
+    const drivingWhere = { ...createdAt, ...(unitId ? { vehicle: { fleet: { unitId } } } : {}) };
+    const [driving, alerts, alertsTreated, suggestions] = await Promise.all([
+      this.prisma.drivingFeedback.aggregate({ where: drivingWhere, _avg: { rating: true }, _count: { _all: true } }),
+      this.prisma.drivingFeedback.count({ where: { ...drivingWhere, alert: true } }),
+      this.prisma.drivingFeedback.count({ where: { ...drivingWhere, alert: true, status: 'TRATADA' } }),
+      this.prisma.suggestion.findMany({
+        where: { ...createdAt, ...(unitId ? { unitId } : {}) },
+        select: { status: true, prioritizedAt: true, dueDate: true, resolvedAt: true, rating: true },
+      }),
+    ]);
+    const average = driving._avg.rating;
+    return {
+      driving: {
+        count: driving._count._all,
+        average: average === null ? null : Math.round(average * 10) / 10,
+        alerts,
+        alertsTreated,
+      },
+      suggestions: { received: suggestions.length, archived: suggestions.filter((s) => s.status === 'ARQUIVADA').length, ...suggestionScore(suggestions) },
+    };
   }
 
   private requireTenant(): string {
