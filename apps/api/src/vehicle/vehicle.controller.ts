@@ -3,6 +3,7 @@ import type { Request } from 'express';
 import { VehicleService } from './vehicle.service';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
+import { ImportVehiclesDto } from './dto/import-vehicles.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -16,6 +17,10 @@ export class VehicleController {
 
   @Post()
   create(@Body() createDto: CreateVehicleDto) { return this.service.create(createDto); }
+
+  /** Importação por planilha: dryRun só confere; sem problemas, grava tudo de uma vez. */
+  @Post('import')
+  import(@Body() dto: ImportVehiclesDto) { return this.service.importVehicles(dto); }
 
   @Get()
   @Roles(...OPERATION_ROLES)

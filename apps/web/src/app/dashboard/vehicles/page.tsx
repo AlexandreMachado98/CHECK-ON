@@ -12,8 +12,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Activity, AlertOctagon, Lock, Search, ShieldCheck, TriangleAlert, Truck, LockOpen, QrCode, Printer } from 'lucide-react';
+import { Activity, AlertOctagon, Lock, Search, ShieldCheck, TriangleAlert, Truck, LockOpen, QrCode, Printer, FileUp } from 'lucide-react';
 import { VehicleLabelsPrint, VehicleQrDialog, openLabelsWindow } from '@/components/vehicle-qr';
+import { VehicleImportDialog } from '@/components/vehicle-import';
 import { confirmAction, notify } from '@/components/feedback';
 
 const TILES: { status: VehicleStatus; icon: React.ElementType; tone: string }[] = [
@@ -30,6 +31,7 @@ export default function VehiclesPage() {
   const [qrVehicle, setQrVehicle] = useState<Vehicle | null>(null);
   // Impressão em lote das etiquetas: veículos da lista atual e a janela aberta no clique.
   const [batch, setBatch] = useState<{ vehicles: Vehicle[]; win: Window } | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<VehicleStatus | 'ALL'>('ALL');
@@ -103,6 +105,11 @@ export default function VehiclesPage() {
           >
             <Printer className="h-4 w-4 mr-2" />Imprimir etiquetas ({filtered.filter((v) => v.isActive).length})
           </Button>
+          {manager && (
+            <Button variant="outline" onClick={() => setImportOpen(true)} title="Cadastrar vários veículos de uma vez a partir de uma planilha">
+              <FileUp className="h-4 w-4 mr-2" />Importar planilha
+            </Button>
+          )}
           {manager && <Link href="/dashboard/fleets">
             <Button variant="outline"><Truck className="h-4 w-4 mr-2" />Cadastrar em Frotas</Button>
           </Link>}
@@ -233,6 +240,7 @@ export default function VehiclesPage() {
         </CardContent>
       </Card>
       <VehicleQrDialog vehicle={qrVehicle} onClose={() => setQrVehicle(null)} />
+      <VehicleImportDialog open={importOpen} onClose={() => setImportOpen(false)} onImported={fetchVehicles} exampleFleet={vehicles.find((v) => v.fleet?.name)?.fleet?.name} />
       {batch && <VehicleLabelsPrint vehicles={batch.vehicles} win={batch.win} onDone={() => setBatch(null)} />}
     </>
   );
