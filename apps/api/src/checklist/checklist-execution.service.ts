@@ -156,9 +156,16 @@ export class ChecklistExecutionService {
             deviceInfo: user.deviceInfo ?? null,
             signatureUrl,
             signedName: signatureUrl ? dto.signedName?.trim() || driver.name : null,
+            odometerKm: dto.odometerKm ?? null,
             syncedAt: new Date(),
           },
         });
+        // O km do veículo só sobe: inspeção offline que chega atrasada (ou digitada errada para menos)
+        // fica registrada, mas não baixa o km atual.
+        // Condição no próprio UPDATE: duas inspeções do mesmo veículo ao mesmo tempo não se atropelam.
+        if (dto.odometerKm != null && dto.odometerKm > vehicle.mileage) {
+          await tx.vehicle.updateMany({ where: { id: vehicle.id, mileage: { lt: dto.odometerKm } }, data: { mileage: dto.odometerKm } });
+        }
 
         let ncsOpened = 0;
         let ncsRecurrent = 0;

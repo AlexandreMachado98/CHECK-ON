@@ -427,4 +427,22 @@ class RulesTest {
         assertEquals("Enviando fotos: 12 de 40", Rules.syncingText(SyncProgress(12, 40)))
         assertEquals("Enviando inspeção...", Rules.syncingText(SyncProgress(40, 40)))
     }
+
+    @Test fun `km digitado aceita ponto de milhar e recusa letras ou numero grande demais`() {
+        assertEquals(125430, Rules.parseKm("125430"))
+        assertEquals(125430, Rules.parseKm("125.430"))
+        assertEquals(0, Rules.parseKm("0"))
+        assertNull(Rules.parseKm(""))
+        assertNull(Rules.parseKm("12a"))
+        assertNull(Rules.parseKm("12345678"))
+        assertEquals("125.430 km", Rules.formatKm(125430))
+    }
+
+    @Test fun `aviso de km menor que o ultimo ou salto grande, sem aviso no normal`() {
+        assertNull(Rules.kmWarning(50_300, 50_000))
+        assertNull(Rules.kmWarning(50_000, 0))
+        assertNull(Rules.kmWarning(null, 50_000))
+        assertEquals("menor que o último registro (50.000 km). Confira o painel.", Rules.kmWarning(49_000, 50_000))
+        assertEquals("2.001 km a mais que o último registro. Confira o número.", Rules.kmWarning(52_001, 50_000))
+    }
 }

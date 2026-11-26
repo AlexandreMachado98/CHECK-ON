@@ -48,6 +48,8 @@ data class Template(
     /** Vale em todas as frentes de trabalho. Falso: só nos veículos das frentes em [units]. */
     val allUnits: Boolean = true,
     val units: List<TemplateUnit> = emptyList(),
+    /** Pede o km do veículo (obrigatório para concluir). Servidor antigo não informa: não pede. */
+    val askOdometer: Boolean = false,
 ) {
     val allItems: List<TemplateItem> get() = categories.flatMap { it.items }
 }
@@ -75,6 +77,8 @@ data class Vehicle(
     val fleet: Fleet? = null,
     /** Última inspeção concluída do veículo (de qualquer motorista), quando o servidor informa. */
     val lastInspection: LastInspection? = null,
+    /** Maior km registrado nas inspeções (0: nenhum ainda). */
+    val mileage: Int = 0,
 ) {
     val label: String get() = if (prefix.isNullOrBlank()) plate else "$plate · $prefix"
     val description: String get() = listOfNotNull(brand, model, year?.toString()).joinToString(" ")
@@ -137,6 +141,8 @@ data class Draft(
      * (proporção da área de assinatura). Fica no rascunho até concluir.
      */
     val signature: List<List<Float>> = emptyList(),
+    /** Km do veículo digitado. */
+    val odometerKm: Int? = null,
 )
 
 /** Corpo do POST /checklists/sync (cada item). */
@@ -157,6 +163,8 @@ data class SubmitPayload(
     val signatureUrl: String? = null,
     /** Nome de quem assinou. */
     val signedName: String? = null,
+    /** Km do veículo (hodômetro), quando o modelo pede. */
+    val odometerKm: Int? = null,
 )
 
 /** Inspeção na fila de envio do celular. */

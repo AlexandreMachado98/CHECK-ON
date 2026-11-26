@@ -7,6 +7,7 @@
 import type { Checklist, ChecklistAnswer } from './types';
 import { NC_SEVERITY, NC_STATUS } from './status';
 import { photoAtWidth } from './photo-url';
+import { formatKm } from './utils';
 
 const BRAND: [number, number, number] = [5, 150, 105]; // verde CHECK-ON
 const TEXT: [number, number, number] = [15, 23, 42];
@@ -153,6 +154,7 @@ export async function downloadChecklistPdf(checklist: Checklist, context: PdfCon
   const info: [string, string][] = [
     ['Veículo', vehicleText || '—'],
     ['Frota', vehicle?.fleet?.name ?? '—'],
+    ['Km do veículo', checklist.odometerKm != null ? formatKm(checklist.odometerKm) : 'Não informado'],
     ['Frente de trabalho', unit ? `${unit.name}${unit.client ? ` · ${unit.client}` : ''}` : '—'],
     ['Motorista / inspetor', driver ? `${driver.name}${driver.matricula ? ` · matrícula ${driver.matricula}` : ''}` : '—'],
     ['Início', formatDateTime(checklist.startedAt)],

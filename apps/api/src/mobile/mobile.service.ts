@@ -51,6 +51,7 @@ export class MobileService {
           description: true,
           version: true,
           updatedAt: true,
+          askOdometer: true,
           // Frentes do modelo: o app só oferece o checklist nos veículos dessas frentes.
           allUnits: true,
           units: { select: { unitId: true } },

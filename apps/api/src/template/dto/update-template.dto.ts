@@ -13,6 +13,11 @@ export class UpdateTemplateDto {
   @IsBoolean()
   isActive?: boolean;
 
+  /** Pede o km do veículo no checklist do app. */
+  @IsOptional()
+  @IsBoolean()
+  askOdometer?: boolean;
+
   /** Vale em todas as frentes de trabalho. Falso: só nas frentes de unitIds. */
   @IsOptional()
   @IsBoolean()

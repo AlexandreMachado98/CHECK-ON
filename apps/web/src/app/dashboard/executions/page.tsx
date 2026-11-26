@@ -21,6 +21,7 @@ import { photoAtWidth } from '@/lib/photo-url';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { notify, confirmAction } from '@/components/feedback';
+import { formatKm } from '@/lib/utils';
 
 export default function ExecutionsPage() {
   const [checklists, setChecklists] = useState<Checklist[]>([]);
@@ -339,6 +340,12 @@ export default function ExecutionsPage() {
                     <span className="text-xs text-slate-500 block">{selectedChecklist.vehicle.model}</span>
                   )}
                 </div>
+                {selectedChecklist.odometerKm != null && (
+                  <div>
+                    <span className="text-xs text-slate-500 block">Km do veículo</span>
+                    <span className="font-semibold text-slate-800 tabular-nums">{formatKm(selectedChecklist.odometerKm)}</span>
+                  </div>
+                )}
                 {selectedChecklist.vehicle?.fleet && (
                   <div>
                     <span className="text-xs text-slate-500 block">Frota / frente</span>

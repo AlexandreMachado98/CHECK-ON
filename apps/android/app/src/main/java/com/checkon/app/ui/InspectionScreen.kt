@@ -125,6 +125,7 @@ fun InspectionScreen(
     val session by vm.session.collectAsState()
     val signerName = session?.user?.name ?: ""
     var signatureHighlight by remember { mutableStateOf(false) }
+    var kmHighlight by remember { mutableStateOf(false) }
     // Seção a marcar como conforme (pede confirmação antes).
     var markSection by remember { mutableStateOf<TemplateCategory?>(null) }
     var saving by remember { mutableStateOf(false) }
@@ -241,13 +242,21 @@ fun InspectionScreen(
     fun finish() {
         val missing = Rules.pendingItems(template, current.answers)
         val needsSignature = !Rules.hasSignature(current.signature)
+        val needsKm = template.askOdometer && current.odometerKm == null
         signatureHighlight = needsSignature
-        if (missing.isNotEmpty() || needsSignature) {
+        kmHighlight = needsKm
+        if (missing.isNotEmpty() || needsSignature || needsKm) {
             highlight = missing.map { it.itemId }.toSet()
-            pendencies = missing.map { it.message } + if (needsSignature) listOf("Assine no fim da inspeção.") else emptyList()
-            // Item pendente primeiro; se só falta a assinatura, vai até ela (depois de todos os itens).
+            pendencies = missing.map { it.message } +
+                (if (needsKm) listOf("Informe o km do veículo.") else emptyList()) +
+                (if (needsSignature) listOf("Assine no fim da inspeção.") else emptyList())
+            // Item pendente primeiro; depois o km (logo após os itens); se só falta a assinatura, vai até ela.
             val first = missing.firstOrNull()?.itemId
-            if (first != null) scrollToItem(first) else scope.launch { listState.animateScrollToItem(rows.size + 1) }
+            when {
+                first != null -> scrollToItem(first)
+                needsKm -> scope.launch { listState.animateScrollToItem(rows.size + 2) }
+                else -> scope.launch { listState.animateScrollToItem(rows.size + 1) }
+            }
             return
         }
         confirm = true
@@ -276,6 +285,7 @@ fun InspectionScreen(
                 answers = Rules.answersToSend(template, current.answers),
                 signatureLocal = signature,
                 signedName = signerName,
+                odometerKm = if (template.askOdometer) current.odometerKm else null,
             )
             try {
                 vm.enqueue(QueuedInspection(current.clientId, payload, current.vehicleLabel, current.templateName))
@@ -370,6 +380,17 @@ fun InspectionScreen(
                     )
                 }
             }
+            if (template.askOdometer) {
+                item(key = "km") {
+                    Spacer(Modifier.height(8.dp))
+                    OdometerCard(
+                        km = current.odometerKm,
+                        lastKm = vehicle.mileage,
+                        highlighted = kmHighlight,
+                        onChange = { km -> draft = draft?.copy(odometerKm = km) },
+                    )
+                }
+            }
             item(key = "assinatura") {
                 Spacer(Modifier.height(8.dp))
                 SignatureCard(
@@ -402,7 +423,11 @@ fun InspectionScreen(
             onDismissRequest = { confirm = false },
             title = { Text(if (nonCompliant.any { it.isCritical }) "Concluir com item crítico?" else "Concluir inspeção?") },
             text = {
-                Text("${vehicle.label} · ${template.name}\n\n" + Rules.nonCompliantList(nonCompliant))
+                val km = current.odometerKm?.takeIf { template.askOdometer }
+                val kmLine = km?.let { value ->
+                    "Km: ${Rules.formatKm(value)}" + (Rules.kmWarning(value, vehicle.mileage)?.let { "\nAtenção: o km está $it" } ?: "") + "\n\n"
+                } ?: ""
+                Text("${vehicle.label} · ${template.name}\n\n" + kmLine + Rules.nonCompliantList(nonCompliant))
             },
             confirmButton = { TextButton(onClick = { confirm = false; save() }) { Text("Concluir") } },
             dismissButton = { TextButton(onClick = { confirm = false }) { Text("Revisar") } },

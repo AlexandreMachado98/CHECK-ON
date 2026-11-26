@@ -113,6 +113,7 @@ export class TemplateService {
         name: data.name,
         description: data.description,
         isActive: false,
+        askOdometer: data.askOdometer ?? true,
         allUnits: units?.allUnits ?? true,
         units: { create: (units?.unitIds ?? []).map((unitId) => ({ unitId })) },
       } as any,
@@ -139,6 +140,7 @@ export class TemplateService {
         name: data.name,
         description: data.description,
         isActive: data.isActive,
+        askOdometer: data.askOdometer,
         ...(units
           ? { allUnits: units.allUnits, units: { deleteMany: {}, create: units.unitIds.map((unitId) => ({ unitId })) } }
           : {}),
@@ -171,6 +173,7 @@ export class TemplateService {
         name: data.name?.trim() || `${source.name} (cópia)`,
         description: source.description,
         isActive: false,
+        askOdometer: source.askOdometer,
         version: 1,
         allUnits: units?.allUnits ?? true,
         units: { create: (units?.unitIds ?? []).map((unitId) => ({ unitId })) },

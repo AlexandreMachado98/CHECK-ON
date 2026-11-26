@@ -58,8 +58,9 @@ function buildMocks() {
     tenant: { findUnique: vi.fn().mockResolvedValue({ autoBlockCriticalNc: true }) },
     template: { findFirst: vi.fn().mockResolvedValue(template) },
     vehicle: {
-      findFirst: vi.fn().mockResolvedValue({ id: 'veh-1', status: 'LIBERADO', fleet: { unitId: 'frente-a' } }),
+      findFirst: vi.fn().mockResolvedValue({ id: 'veh-1', status: 'LIBERADO', mileage: 50_000, fleet: { unitId: 'frente-a' } }),
       update: vi.fn().mockResolvedValue({}),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
     employee: { findFirst: vi.fn().mockResolvedValue({ id: 'emp-1', name: 'João Motorista' }) },
     checklist: { create: vi.fn().mockResolvedValue({ id: 'chk-1' }) },
@@ -94,6 +95,25 @@ function buildMocks() {
 }
 
 describe('ChecklistExecutionService', () => {
+  it('km do veículo: grava a leitura e só sobe o km atual (com a condição no próprio UPDATE)', async () => {
+    const { service, tx } = buildMocks();
+    await service.submit(baseDto({ odometerKm: 50_420 }), motorista);
+    expect(tx.checklist.create.mock.calls[0][0].data.odometerKm).toBe(50_420);
+    expect(tx.vehicle.updateMany).toHaveBeenCalledWith({ where: { id: 'veh-1', mileage: { lt: 50_420 } }, data: { mileage: 50_420 } });
+
+    // Leitura menor (inspeção offline atrasada ou erro de digitação): fica registrada, o km atual não baixa.
+    const lower = buildMocks();
+    await lower.service.submit(baseDto({ odometerKm: 49_000 }), motorista);
+    expect(lower.tx.checklist.create.mock.calls[0][0].data.odometerKm).toBe(49_000);
+    expect(lower.tx.vehicle.updateMany).not.toHaveBeenCalled();
+
+    // App antigo (sem o campo): nada muda no km.
+    const old = buildMocks();
+    await old.service.submit(baseDto(), motorista);
+    expect(old.tx.checklist.create.mock.calls[0][0].data.odometerKm).toBeNull();
+    expect(old.tx.vehicle.updateMany).not.toHaveBeenCalled();
+  });
+
   it('checklist de uma frente de trabalho é recusado em veículo de outra frente', async () => {
     const { service, tx } = buildMocks();
     tx.template.findFirst.mockResolvedValue({ ...template, allUnits: false, units: [{ unitId: 'frente-b' }] });
