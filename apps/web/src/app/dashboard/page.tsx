@@ -59,10 +59,17 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 py-1.5 px-3">
-            <span className="h-2 w-2 rounded-full bg-emerald-500 mr-2 animate-pulse" />
-            Operação em Tempo Real
-          </Badge>
+          {loadFailed ? (
+            <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 py-1.5 px-3">
+              <span className="h-2 w-2 rounded-full bg-rose-500 mr-2" />
+              Sem conexão com o servidor
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 py-1.5 px-3">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 mr-2 animate-pulse" />
+              Operação em Tempo Real
+            </Badge>
+          )}
         </div>
       </div>
 
@@ -83,7 +90,7 @@ export default function DashboardPage() {
             {loading ? (
               <div className="h-8 w-12 bg-slate-100 animate-pulse rounded" />
             ) : (
-              <div className="text-2xl font-bold text-slate-900">{summary?.activeVehicles ?? 0}</div>
+              <div className="text-2xl font-bold text-slate-900">{summary?.activeVehicles ?? '—'}</div>
             )}
             <p className="text-xs text-muted-foreground mt-1">Ativos operacionais cadastrados</p>
           </CardContent>
@@ -98,7 +105,7 @@ export default function DashboardPage() {
             {loading ? (
               <div className="h-8 w-12 bg-slate-100 animate-pulse rounded" />
             ) : (
-              <div className="text-2xl font-bold text-slate-900">{summary?.activeFleets ?? 0}</div>
+              <div className="text-2xl font-bold text-slate-900">{summary?.activeFleets ?? '—'}</div>
             )}
             <p className="text-xs text-muted-foreground mt-1">Centros de custo e bases</p>
           </CardContent>
@@ -113,7 +120,7 @@ export default function DashboardPage() {
             {loading ? (
               <div className="h-8 w-12 bg-slate-100 animate-pulse rounded" />
             ) : (
-              <div className="text-2xl font-bold text-slate-900">{summary?.activeEmployees ?? 0}</div>
+              <div className="text-2xl font-bold text-slate-900">{summary?.activeEmployees ?? '—'}</div>
             )}
             <p className="text-xs text-muted-foreground mt-1">Motoristas e operadores de campo</p>
           </CardContent>
@@ -128,7 +135,7 @@ export default function DashboardPage() {
             {loading ? (
               <div className="h-8 w-12 bg-slate-100 animate-pulse rounded" />
             ) : (
-              <div className="text-2xl font-bold text-slate-900">{summary?.activeUsers ?? 0}</div>
+              <div className="text-2xl font-bold text-slate-900">{summary?.activeUsers ?? '—'}</div>
             )}
             <p className="text-xs text-muted-foreground mt-1">Gestores e administradores com acesso ao painel</p>
           </CardContent>

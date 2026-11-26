@@ -43,7 +43,8 @@ export default function NCsPage() {
 
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
-  const [counts, setCounts] = useState({ active: 0, critical: 0, recurrent: 0 });
+  // null = ainda não carregou (ou falhou): o topo mostra "—" em vez de um 0 que parece real.
+  const [counts, setCounts] = useState<{ active: number; critical: number; recurrent: number } | null>(null);
   const [hasAny, setHasAny] = useState(true);
   const debouncedSearch = useDebounced(search);
   const PAGE_SIZE = 50;
@@ -73,6 +74,7 @@ export default function NCsPage() {
       if (!debouncedSearch.trim() && statusFilter === 'ALL' && severityFilter === 'ALL') setHasAny(res.data.total > 0);
     } catch (error) {
       setLoadError(apiErrorMessage(error, 'Não foi possível carregar as não conformidades.'));
+      setCounts(null);
     } finally {
       setLoading(false);
     }
@@ -97,9 +99,9 @@ export default function NCsPage() {
       </div>
 
       <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-6">
-        <SummaryTile label="NCs ativas" value={counts.active} icon={AlertOctagon} tone="text-slate-900" />
-        <SummaryTile label="Críticas ativas (veículo bloqueado)" value={counts.critical} icon={Lock} tone="text-rose-700" />
-        <SummaryTile label="Com reincidência" value={counts.recurrent} icon={Repeat} tone="text-amber-700" />
+        <SummaryTile label="NCs ativas" value={counts?.active ?? null} icon={AlertOctagon} tone="text-slate-900" />
+        <SummaryTile label="Críticas ativas (veículo bloqueado)" value={counts?.critical ?? null} icon={Lock} tone="text-rose-700" />
+        <SummaryTile label="Com reincidência" value={counts?.recurrent ?? null} icon={Repeat} tone="text-amber-700" />
       </div>
 
       <Card className="border-slate-200 shadow-sm">
@@ -262,14 +264,14 @@ export default function NCsPage() {
   );
 }
 
-function SummaryTile({ label, value, icon: Icon, tone }: { label: string; value: number; icon: React.ElementType; tone: string }) {
+function SummaryTile({ label, value, icon: Icon, tone }: { label: string; value: number | null; icon: React.ElementType; tone: string }) {
   return (
     // No celular os três cabem lado a lado (antes ocupavam a primeira tela inteira).
     <Card className="border-slate-200 shadow-sm py-0">
       <CardContent className="p-3 sm:p-4 flex items-start sm:items-center justify-between gap-2">
         <div className="min-w-0">
           <p className="text-[11px] leading-tight sm:text-xs font-medium text-slate-500">{label}</p>
-          <p className={`mt-1 text-xl sm:text-2xl font-bold ${tone}`}>{value}</p>
+          <p className={`mt-1 text-xl sm:text-2xl font-bold ${value === null ? 'text-slate-300' : tone}`}>{value ?? '—'}</p>
         </div>
         <Icon className={`hidden sm:block h-5 w-5 shrink-0 ${tone} opacity-70`} />
       </CardContent>

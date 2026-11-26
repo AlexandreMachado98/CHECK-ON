@@ -107,7 +107,8 @@ export default function VehiclesPage() {
                 <span className="text-xs font-medium text-slate-500">{VEHICLE_STATUS[status].label}</span>
                 <Icon className={`hidden sm:block h-5 w-5 ${tone}`} />
               </div>
-              <p className={`text-xl sm:text-2xl font-bold ${tone}`}>{counts[status]}</p>
+              {/* Carregando ou sem resposta da API: "—", não um 0 que parece frota toda liberada. */}
+              <p className={`text-xl sm:text-2xl font-bold ${loading || loadError ? 'text-slate-300' : tone}`}>{loading || loadError ? '—' : counts[status]}</p>
               <p className="hidden sm:block text-xs text-slate-500">{VEHICLE_STATUS[status].description}</p>
             </button>
           );
