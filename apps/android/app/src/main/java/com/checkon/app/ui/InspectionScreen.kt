@@ -285,7 +285,7 @@ fun InspectionScreen(
                 answers = Rules.answersToSend(template, current.answers),
                 signatureLocal = signature,
                 signedName = signerName,
-                odometerKm = current.odometerKm,
+                odometerKm = if (template.askOdometer) current.odometerKm else null,
             )
             try {
                 vm.enqueue(QueuedInspection(current.clientId, payload, current.vehicleLabel, current.templateName))
@@ -380,15 +380,16 @@ fun InspectionScreen(
                     )
                 }
             }
-            item(key = "km") {
-                Spacer(Modifier.height(8.dp))
-                OdometerCard(
-                    km = current.odometerKm,
-                    lastKm = vehicle.mileage,
-                    required = template.askOdometer,
-                    highlighted = kmHighlight,
-                    onChange = { km -> draft = draft?.copy(odometerKm = km) },
-                )
+            if (template.askOdometer) {
+                item(key = "km") {
+                    Spacer(Modifier.height(8.dp))
+                    OdometerCard(
+                        km = current.odometerKm,
+                        lastKm = vehicle.mileage,
+                        highlighted = kmHighlight,
+                        onChange = { km -> draft = draft?.copy(odometerKm = km) },
+                    )
+                }
             }
             item(key = "assinatura") {
                 Spacer(Modifier.height(8.dp))
@@ -422,7 +423,7 @@ fun InspectionScreen(
             onDismissRequest = { confirm = false },
             title = { Text(if (nonCompliant.any { it.isCritical }) "Concluir com item crítico?" else "Concluir inspeção?") },
             text = {
-                val km = current.odometerKm
+                val km = current.odometerKm?.takeIf { template.askOdometer }
                 val kmLine = km?.let { value ->
                     "Km: ${Rules.formatKm(value)}" + (Rules.kmWarning(value, vehicle.mileage)?.let { "\nAtenção: o km está $it" } ?: "") + "\n\n"
                 } ?: ""

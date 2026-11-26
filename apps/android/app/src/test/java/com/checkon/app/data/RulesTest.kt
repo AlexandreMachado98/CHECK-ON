@@ -443,7 +443,6 @@ class RulesTest {
         assertNull(Rules.kmWarning(50_000, 0))
         assertNull(Rules.kmWarning(null, 50_000))
         assertEquals("menor que o último registro (50.000 km). Confira o painel.", Rules.kmWarning(49_000, 50_000))
-        assertNull(Rules.kmWarning(51_500, 50_000))
-        assertEquals("1.501 km a mais que o último registro. Confira o número.", Rules.kmWarning(51_501, 50_000))
+        assertEquals("2.001 km a mais que o último registro. Confira o número.", Rules.kmWarning(52_001, 50_000))
     }
 }
