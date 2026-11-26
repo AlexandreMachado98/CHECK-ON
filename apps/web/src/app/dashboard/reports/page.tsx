@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { ReportPassengers } from '@/components/report-passengers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { BarChart3, AlertOctagon, ClipboardCheck, Activity, Truck, ArrowRight, ShieldCheck, FileDown, Sheet } from 'lucide-react';
@@ -407,9 +408,9 @@ export default function ReportsPage() {
               </Card>
             </div>
           )}
+          {report?.passengers && <ReportPassengers data={report.passengers} />}
         </>
       )}
     </>
   );
 }
-

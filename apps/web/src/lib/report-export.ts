@@ -13,11 +13,19 @@ export interface ReportTotals {
   ncs: { total: number; active: number };
 }
 
+/** Canais do passageiro no período (avaliações de direção e sugestões de melhoria). */
+export interface PassengerTotals {
+  driving: { count: number; average: number | null; alerts: number; alertsTreated: number };
+  suggestions: { received: number; archived: number; prioritized: number; resolved: number; open: number; withDue: number; onTime: number; rated: number; average: number | null };
+}
+
 export interface Report extends ReportTotals {
   period: { key: PeriodKey; from: string | null; to: string | null };
   unit: { id: string; name: string; client?: string | null } | null;
   ncs: ReportTotals['ncs'] & { bySeverity: Record<string, number> };
   topVehicles: { vehicleId: string; plate: string; count: number }[];
+  /** Ausente em API antiga. */
+  passengers?: PassengerTotals;
   previous: (ReportTotals & { from: string; to: string }) | null;
 }
 
@@ -129,6 +137,25 @@ export function vehicleCells(row: VehicleReportRow): string[] {
   ];
 }
 
+/** "4,2" (uma casa, vírgula) ou "-" sem valor. */
+function rating(value: number | null): string {
+  return value === null ? '-' : value.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+}
+
+/** Linhas dos canais do passageiro (iguais no PDF e na planilha). */
+export function passengerLines(p: PassengerTotals): [string, string][] {
+  const s = p.suggestions;
+  return [
+    ['Avaliações de direção (Como estou dirigindo)', String(p.driving.count)],
+    ['Nota média da direção (1 a 5)', rating(p.driving.average)],
+    ['Alertas de direção (nota 1-2 ou celular) / tratados', `${p.driving.alerts} / ${p.driving.alertsTreated}`],
+    ['Sugestões de melhoria recebidas / arquivadas', `${s.received} / ${s.archived}`],
+    ['Sugestões priorizadas / resolvidas', `${s.prioritized} / ${s.resolved}`],
+    ['Resolvidas no prazo', s.withDue ? `${s.onTime} de ${s.withDue}` : '-'],
+    ['Nota da empresa nas sugestões (só priorizadas)', s.rated ? `${rating(s.average)} (${s.rated} ${s.rated === 1 ? 'avaliação' : 'avaliações'})` : '-'],
+  ];
+}
+
 /** Planilha (CSV) que o Excel abre direto em português: ";" entre colunas e acentos preservados. */
 export function reportCsv(report: Report, rows: VehicleReportRow[], context: ReportContext = {}): string {
   const cell = (value: string | number) => {
@@ -146,6 +173,7 @@ export function reportCsv(report: Report, rows: VehicleReportRow[], context: Rep
     ...(report.previous
       ? [line(['Período anterior', describePrevious(report.previous)]), line(['Inspeções no anterior', report.previous.inspections.total]), line(['Conformidade no anterior', percent(report.previous.complianceRate)])]
       : []),
+    ...(report.passengers ? passengerLines(report.passengers).map(([label, value]) => line([label, value])) : []),
     line(['Gerado em', `${formatDateTime(new Date().toISOString())}${context.generatedBy ? ` por ${context.generatedBy}` : ''}`]),
     '',
   ];
@@ -224,6 +252,19 @@ export async function downloadReportPdf(report: Report, rows: VehicleReportRow[]
     columnStyles: { 0: { halign: 'left', fontStyle: 'bold', cellWidth: 80 } },
     margin: { left: MARGIN, right: MARGIN },
   });
+
+  if (report.passengers) {
+    autoTable(doc, {
+      startY: lastY() + 6,
+      head: [['Canais do passageiro (QR do veículo)', 'No período']],
+      body: passengerLines(report.passengers),
+      theme: 'grid',
+      styles: { fontSize: 9, textColor: TEXT },
+      headStyles: { fillColor: [241, 245, 249], textColor: TEXT, fontStyle: 'bold' },
+      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 110 } },
+      margin: { left: MARGIN, right: MARGIN },
+    });
+  }
 
   doc.setTextColor(...TEXT);
   doc.setFont('helvetica', 'bold');
