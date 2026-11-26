@@ -61,8 +61,15 @@ class Repository(
     suspend fun vehicleNcs(vehicleId: String): List<OpenNc> = api.vehicleNcs(vehicleId)
 
     suspend fun readDraft(): Draft? = userId()?.let { store.readDraft(it) }
-    suspend fun saveDraft(draft: Draft?) {
-        userId()?.let { store.saveDraft(it, draft) }
+    /** Guarda o rascunho. Devolve false se não conseguiu (celular sem espaço), para a tela avisar. */
+    suspend fun saveDraft(draft: Draft?): Boolean {
+        val id = userId() ?: return true
+        return try {
+            store.saveDraft(id, draft)
+            true
+        } catch (e: java.io.IOException) {
+            false
+        }
     }
 
     suspend fun enqueue(item: QueuedInspection) {

@@ -1,4 +1,4 @@
-# Roteiro de teste no celular (app 1.4.22)
+# Roteiro de teste no celular (app 1.4.23)
 
 Teste final antes de entregar ao cliente: o que os testes automáticos não cobrem (aparelho, câmera,
 rede de verdade). Leva cerca de 1 hora. Marque cada item e anote o que estranhar.
@@ -11,7 +11,7 @@ rede de verdade). Leva cerca de 1 hora. Marque cada item e anote o que estranhar
   - 1 colaborador de teste com acesso ao app;
   - 2 veículos ativos, cada um com QR Code impresso ou na tela de outro aparelho;
   - 1 checklist com pelo menos 1 item crítico e itens de foto obrigatória.
-- **Instalação:** o APK da última versão, baixado nas Releases do GitHub. A tag `app-v1.4.22-35` é publicada sozinha quando o PR da 1.4.22 entra na `main`. Se a release disser "Versão de TESTE", desinstale a versão anterior antes.
+- **Instalação:** o APK da última versão, baixado nas Releases do GitHub. A tag `app-v1.4.23-36` é publicada sozinha quando o PR da 1.4.23 entra na `main`. Se a release disser "Versão de TESTE", desinstale a versão anterior antes.
 - **Anotações:** a cada problema, anote o número do item, o que fez, o que esperava e o que
   aconteceu, com print se possível.
 
@@ -79,6 +79,13 @@ Use dados móveis com 1 ou 2 barras de sinal, ou o modo "rede lenta" do celular,
 - [ ] 5.3 Girar a tela no meio da inspeção. Nada se perde.
 - [ ] 5.4 Começar outra inspeção com um rascunho aberto. O app pergunta entre **Continuar a anterior** e **Descartar e começar esta**.
 - [ ] 5.5 Inspecionar de novo um veículo já inspecionado hoje. Aparece o aviso **Já inspecionado hoje**.
+
+- [ ] 5.6 (Se tiver um celular quase cheio) Encher a memória com um vídeo grande e fazer uma inspeção:
+  - o app não fecha ao responder;
+  - aparece o aviso **Celular sem espaço** no topo;
+  - ao tirar foto, aparece **Foto não guardada**, em vez de um item com foto quebrada.
+
+  Depois de liberar espaço, tudo volta ao normal.
 
 ## 6. Sessão encerrada no meio do envio
 

@@ -91,4 +91,17 @@ class PhotosTest {
         val junk = newFile().apply { writeText("isto não é uma foto") }
         assertNull(Photos.decodeThumbnail(junk.path, 288))
     }
+
+    @Test fun `camera gravou lixo ou foto pela metade, nada de foto falsa`() = runBlocking {
+        val broken = newFile().apply { writeBytes(byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte()) + ByteArray(500) { 7 }) }
+        assertNull(photos.finish(broken))
+        assertTrue("apaga o arquivo quebrado", !broken.exists())
+        assertTrue("não sobra temporário", File(broken.path + ".tmp").exists().not())
+    }
+
+    @Test fun `foto boa nao deixa arquivo temporario`() = runBlocking {
+        val path = photos.finish(cameraPhoto(2000, 1500))!!
+        assertTrue(File("$path.tmp").exists().not())
+        assertEquals(1280, bounds(path).outWidth)
+    }
 }

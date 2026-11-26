@@ -118,6 +118,8 @@ fun InspectionScreen(
     var pendencies by remember { mutableStateOf<List<String>?>(null) }
     var confirm by remember { mutableStateOf(false) }
     var confirmDiscard by remember { mutableStateOf(false) }
+    var draftNotSaved by remember { mutableStateOf(false) }
+    var photoNotSaved by remember { mutableStateOf(false) }
     var confirmLeave by remember { mutableStateOf(false) }
     // Assinatura: quem está logado assina; destaca em vermelho se tentar concluir sem assinar.
     val session by vm.session.collectAsState()
@@ -151,7 +153,8 @@ fun InspectionScreen(
     }
     // Salva o rascunho a cada mudança, em ordem.
     LaunchedEffect(Unit) {
-        snapshotFlow { draft }.filterNotNull().collect { repository.saveDraft(it) }
+        // Sem espaço, a gravação falha: avisa em vez de fechar o app (as respostas seguem na tela).
+        snapshotFlow { draft }.filterNotNull().collect { draftNotSaved = !repository.saveDraft(it) }
     }
 
     fun update(itemId: String, change: (Answer) -> Answer) {
@@ -179,6 +182,9 @@ fun InspectionScreen(
             if (finished != null) {
                 repository.photos.delete(loaded.answers[itemId]?.localPhoto)
                 update(itemId) { it.copy(localPhoto = finished, photoUrl = null) }
+            } else {
+                // A câmera disse que tirou, mas não sobrou foto legível (quase sempre falta de espaço).
+                photoNotSaved = true
             }
             processingPhoto = null
         }
@@ -328,6 +334,15 @@ fun InspectionScreen(
         }
         LazyColumn(state = listState, modifier = Modifier.weight(1f), contentPadding = ScreenPadding, verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item {
+                if (draftNotSaved) {
+                    Banner(
+                        "Celular sem espaço",
+                        "As últimas respostas não foram guardadas no celular. Libere espaço (fotos e vídeos antigos) para não perder a inspeção se o app fechar.",
+                        Tone.Danger,
+                    )
+                }
+            }
+            item {
                 if (vehicle.status == "BLOQUEADO") Banner("Veículo bloqueado", "Registre a inspeção, mas o veículo não deve circular até ser liberado.", Tone.Danger)
             }
             items(rows.size, key = { index -> (rows[index] as? TemplateItem)?.id ?: "cat-${(rows[index] as TemplateCategory).id}" }) { index ->
@@ -433,6 +448,15 @@ fun InspectionScreen(
             dismissButton = { TextButton(onClick = { confirmLeave = false }) { Text("Continuar inspeção") } },
         )
     }
+    if (photoNotSaved) {
+        AlertDialog(
+            onDismissRequest = { photoNotSaved = false },
+            title = { Text("Foto não guardada") },
+            text = { Text("Não foi possível guardar a foto. Se o celular estiver sem espaço, apague fotos ou vídeos antigos e tire a foto de novo.") },
+            confirmButton = { TextButton(onClick = { photoNotSaved = false }) { Text("Entendi") } },
+        )
+    }
+
     if (confirmDiscard) {
         AlertDialog(
             onDismissRequest = { confirmDiscard = false },
