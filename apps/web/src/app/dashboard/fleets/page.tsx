@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { canManage } from '@/lib/roles';
+import { canManage, seesAllUnits } from '@/lib/roles';
 import { getStoredUser } from '@/lib/session';
 import api from '@/lib/api';
 import { matchesSearch } from '@/lib/search';
@@ -14,17 +14,25 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { VehicleStatusBadge } from '@/lib/status';
-import { FolderOpen, Plus, Search, Edit2, Archive, Activity, Truck } from 'lucide-react';
+import { FolderOpen, Plus, Search, Edit2, Archive, Activity, Truck, FileUp } from 'lucide-react';
 import { UnitBadges, UnitSelect, useUnits } from '@/components/unit-picker';
 import { notify, confirmAction } from '@/components/feedback';
+import { FleetImportDialog } from '@/components/fleet-import';
 
 export default function FleetsPage() {
   // Supervisor consulta as frotas, mas não cadastra nem altera.
   const [manager, setManager] = useState(false);
-  useEffect(() => { setManager(canManage(getStoredUser()?.role)); }, []);
+  // Administrador: a importação também cria as frentes que ainda não existem.
+  const [admin, setAdmin] = useState(false);
+  useEffect(() => {
+    const role = getStoredUser()?.role;
+    setManager(canManage(role));
+    setAdmin(seesAllUnits(role));
+  }, []);
+  const [importOpen, setImportOpen] = useState(false);
   const [fleets, setFleets] = useState<Fleet[]>([]);
   // Frentes de trabalho: cada frota pertence a uma (com uma frente só, ela já vem escolhida).
-  const { active: units } = useUnits();
+  const { active: units, reload: reloadUnits } = useUnits();
   const chooseUnit = units.length > 0;
   const [unitId, setUnitId] = useState('');
   useEffect(() => {
@@ -177,7 +185,11 @@ export default function FleetsPage() {
           </p>
         </div>
 
-        {manager && <div className="flex items-center gap-2">
+        {manager && <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" className="shrink-0 shadow-xs" onClick={() => setImportOpen(true)} title="Cadastrar várias frotas de uma vez a partir de uma planilha">
+            <FileUp className="mr-2 h-4 w-4 text-slate-500" aria-hidden="true" />
+            Importar planilha
+          </Button>
           <Button 
             variant="outline" 
             className="shrink-0 shadow-xs" 
@@ -601,6 +613,13 @@ export default function FleetsPage() {
           </form>
         </DialogContent>
       </Dialog>
+      <FleetImportDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImported={() => { fetchFleets(); reloadUnits(); }}
+        unitNames={units.map((u) => u.name)}
+        canCreateUnits={admin}
+      />
     </>
   );
 }
