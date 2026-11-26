@@ -1,4 +1,4 @@
-# Roteiro de teste no celular (app 1.4.25)
+# Roteiro de teste no celular (app 1.4.26)
 
 Teste final antes de entregar ao cliente: o que os testes automáticos não cobrem (aparelho, câmera,
 rede de verdade). Leva cerca de 1 hora. Marque cada item e anote o que estranhar.
@@ -11,7 +11,7 @@ rede de verdade). Leva cerca de 1 hora. Marque cada item e anote o que estranhar
   - 1 colaborador de teste com acesso ao app;
   - 2 veículos ativos, cada um com QR Code impresso ou na tela de outro aparelho;
   - 1 checklist com pelo menos 1 item crítico e itens de foto obrigatória.
-- **Instalação:** o APK da última versão, baixado nas Releases do GitHub. A tag `app-v1.4.25-38` é publicada sozinha quando o PR da 1.4.25 entra na `main`. Se a release disser "Versão de TESTE", desinstale a versão anterior antes.
+- **Instalação:** o APK da última versão, baixado nas Releases do GitHub. A tag `app-v1.4.26-39` é publicada sozinha quando o PR da 1.4.26 entra na `main`. Se a release disser "Versão de TESTE", desinstale a versão anterior antes.
 - **Anotações:** a cada problema, anote o número do item, o que fez, o que esperava e o que
   aconteceu, com print se possível.
 
@@ -35,8 +35,10 @@ rede de verdade). Leva cerca de 1 hora. Marque cada item e anote o que estranhar
 - [ ] 2.6 Recolher e abrir uma seção pelo título. **Próximo** leva ao próximo item pendente.
 - [ ] 2.7 A tela não apaga sozinha durante a inspeção.
 - [ ] 2.8 **Km do veículo** (antes da assinatura):
-  - tentar concluir sem o km: o cartão fica vermelho e aparece "Informe o km do veículo";
+  - com o campo opcional, concluir offline com o km e, em outra inspeção, em branco; sincronizar e conferir os dois registros no portal;
+  - com o km obrigatório, tentar concluir sem preencher: o cartão fica vermelho e aparece "Informe o km do veículo";
   - digitar um km menor que o último registro: aparece o aviso "menor que o último registro", e ele se repete na confirmação;
+  - conferir o limite: uma diferença de 1.500 km não gera aviso; 1.501 km gera aviso na confirmação;
   - digitar o km certo: o aviso some.
 - [ ] 2.9 Assinar com o dedo, usar **Desfazer** e assinar de novo.
 - [ ] 2.10 **Concluir inspeção**:

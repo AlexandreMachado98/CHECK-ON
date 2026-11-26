@@ -21,7 +21,7 @@ class OdometerCardTest {
 
     @Test fun `mostra o ultimo km, devolve o numero digitado e avisa quando e menor`() {
         var latest: Int? = -1
-        compose.setContent { OdometerCard(km = null, lastKm = 50_000, highlighted = false, onChange = { latest = it }) }
+        compose.setContent { OdometerCard(km = null, lastKm = 50_000, required = true, highlighted = false, onChange = { latest = it }) }
         compose.onNodeWithText("Digite o km do painel. Último registro: 50.000 km.").assertExists()
         compose.onNode(hasSetTextAction()).performTextInput("49000")
         compose.waitForIdle()
@@ -30,8 +30,8 @@ class OdometerCardTest {
     }
 
     @Test fun `sem km ao concluir pede o numero e letras sao ignoradas`() {
-        var latest: Int? = -1
-        compose.setContent { OdometerCard(km = null, lastKm = 0, highlighted = true, onChange = { latest = it }) }
+        var latest: Int? = null
+        compose.setContent { OdometerCard(km = null, lastKm = 0, required = true, highlighted = true, onChange = { latest = it }) }
         compose.onNodeWithText("Informe o km para concluir.").assertExists()
         compose.onNode(hasSetTextAction()).performTextInput("abc")
         compose.waitForIdle()
