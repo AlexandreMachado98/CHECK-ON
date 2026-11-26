@@ -1,3 +1,9 @@
+-- Manutenção por km (planos da empresa ou da frota, registros das manutenções feitas).
+-- Substitui as tabelas da versão anterior (planos por veículo), revertida no PR #98: os registros
+-- dela eram de teste e, por decisão do dono do produto, são apagados.
+DROP TABLE IF EXISTS "MaintenanceService" CASCADE;
+DROP TABLE IF EXISTS "MaintenancePlan" CASCADE;
+
 -- CreateTable
 CREATE TABLE "MaintenancePlan" (
     "id" TEXT NOT NULL,
