@@ -31,6 +31,9 @@ type Status = keyof typeof statuses;
 type Plan = {
   id: string;
   name: string;
+  baseDate: string | null;
+  intervalDays: number | null;
+  dueDate: string | null;
   baseKm: number;
   initialKm: number | null;
   _count: { services: number };
@@ -42,8 +45,12 @@ type Plan = {
   archivedAt: string | null;
   vehicle: Pick<Vehicle, 'id' | 'plate' | 'prefix' | 'isActive'> & { mileage: number };
 };
-type Service = { id: string; mileageKm: number; notes: string | null; recordedAt: string };
+type Service = { serviceDate: string | null; workshop: string | null; costCents: number | null; id: string; mileageKm: number; notes: string | null; recordedAt: string };
 type Editor = { kind: 'create' } | { kind: 'edit' | 'record' | 'history'; plan: Plan };
+
+function formatDay(value: string) {
+  return value.slice(0, 10).split('-').reverse().join('/');
+}
 
 function statusOf(plan: Plan): Status {
   if (plan.archivedAt) return 'ARCHIVED';
@@ -170,6 +177,7 @@ export default function MaintenancePage() {
                       <TableCell>{formatKm(plan.vehicle.mileage)}</TableCell>
                       <TableCell>
                         {formatKm(plan.dueKm)}
+                        {plan.dueDate && <div>ou {formatDay(plan.dueDate)}</div>}
                         {!plan.archivedAt && plan.vehicle.isActive && plan.remainingKm !== 0 && (
                           <div className="text-xs text-muted-foreground">
                             {plan.remainingKm > 0 ? 'Faltam' : 'Ultrapassou em'} {formatKm(Math.abs(plan.remainingKm))}
@@ -217,6 +225,8 @@ function PlanDialog({ editor, vehicles, close, saved }: {
   const creating = editor.kind === 'create';
   const [vehicleId, setVehicleId] = useState(plan?.vehicle.id ?? vehicles[0]?.id ?? '');
   const [baseKm, setBaseKm] = useState(plan ? String(plan.initialKm ?? '') : String(vehicles[0]?.mileage ?? 0));
+  const [intervalDays, setIntervalDays] = useState(String(plan?.intervalDays ?? ''));
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Cuiaba', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [services, setServices] = useState<Service[] | null>(null);
@@ -243,10 +253,15 @@ function PlanDialog({ editor, vehicles, close, saved }: {
         await api.post(`${endpoint}/${plan.id}/services`, {
           mileageKm: Number(data.get('mileageKm')),
           notes: String(data.get('notes')),
+          serviceDate: data.get('serviceDate'),
+          workshop: data.get('workshop'),
+          costCents: data.get('cost') ? Math.round(Number(data.get('cost')) * 100) : undefined,
         });
       } else {
         const schedule = {
           name: String(data.get('name')),
+          intervalDays: intervalDays ? Number(intervalDays) : null,
+          baseDate: data.get('baseDate') || undefined,
           intervalKm: Number(data.get('intervalKm')),
           warningKm: Number(data.get('warningKm')),
         };
@@ -285,6 +300,9 @@ function PlanDialog({ editor, vehicles, close, saved }: {
               <div key={service.id} className="rounded-lg border p-3">
                 <p className="font-medium">{formatKm(service.mileageKm)}</p>
                 <p className="text-muted-foreground">Registrado em {new Date(service.recordedAt).toLocaleString('pt-BR')}</p>
+                {service.serviceDate && <p>Data do serviço: {formatDay(service.serviceDate)}</p>}
+                {service.workshop && <p>Oficina: {service.workshop}</p>}
+                {service.costCents != null && <p>Custo: {(service.costCents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>}
                 {service.notes && <p className="mt-1 whitespace-pre-wrap break-words">{service.notes}</p>}
               </div>
             ))}
@@ -317,6 +335,15 @@ function PlanDialog({ editor, vehicles, close, saved }: {
                   <Input name="mileageKm" type="number" required min={plan.baseKm} max={Math.min(odometerMax, plan.vehicle.mileage)} defaultValue={plan.vehicle.mileage} />
                   <span className="text-muted-foreground">O próximo vencimento será calculado a partir deste km.</span>
                 </label>
+                <label className="grid gap-1">Data do serviço
+                  <Input type="date" name="serviceDate" required max={today} defaultValue={today} />
+                </label>
+                <label className="grid gap-1">Oficina (opcional)
+                  <Input name="workshop" maxLength={160} />
+                </label>
+                <label className="grid gap-1">Custo em reais (opcional)
+                  <Input name="cost" type="number" min="0" max="21474836.47" step="0.01" />
+                </label>
                 <label className="grid gap-1">Observação (opcional)
                   <textarea className="min-h-20 rounded-lg border border-input bg-background p-2" name="notes" maxLength={1000} />
                 </label>
@@ -329,6 +356,15 @@ function PlanDialog({ editor, vehicles, close, saved }: {
                 <label className="grid gap-1">Intervalo entre serviços (km)
                   <Input name="intervalKm" type="number" required min={1} max={odometerMax} defaultValue={plan?.intervalKm} />
                 </label>
+                <label className="grid gap-1">Intervalo em dias (opcional)
+                  <Input type="number" min={1} max={36500} value={intervalDays} onChange={(e) => setIntervalDays(e.target.value)} />
+                </label>
+                {intervalDays && <label className="grid gap-1">Início do ciclo
+                  <Input key={vehicleId} name="baseDate" type="date" required max={today}
+                    disabled={!!plan?._count.services && vehicleId === plan.vehicle.id}
+                    defaultValue={vehicleId === plan?.vehicle.id ? plan.baseDate?.slice(0, 10) ?? today : today} />
+                  <span className="text-muted-foreground">A revisão vence quando atingir o km ou a data, o que ocorrer primeiro.</span>
+                </label>}
                 <label className="grid gap-1">Antecedência do aviso (km)
                   <Input name="warningKm" type="number" required min={0} max={odometerMax} defaultValue={plan?.warningKm ?? 0} />
                 </label>
