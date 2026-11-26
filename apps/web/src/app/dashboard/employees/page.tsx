@@ -781,12 +781,12 @@ export default function EmployeesPage() {
             <Table>
               <TableHeader className="bg-slate-50/70">
                 <TableRow>
-                  <TableHead className="min-w-56">Colaborador</TableHead>
-                  <TableHead>Matrícula</TableHead>
-                  <TableHead>Função / setor</TableHead>
-                  <TableHead className="hidden lg:table-cell">Validade</TableHead>
-                  <TableHead className="hidden sm:table-cell">Status</TableHead>
-                  <TableHead>Acesso</TableHead>
+                  <TableHead className="sm:min-w-44">Colaborador</TableHead>
+                  <TableHead className="hidden md:table-cell">Matrícula</TableHead>
+                  <TableHead className="hidden md:table-cell">Função / setor</TableHead>
+                  <TableHead className="hidden xl:table-cell">Validade</TableHead>
+                  <TableHead className="hidden xl:table-cell">Status</TableHead>
+                  <TableHead className="hidden sm:table-cell">Acesso</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -797,48 +797,9 @@ export default function EmployeesPage() {
                   const clientStatus = integrationStatus(employee.clientIntegrationExpiresAt);
                   const hasExpiredIntegration = companyStatus.label === 'Vencida' || clientStatus.label === 'Vencida';
                   const hasExpiringIntegration = companyStatus.label === 'Vence em breve' || clientStatus.label === 'Vence em breve';
-                  return (
-                    <TableRow key={employee.id}>
-                      <TableCell>
-                        <div className="flex min-w-0 items-center gap-3">
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100 text-slate-400">
-                            {employee.photoUrl ? <img src={photoAtWidth(employee.photoUrl, 320)} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" /> : <User className="h-5 w-5" aria-hidden="true" />}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="truncate font-semibold text-slate-900">{employee.name}</p>
-                            <p className="mt-0.5 truncate text-xs text-slate-500">{employee.departmentName || 'Setor não informado'}</p>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="whitespace-nowrap rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 font-mono text-xs font-semibold text-slate-700">
-                          {employee.matricula || '—'}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          <Badge variant="outline" className={ROLE_COLOR[role] || 'border-slate-200 bg-slate-50 text-slate-600'}>
-                            {roleLabelMap[role] || role || 'Não definida'}
-                          </Badge>
-                          <p className="text-xs text-slate-500">{employee.departmentName || 'Setor não informado'}</p>
-                          {chooseUnit && <UnitBadges links={employee.units} emptyText="Sem frente: não vê veículos no app" />}
-                        </div>
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell">
-                        {hasExpiredIntegration ? (
-                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-700"><AlertTriangle className="h-3.5 w-3.5" /> Integração vencida</span>
-                        ) : hasExpiringIntegration ? (
-                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700"><Clock3 className="h-3.5 w-3.5" /> Vence em breve</span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 text-xs text-slate-500"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> {employee.companyIntegrationExpiresAt || employee.clientIntegrationExpiresAt ? 'Em dia' : 'Sem validade'}</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="hidden sm:table-cell">
-                        <Badge className={employee.isActive ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-100 text-slate-500'}>
-                          {employee.isActive ? 'Ativo' : 'Inativo'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
+                  // Acesso ao app/portal: coluna própria a partir do tablet; no celular, embaixo do nome.
+                  const access = (
+                    <>
                         <AccessBadge access={employee.user} />
                         {manager && (
                           <div className="mt-1 flex flex-wrap gap-1">
@@ -873,9 +834,69 @@ export default function EmployeesPage() {
                             )}
                           </div>
                         )}
+                    </>
+                  );
+                  return (
+                    <TableRow key={employee.id}>
+                      <TableCell>
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100 text-slate-400">
+                            {employee.photoUrl ? <img src={photoAtWidth(employee.photoUrl, 320)} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" /> : <User className="h-5 w-5" aria-hidden="true" />}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate font-semibold text-slate-900">{employee.name}</p>
+                            <p className="mt-0.5 hidden truncate text-xs text-slate-500 md:block">{employee.departmentName || 'Setor não informado'}</p>
+                            {/* Celular e tablet: matrícula e função aqui (as colunas ficam escondidas). */}
+                            <p className="mt-0.5 truncate text-xs text-slate-500 md:hidden">
+                              <span className="font-mono font-semibold text-slate-700">{employee.matricula || '—'}</span>
+                              {' · '}{roleLabelMap[role] || role || 'Função não definida'}
+                            </p>
+                            {/* Até tela grande: só o que pede atenção (as colunas Validade e Status ficam escondidas). */}
+                            {(hasExpiredIntegration || hasExpiringIntegration || !employee.isActive) && (
+                              <div className="mt-1 flex flex-wrap gap-1.5 xl:hidden">
+                                {hasExpiredIntegration ? (
+                                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-rose-700"><AlertTriangle className="h-3.5 w-3.5" /> Integração vencida</span>
+                                ) : hasExpiringIntegration ? (
+                                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700"><Clock3 className="h-3.5 w-3.5" /> Vence em breve</span>
+                                ) : null}
+                                {!employee.isActive && <Badge className="border-slate-200 bg-slate-100 text-slate-500">Inativo</Badge>}
+                              </div>
+                            )}
+                            <div className="mt-1.5 sm:hidden">{access}</div>
+                          </div>
+                        </div>
                       </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        <span className="whitespace-nowrap rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 font-mono text-xs font-semibold text-slate-700">
+                          {employee.matricula || '—'}
+                        </span>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        <div className="space-y-1">
+                          <Badge variant="outline" className={ROLE_COLOR[role] || 'border-slate-200 bg-slate-50 text-slate-600'}>
+                            {roleLabelMap[role] || role || 'Não definida'}
+                          </Badge>
+                          <p className="text-xs text-slate-500">{employee.departmentName || 'Setor não informado'}</p>
+                          {chooseUnit && <UnitBadges links={employee.units} emptyText="Sem frente: não vê veículos no app" />}
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden xl:table-cell">
+                        {hasExpiredIntegration ? (
+                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-700"><AlertTriangle className="h-3.5 w-3.5" /> Integração vencida</span>
+                        ) : hasExpiringIntegration ? (
+                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700"><Clock3 className="h-3.5 w-3.5" /> Vence em breve</span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 text-xs text-slate-500"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> {employee.companyIntegrationExpiresAt || employee.clientIntegrationExpiresAt ? 'Em dia' : 'Sem validade'}</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="hidden xl:table-cell">
+                        <Badge className={employee.isActive ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-100 text-slate-500'}>
+                          {employee.isActive ? 'Ativo' : 'Inativo'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell">{access}</TableCell>
                       <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
+                        <div className="flex justify-end gap-0 sm:gap-1">
                           <Button variant="ghost" size="icon" className="h-9 w-9 text-emerald-700 hover:bg-emerald-50" aria-label={`Abrir crachá de ${employee.name}`} onClick={() => setBadgeTarget(employee)}>
                             <QrCode className="h-4 w-4" aria-hidden="true" />
                           </Button>

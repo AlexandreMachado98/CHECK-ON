@@ -164,10 +164,10 @@ export default function TemplatesPage() {
       </div>
 
       <Card className="border-slate-200 shadow-sm">
-        <CardHeader className="pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
+        <CardHeader className="pb-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <CardTitle className="text-base font-semibold text-slate-700">Modelos Cadastrados</CardTitle>
-          <div className="flex gap-2">
-            <div className="relative w-48 sm:w-64">
+          <div className="flex w-full gap-2 sm:w-auto">
+            <div className="relative w-full sm:w-64">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
               <Input 
                 type="text" 
@@ -208,8 +208,8 @@ export default function TemplatesPage() {
                 <TableRow>
                   <TableHead className="w-[35%]">Título do Modelo</TableHead>
                   <TableHead className="w-[30%] hidden sm:table-cell">Descrição</TableHead>
-                  <TableHead className="w-[15%]">Situação</TableHead>
-                  <TableHead className="text-right w-[20%]">Configuração</TableHead>
+                  <TableHead className="w-[15%] hidden sm:table-cell">Situação</TableHead>
+                  <TableHead className="text-right w-[20%]"><span className="hidden sm:inline">Configuração</span><span className="sr-only sm:hidden">Ações</span></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -221,12 +221,18 @@ export default function TemplatesPage() {
                         {tpl.name}
                       </div>
                       {chooseUnit && <div className="mt-1"><TemplateUnitsLabel template={tpl} /></div>}
+                      {/* Celular: a situação embaixo do nome (a coluna fica escondida). */}
+                      <div className="mt-1 sm:hidden">
+                        {tpl.isActive
+                          ? <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 font-medium">Operacional</Badge>
+                          : <Badge variant="secondary" className="bg-slate-100 text-slate-500 border-slate-200 font-medium">Rascunho</Badge>}
+                      </div>
                       {/* {tpl.categories?.length > 0 && <div className="text-xs text-slate-500 mt-1">{tpl.categories.length} sessões configuradas</div>} */}
                     </TableCell>
                     <TableCell className="text-slate-500 text-sm hidden sm:table-cell">
                       {tpl.description || '—'}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden sm:table-cell">
                       {tpl.isActive ? (
                         <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200 font-medium shadow-sm">
                           <span className="mr-1.5 h-1.5 w-1.5 rounded-full inline-block bg-emerald-500"></span>
@@ -239,7 +245,7 @@ export default function TemplatesPage() {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
+                      <div className="flex justify-end gap-1 sm:gap-2">
                         <Button
                           variant="outline"
                           size="sm"
@@ -253,8 +259,9 @@ export default function TemplatesPage() {
                         </Button>
                         <Link href={`/dashboard/templates/${tpl.id}`}>
                           <Button variant="outline" size="sm" className="h-8 text-xs font-medium text-slate-700 bg-white">
-                            <Edit2 className="h-3.5 w-3.5 mr-2 text-primary" />
-                            Construtor
+                            <Edit2 className="h-3.5 w-3.5 sm:mr-2 text-primary" />
+                            <span className="hidden sm:inline">Construtor</span>
+                            <span className="sr-only sm:hidden">Abrir no construtor</span>
                           </Button>
                         </Link>
                         {tpl.canEdit !== false && <Button

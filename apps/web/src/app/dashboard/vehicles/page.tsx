@@ -91,7 +91,8 @@ export default function VehiclesPage() {
         </Link>}
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3 mb-6">
+      {/* No celular os três cabem lado a lado (antes ocupavam a primeira tela inteira). */}
+      <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-6">
         {TILES.map(({ status, icon: Icon, tone }) => {
           const active = statusFilter === status;
           return (
@@ -100,14 +101,14 @@ export default function VehiclesPage() {
               type="button"
               aria-pressed={active}
               onClick={() => setStatusFilter(active ? 'ALL' : status)}
-              className={`text-left rounded-xl border bg-white p-4 shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${active ? 'border-slate-900 ring-1 ring-slate-900' : 'border-slate-200 hover:border-slate-300'}`}
+              className={`text-left rounded-xl border bg-white p-3 sm:p-4 shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${active ? 'border-slate-900 ring-1 ring-slate-900' : 'border-slate-200 hover:border-slate-300'}`}
             >
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-slate-500">{VEHICLE_STATUS[status].label}</span>
-                <Icon className={`h-5 w-5 ${tone}`} />
+                <Icon className={`hidden sm:block h-5 w-5 ${tone}`} />
               </div>
-              <p className={`text-2xl font-bold ${tone}`}>{counts[status]}</p>
-              <p className="text-xs text-slate-500">{VEHICLE_STATUS[status].description}</p>
+              <p className={`text-xl sm:text-2xl font-bold ${tone}`}>{counts[status]}</p>
+              <p className="hidden sm:block text-xs text-slate-500">{VEHICLE_STATUS[status].description}</p>
             </button>
           );
         })}

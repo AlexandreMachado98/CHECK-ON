@@ -291,9 +291,9 @@ export default function FleetsPage() {
               <TableHeader className="bg-slate-50/50">
                 <TableRow>
                   <TableHead className="w-[28%]">Nome do Grupo</TableHead>
-                  <TableHead className="w-[20%]">Veículos Vinculados</TableHead>
+                  <TableHead className="w-[20%]">Veículos<span className="hidden sm:inline"> Vinculados</span></TableHead>
                   {chooseUnit && <TableHead className="hidden md:table-cell">Frente de trabalho</TableHead>}
-                  <TableHead className="hidden md:table-cell">Descrição</TableHead>
+                  <TableHead className="hidden xl:table-cell">Descrição</TableHead>
                   <TableHead className="w-[12%] hidden sm:table-cell">Situação</TableHead>
                   <TableHead className="text-right w-[20%]">Ações</TableHead>
                 </TableRow>
@@ -303,14 +303,14 @@ export default function FleetsPage() {
                   const vCount = fleet.vehicles?.length ?? fleet._count?.vehicles ?? 0;
                   return (
                     <TableRow key={fleet.id} className="hover:bg-slate-50/50 transition-colors">
-                      <TableCell className="font-medium text-slate-900">
+                      <TableCell className="font-medium text-slate-900 whitespace-normal">
                         <div className="flex items-center">
                           <FolderOpen className="h-4 w-4 text-slate-400 mr-2 shrink-0" />
                           {fleet.name}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1 sm:gap-2">
                           <Badge 
                             variant="outline" 
                             className="font-medium bg-blue-50/50 text-blue-700 border-blue-200 cursor-pointer hover:bg-blue-100 transition-colors"
@@ -327,9 +327,9 @@ export default function FleetsPage() {
                             onClick={() => setAddVehicleFleet(fleet)}
                             title={`Cadastrar veículo diretamente em ${fleet.name}`}
                           >
-                            <Plus className="h-3 w-3 sm:mr-1" />
-                            <span className="hidden sm:inline">Novo Veículo</span>
-                            <span className="sr-only sm:hidden">Novo veículo</span>
+                            <Plus className="h-3 w-3 xl:mr-1" />
+                            <span className="hidden xl:inline">Novo Veículo</span>
+                            <span className="sr-only xl:hidden">Novo veículo</span>
                           </Button>}
                         </div>
                       </TableCell>
@@ -338,7 +338,7 @@ export default function FleetsPage() {
                           <UnitBadges links={fleet.unit ? [{ unit: fleet.unit }] : []} />
                         </TableCell>
                       )}
-                      <TableCell className="text-slate-500 hidden md:table-cell">
+                      <TableCell className="text-slate-500 hidden xl:table-cell">
                         {fleet.description || <span className="text-slate-300">—</span>}
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">
@@ -355,7 +355,7 @@ export default function FleetsPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        {manager && <div className="flex justify-end gap-1.5">
+                        {manager && <div className="flex justify-end gap-0.5 sm:gap-1.5">
                           <Button 
                             variant="ghost" 
                             size="icon" 

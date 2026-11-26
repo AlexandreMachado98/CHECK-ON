@@ -150,7 +150,7 @@ export default function ExecutionsPage() {
         <CardHeader className="pb-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <CardTitle className="text-base font-semibold text-slate-700">Histórico de Execuções</CardTitle>
           <div className="flex flex-wrap items-center gap-2">
-            <div className="relative w-48 sm:w-60">
+            <div className="relative w-full sm:w-60">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
               <Input 
                 type="text" 
@@ -204,7 +204,7 @@ export default function ExecutionsPage() {
                   <TableHead className="w-[20%]">Data / Hora</TableHead>
                   <TableHead className="w-[20%] hidden md:table-cell">Modelo</TableHead>
                   <TableHead className="w-[20%]">Veículo</TableHead>
-                  <TableHead className="w-[20%] hidden lg:table-cell">Condutor</TableHead>
+                  <TableHead className="w-[20%] hidden xl:table-cell">Condutor</TableHead>
                   <TableHead className="w-[10%] hidden sm:table-cell">Itens NC</TableHead>
                   <TableHead className="w-[10%] hidden sm:table-cell">Status</TableHead>
                   <TableHead className="text-right w-[10%]"></TableHead>
@@ -228,7 +228,7 @@ export default function ExecutionsPage() {
                     <TableCell className="font-medium text-slate-800 hidden md:table-cell">
                       {c.templateName || c.template?.name || 'Modelo não identificado'}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="min-w-0">
                       {c.vehicle ? (
                         <div className="flex items-center">
                           <Car className="h-4 w-4 mr-2 text-slate-400" />
@@ -237,8 +237,21 @@ export default function ExecutionsPage() {
                       ) : (
                         <span className="text-slate-500 text-sm">N/D</span>
                       )}
+                      {/* Celular: o que as colunas escondidas mostram, embaixo da placa. */}
+                      <p className="mt-0.5 max-w-[8.5rem] truncate text-xs text-slate-500 sm:max-w-[14rem] xl:hidden">
+                        {c.driver?.name}
+                        {/* O modelo tem coluna própria a partir do tablet. */}
+                        <span className="md:hidden">{c.driver?.name ? ' · ' : ''}{c.templateName || c.template?.name}</span>
+                      </p>
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5 sm:hidden">
+                        {getStatusBadge(c.status)}
+                        {(() => {
+                          const nc = c.ncCount ?? c.answers?.filter(a => !a.isCompliant).length ?? 0;
+                          return nc > 0 ? <span className="text-xs font-semibold text-rose-700">{nc} {nc === 1 ? 'item NC' : 'itens NC'}</span> : null;
+                        })()}
+                      </div>
                     </TableCell>
-                    <TableCell className="hidden lg:table-cell">
+                    <TableCell className="hidden xl:table-cell">
                       {c.driver ? (
                         <div className="flex items-center">
                           <User className="h-4 w-4 mr-2 text-slate-400" />
@@ -266,8 +279,8 @@ export default function ExecutionsPage() {
                         className="text-primary hover:text-primary hover:bg-primary/10"
                         onClick={(event) => { event.stopPropagation(); openDetails(c); }}
                       >
-                        <span className="hidden sm:inline">Ver Detalhes</span>
-                        <span className="sr-only sm:hidden">Ver detalhes</span>
+                        <span className="hidden xl:inline">Ver Detalhes</span>
+                        <span className="sr-only xl:hidden">Ver detalhes</span>
                         <ArrowRight className="h-4 w-4 ml-1" />
                       </Button>
                     </TableCell>

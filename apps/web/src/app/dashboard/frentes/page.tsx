@@ -127,7 +127,7 @@ export default function FrentesPage() {
                       {unit.client && <div className="ml-6 text-xs text-slate-500 sm:hidden">{unit.client}</div>}
                     </TableCell>
                     <TableCell className="hidden text-slate-600 sm:table-cell">{unit.client || <span className="text-slate-300">—</span>}</TableCell>
-                    <TableCell className="hidden text-xs text-slate-500 md:table-cell">
+                    <TableCell className="hidden whitespace-normal text-xs text-slate-500 md:table-cell">
                       {unit._count?.fleets ?? 0} {unit._count?.fleets === 1 ? 'frota' : 'frotas'} ·{' '}
                       {unit._count?.employees ?? 0} {unit._count?.employees === 1 ? 'colaborador' : 'colaboradores'} ·{' '}
                       {unit._count?.users ?? 0} {unit._count?.users === 1 ? 'gestor/supervisor' : 'gestores/supervisores'}
