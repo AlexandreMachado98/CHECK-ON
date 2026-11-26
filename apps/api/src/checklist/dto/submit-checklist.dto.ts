@@ -14,6 +14,7 @@ import {
   IsString,
   IsUUID,
   MaxLength,
+  Max,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -109,6 +110,13 @@ export class SubmitChecklistDto {
   @IsString()
   @MaxLength(120)
   signedName?: string;
+
+  /** Km do veículo (hodômetro) lido pelo motorista. */
+  @IsOptional()
+  @IsInt({ message: 'O km do veículo deve ser um número inteiro.' })
+  @Min(0, { message: 'O km do veículo não pode ser negativo.' })
+  @Max(9_999_999, { message: 'O km do veículo está alto demais. Confira o número.' })
+  odometerKm?: number;
 }
 
 export class SyncChecklistsDto {

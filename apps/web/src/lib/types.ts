@@ -195,6 +195,8 @@ export interface Template {
   /** Vale em todas as frentes de trabalho. Falso: só nas frentes de `units`. */
   allUnits?: boolean;
   units?: UnitLink[];
+  /** Pede o km do veículo no checklist do app (obrigatório quando ligado). */
+  askOdometer?: boolean;
   /** Falso quando o modelo também vale para frentes que quem está logado não vê (só o admin altera). */
   canEdit?: boolean;
 }
@@ -244,6 +246,8 @@ export interface Checklist {
   /** Assinatura do colaborador ao concluir (imagem) e o nome de quem assinou. Inspeções antigas não têm. */
   signatureUrl?: string | null;
   signedName?: string | null;
+  /** Km do veículo (hodômetro) informado na inspeção. */
+  odometerKm?: number | null;
   /** Aparelho que enviou a inspeção (auditoria do login sem senha do aplicativo). */
   deviceInfo?: string | null;
 }

@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowDown, ArrowLeft, ArrowUp, Trash2, Plus, CheckCircle2, Type, Hash, Camera, LayoutList, Settings2, Edit2, Activity, Lock } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Trash2, Plus, CheckCircle2, Type, Hash, Camera, LayoutList, Settings2, Edit2, Activity, Lock, Gauge } from 'lucide-react';
 import { useUnits } from '@/components/unit-picker';
 import { TemplateUnitsDialog, TemplateUnitsLabel } from '@/components/template-units';
 import { getStoredUser } from '@/lib/session';
@@ -467,6 +467,35 @@ export default function TemplateBuilderPage() {
           onSaved={fetchTemplate}
         />
       )}
+
+      {/* Km do veículo: campo fixo do app, fora das seções (alimenta o km atual e a manutenção). */}
+      <label className={`mb-4 flex items-start gap-3 rounded-xl border bg-white p-4 shadow-sm lg:mb-6 ${readOnly ? 'opacity-80' : 'cursor-pointer'}`}>
+        <input
+          type="checkbox"
+          className="mt-1 h-4 w-4 shrink-0 accent-emerald-700"
+          checked={template.askOdometer !== false}
+          disabled={readOnly}
+          onChange={async (e) => {
+            const askOdometer = e.target.checked;
+            setTemplate({ ...template, askOdometer });
+            try {
+              await api.patch(`/templates/${template.id}`, { askOdometer });
+              notify(askOdometer ? 'O app vai pedir o km do veículo neste checklist.' : 'O app não vai mais pedir o km neste checklist.', 'success');
+            } catch (error) {
+              setTemplate({ ...template, askOdometer: !askOdometer });
+              notify(apiErrorMessage(error, 'Não foi possível alterar o pedido de km.'));
+            }
+          }}
+        />
+        <span className="min-w-0">
+          <span className="flex items-center text-sm font-semibold text-slate-900">
+            <Gauge className="mr-1.5 h-4 w-4 text-slate-500" aria-hidden="true" /> Pedir o km do veículo
+          </span>
+          <span className="block text-xs text-slate-600">
+            Obrigatório no app: o motorista digita o km do painel antes de assinar. Mantém o km atual de cada veículo para o controle de manutenção.
+          </span>
+        </span>
+      </label>
 
       {/* Duas colunas a partir de 1024 px; no celular e no tablet, uma embaixo da outra. */}
       <div className="flex flex-1 flex-col gap-4 lg:flex-row lg:gap-6 min-h-0">

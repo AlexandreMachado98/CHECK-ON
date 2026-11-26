@@ -318,6 +318,7 @@ model Vehicle {
   model     String?
   year      Int?
   status    String          @default("LIBERADO") // LIBERADO, ATENCAO, BLOQUEADO
+  // Maior km informado nas inspeções (hodômetro).
   mileage   Int             @default(0)
   qrCode    String?         @unique
   isActive  Boolean         @default(true)
@@ -346,6 +347,8 @@ model Template {
   version     Int      @default(1)
   // Vale em todas as frentes de trabalho. Falso: só nas frentes de TemplateUnit.
   allUnits    Boolean  @default(true)
+  // Pede o km do veículo (hodômetro) no checklist do app; obrigatório no app quando ligado.
+  askOdometer Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -425,6 +428,8 @@ model Checklist {
   // Opcional na API: inspeções antigas e as que ainda estão na fila de apps antigos não têm.
   signatureUrl String?
   signedName   String?
+  // Km do veículo (hodômetro) informado na inspeção. Vazio em inspeções antigas ou de modelo que não pede.
+  odometerKm   Int?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

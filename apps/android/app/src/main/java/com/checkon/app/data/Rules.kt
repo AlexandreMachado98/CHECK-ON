@@ -363,6 +363,27 @@ object Rules {
         else -> "Enviando inspeção..."
     }
 
+    /** Maior diferença de km entre duas inspeções sem aviso de "confira o número". */
+    const val MAX_KM_JUMP = 2_000
+
+    /** Km digitado: só dígitos (aceita ponto de milhar), até 7 dígitos; null se vazio ou inválido. */
+    fun parseKm(text: String): Int? {
+        val digits = text.replace(".", "").trim()
+        if (digits.isEmpty() || digits.length > 7 || !digits.all { it.isDigit() }) return null
+        return digits.toInt()
+    }
+
+    /** "125.430 km". */
+    fun formatKm(km: Int): String = String.format(java.util.Locale.forLanguageTag("pt-BR"), "%,d km", km)
+
+    /** Aviso sobre o km digitado (não impede concluir): menor que o último registro ou salto grande. */
+    fun kmWarning(km: Int?, lastKm: Int): String? = when {
+        km == null || lastKm <= 0 -> null
+        km < lastKm -> "menor que o último registro (${formatKm(lastKm)}). Confira o painel."
+        km - lastKm > MAX_KM_JUMP -> "${formatKm(km - lastKm)} a mais que o último registro. Confira o número."
+        else -> null
+    }
+
     /** "1 foto" / "3 fotos": número com a palavra no singular ou no plural. */
     fun plural(count: Int, singular: String, plural: String): String = "$count ${if (count == 1) singular else plural}"
 

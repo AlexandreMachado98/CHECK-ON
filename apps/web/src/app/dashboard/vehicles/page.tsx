@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Activity, AlertOctagon, Lock, Search, ShieldCheck, TriangleAlert, Truck, LockOpen, QrCode, Printer, FileUp } from 'lucide-react';
 import { VehicleLabelsPrint, VehicleQrDialog, openLabelsWindow } from '@/components/vehicle-qr';
+import { formatKm } from '@/lib/utils';
 import { VehicleImportDialog } from '@/components/vehicle-import';
 import { confirmAction, notify } from '@/components/feedback';
 
@@ -198,6 +199,7 @@ export default function VehiclesPage() {
                         </TableCell>
                         <TableCell className="text-sm text-slate-700 hidden md:table-cell">
                           {[v.brand, v.model].filter(Boolean).join(' ') || '—'}{v.year ? ` (${v.year})` : ''}
+                          {!!v.mileage && <span className="block text-xs tabular-nums text-slate-500">{formatKm(v.mileage)}</span>}
                           {!v.isActive && <span className="block text-xs text-slate-500">Inativo</span>}
                         </TableCell>
                         <TableCell className="text-sm text-slate-700 hidden lg:table-cell">{v.fleet?.name ?? '—'}</TableCell>
