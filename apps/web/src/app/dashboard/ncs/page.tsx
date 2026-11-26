@@ -49,10 +49,14 @@ export default function NCsPage() {
   const debouncedSearch = useDebounced(search);
   const PAGE_SIZE = 50;
 
-  // Nova busca ou filtro volta para a primeira página.
-  useEffect(() => {
+  // Nova busca ou filtro volta para a primeira página, já nesta renderização: assim a busca sai
+  // uma vez só, na página 1 (antes saía também a página antiga, que podia chegar depois).
+  const filterKey = `${debouncedSearch}|${statusFilter}|${severityFilter}`;
+  const [pageFilterKey, setPageFilterKey] = useState(filterKey);
+  if (pageFilterKey !== filterKey) {
+    setPageFilterKey(filterKey);
     setPage(1);
-  }, [debouncedSearch, statusFilter, severityFilter]);
+  }
 
   useEffect(() => {
     fetchNCs();

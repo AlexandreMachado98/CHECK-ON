@@ -47,12 +47,12 @@ function UserForm({ initial = EMPTY_FORM, roles, employees, units = [], unitsErr
   const pickUnits = units.length > 0 && UNIT_SCOPED_ROLES.includes(roleName);
 
   // Login novo: já marca as frentes do colaborador vinculado (ou a única frente da empresa).
-  useEffect(() => {
-    if (mode !== 'create' || !pickUnits || form.unitIds.length > 0) return;
+  // Ajuste na própria renderização (sem efeito): só enquanto nenhuma frente foi marcada.
+  if (mode === 'create' && pickUnits && form.unitIds.length === 0) {
     const employee = employees.find((item) => item.id === form.employeeId);
     const suggested = defaultUnitIds(units, employee?.units);
     if (suggested.length) setForm((prev) => ({ ...prev, unitIds: suggested }));
-  }, [mode, pickUnits, form.employeeId, form.unitIds.length, employees, units]);
+  }
 
   function set(field: keyof UserFormData) {
     return (e: React.ChangeEvent<HTMLInputElement>) =>

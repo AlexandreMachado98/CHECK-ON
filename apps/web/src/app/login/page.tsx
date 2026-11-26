@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
 import { homePathFor } from '@/lib/roles';
-import { clearSession, takeLoginNotice } from '@/lib/session';
+import { clearSession, peekLoginNotice, clearLoginNotice } from '@/lib/session';
+import { useHydrated } from '@/lib/use-stored-user';
 
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -19,10 +20,14 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   
-  const [notice, setNotice] = useState('');
+  // Aviso deixado por outra tela (ex.: sessão expirada): lido depois da hidratação, na própria
+  // renderização, e apagado em seguida para não aparecer de novo.
+  const hydrated = useHydrated();
+  const [notice, setNotice] = useState<string | null>(null);
+  if (hydrated && notice === null) setNotice(peekLoginNotice());
   useEffect(() => {
-    setNotice(takeLoginNotice());
-  }, []);
+    if (notice) clearLoginNotice();
+  }, [notice]);
 
   const [mode, setMode] = useState<'email' | 'matricula'>('email');
   const [companyCode, setCompanyCode] = useState('');

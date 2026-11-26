@@ -34,15 +34,18 @@ export function MaintenanceVehicleDialog({ vehicleId, manager, onClose, onChange
   const [recordTarget, setRecordTarget] = useState<RecordTarget | null>(null);
   const [allReadings, setAllReadings] = useState(false);
 
-  const load = useCallback(async () => {
-    try {
-      const res = await api.get<MaintenanceVehicleDetail>(`/maintenance/vehicles/${vehicleId}`);
-      setDetail(res.data);
-      setError('');
-    } catch (err) {
-      setError(apiErrorMessage(err, 'Não foi possível carregar a ficha do veículo.'));
-    }
-  }, [vehicleId]);
+  // Estado só muda quando a resposta chega.
+  const load = useCallback(
+    () =>
+      api
+        .get<MaintenanceVehicleDetail>(`/maintenance/vehicles/${vehicleId}`)
+        .then((res) => {
+          setDetail(res.data);
+          setError('');
+        })
+        .catch((err) => setError(apiErrorMessage(err, 'Não foi possível carregar a ficha do veículo.'))),
+    [vehicleId],
+  );
 
   useEffect(() => { void load(); }, [load]);
 

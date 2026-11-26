@@ -14,9 +14,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ArrowDown, ArrowLeft, ArrowUp, Trash2, Plus, CheckCircle2, Type, Hash, Camera, LayoutList, Settings2, Edit2, Activity, Lock, Gauge } from 'lucide-react';
 import { useUnits } from '@/components/unit-picker';
 import { TemplateUnitsDialog, TemplateUnitsLabel } from '@/components/template-units';
-import { getStoredUser } from '@/lib/session';
 import { seesAllUnits } from '@/lib/roles';
 import { notify, confirmAction } from '@/components/feedback';
+import { useStoredUser } from '@/lib/use-stored-user';
 
 const ITEM_TYPES: { value: ItemType; label: string; description: string; icon: React.ElementType }[] = [
   { value: 'PASS_FAIL', label: 'Conformidade (OK / NC)', description: 'O inspetor avalia a condição do item.', icon: CheckCircle2 },
@@ -49,7 +49,10 @@ function ItemDialog({ open, onClose, onSave, initial, title }: ItemDialogProps) 
   const [photoRequirement, setPhotoRequirement] = useState<PhotoRequirement>(initial?.photoRequirement ?? 'NONE');
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
+  // Ao abrir (ou trocar o item editado), o formulário volta ao item: ajuste na própria renderização.
+  const [openedFor, setOpenedFor] = useState<{ open: boolean; initial: typeof initial }>({ open, initial });
+  if (openedFor.open !== open || openedFor.initial !== initial) {
+    setOpenedFor({ open, initial });
     if (open) {
       setText(initial?.text ?? '');
       setType(initial?.type ?? 'PASS_FAIL');
@@ -57,7 +60,7 @@ function ItemDialog({ open, onClose, onSave, initial, title }: ItemDialogProps) 
       setCritical(initial?.isCritical ?? false);
       setPhotoRequirement(initial?.photoRequirement ?? 'NONE');
     }
-  }, [open, initial]);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -305,21 +308,22 @@ export default function TemplateBuilderPage() {
   const [addingCat, setAddingCat] = useState(false);
   // Frentes de trabalho do modelo (só com mais de uma frente na empresa).
   const { active: units, choose: chooseUnit } = useUnits();
-  const [admin, setAdmin] = useState(false);
-  useEffect(() => { setAdmin(seesAllUnits(getStoredUser()?.role)); }, []);
+  const admin = seesAllUnits(useStoredUser()?.role);
   const [unitsOpen, setUnitsOpen] = useState(false);
 
-  const fetchTemplate = useCallback(async () => {
-    try {
-      setLoading(true); setError('');
-      const res = await api.get<Template>(`/templates/${id}`);
-      setTemplate(res.data);
-    } catch {
-      setError('Modelo não encontrado ou acesso negado.');
-    } finally {
-      setLoading(false);
-    }
-  }, [id]);
+  // Recarrega sem voltar a "carregando" (o editor não pisca a cada alteração); estado só muda na resposta.
+  const fetchTemplate = useCallback(
+    () =>
+      api
+        .get<Template>(`/templates/${id}`)
+        .then((res) => {
+          setTemplate(res.data);
+          setError('');
+        })
+        .catch(() => setError('Modelo não encontrado ou acesso negado.'))
+        .finally(() => setLoading(false)),
+    [id],
+  );
 
   useEffect(() => { fetchTemplate(); }, [fetchTemplate]);
 

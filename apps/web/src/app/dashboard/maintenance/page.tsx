@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ClipboardList, Search, Wrench } from 'lucide-react';
 import api from '@/lib/api';
 import { canManage, seesAllUnits } from '@/lib/roles';
-import { getStoredUser } from '@/lib/session';
 import { matchesSearch } from '@/lib/search';
 import { apiErrorMessage, type Fleet } from '@/lib/types';
 import { formatKm } from '@/lib/utils';
@@ -17,12 +16,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { MaintenancePlansDialog } from '@/components/maintenance-plans';
 import { MaintenanceStateBadge, MaintenanceVehicleDialog } from '@/components/maintenance-vehicle';
 import { MaintenanceRecordDialog, type RecordTarget } from '@/components/maintenance-record';
+import { useStoredUser } from '@/lib/use-stored-user';
 
 const ALL = 'ALL';
 
 export default function MaintenancePage() {
-  const [manager, setManager] = useState(false);
-  const [admin, setAdmin] = useState(false);
+  const role = useStoredUser()?.role;
+  const manager = canManage(role);
+  const admin = seesAllUnits(role);
   const [overview, setOverview] = useState<MaintenanceOverview | null>(null);
   const [plans, setPlans] = useState<MaintenancePlan[]>([]);
   const [fleets, setFleets] = useState<Fleet[]>([]);
@@ -35,30 +36,26 @@ export default function MaintenancePage() {
   const [vehicleId, setVehicleId] = useState<string | null>(null);
   const [recordTarget, setRecordTarget] = useState<RecordTarget | null>(null);
 
-  const load = useCallback(async () => {
-    try {
-      const [ov, pl, fl] = await Promise.all([
+  // Estado só muda quando as respostas chegam.
+  const load = useCallback(
+    () =>
+      Promise.all([
         api.get<MaintenanceOverview>('/maintenance'),
         api.get<MaintenancePlan[]>('/maintenance/plans'),
         api.get<Fleet[]>('/fleets'),
-      ]);
-      setOverview(ov.data);
-      setPlans(pl.data);
-      setFleets(fl.data.filter((f) => f.isActive));
-      setError('');
-    } catch (err) {
-      setError(apiErrorMessage(err, 'Não foi possível carregar a manutenção.'));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      ])
+        .then(([ov, pl, fl]) => {
+          setOverview(ov.data);
+          setPlans(pl.data);
+          setFleets(fl.data.filter((f) => f.isActive));
+          setError('');
+        })
+        .catch((err) => setError(apiErrorMessage(err, 'Não foi possível carregar a manutenção.')))
+        .finally(() => setLoading(false)),
+    [],
+  );
 
-  useEffect(() => {
-    const role = getStoredUser()?.role;
-    setManager(canManage(role));
-    setAdmin(seesAllUnits(role));
-    void load();
-  }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   const vehicles = useMemo(() => {
     return (overview?.vehicles ?? []).filter(

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ReportPassengers } from '@/components/report-passengers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +9,7 @@ import { BarChart3, AlertOctagon, ClipboardCheck, Activity, Truck, ArrowRight, S
 import api from '@/lib/api';
 import { apiErrorMessage } from '@/lib/types';
 import { getStoredUser } from '@/lib/session';
+import { useHydrated } from '@/lib/use-stored-user';
 import { useUnits, unitLabel } from '@/components/unit-picker';
 import { notify } from '@/components/feedback';
 import {
@@ -91,30 +92,44 @@ export default function ReportsPage() {
   const [exporting, setExporting] = useState<'' | 'pdf' | 'csv'>('');
   const { active: units, choose: chooseUnit } = useUnits();
 
-  async function fetchReport(selected: Filter) {
-    try {
-      setLoading(true);
-      setLoadError('');
-      // Calculado no servidor, só do período (e da frente) escolhidos.
-      const res = await api.get<Report>('/dashboard/report', { params: filterParams(selected) });
-      setReport(res.data);
-    } catch (error) {
-      setLoadError(apiErrorMessage(error, 'Não foi possível carregar os relatórios.'));
-    } finally {
-      setLoading(false);
-    }
+  // Só a resposta do último pedido vale: trocar de período rápido não deixa um relatório antigo
+  // chegar depois e tomar o lugar do novo.
+  const lastRequest = useRef(0);
+  function fetchReport(selected: Filter) {
+    const request = ++lastRequest.current;
+    // Calculado no servidor, só do período (e da frente) escolhidos.
+    return api
+      .get<Report>('/dashboard/report', { params: filterParams(selected) })
+      .then((res) => {
+        if (request === lastRequest.current) setReport(res.data);
+      })
+      .catch((error) => {
+        if (request === lastRequest.current) setLoadError(apiErrorMessage(error, 'Não foi possível carregar os relatórios.'));
+      })
+      .finally(() => {
+        if (request === lastRequest.current) setLoading(false);
+      });
   }
 
-  // Abre no último filtro usado neste navegador (lido depois de montar: não existe no servidor).
-  useEffect(() => {
+  /** Recarrega: mostra "carregando" na hora do clique, e o pedido sai em seguida. */
+  function reload(selected: Filter) {
+    setLoading(true);
+    setLoadError('');
+    void fetchReport(selected);
+  }
+
+  // Abre no último filtro usado neste navegador (só existe no navegador: lido depois da hidratação,
+  // na própria renderização).
+  const hydrated = useHydrated();
+  if (hydrated && filter === null) {
     const saved = savedFilter();
     setFilter(saved);
     setDraftFrom(saved.from);
     setDraftTo(saved.to);
-  }, []);
+  }
 
   useEffect(() => {
-    if (filter) fetchReport(filter);
+    if (filter) void fetchReport(filter);
   }, [filter]);
 
   function apply(next: Filter) {
@@ -123,6 +138,8 @@ export default function ReportsPage() {
     } catch {
       // Sem armazenamento (aba anônima, bloqueio): só não lembra na próxima vez.
     }
+    setLoading(true);
+    setLoadError('');
     setFilter(next);
   }
 
@@ -256,7 +273,7 @@ export default function ReportsPage() {
       ) : loadError ? (
         <div role="alert" className="p-10 text-center text-sm">
           <p className="text-rose-700 mb-3">{loadError}</p>
-          <Button variant="outline" size="sm" onClick={() => filter && fetchReport(filter)}>Tentar de novo</Button>
+          <Button variant="outline" size="sm" onClick={() => filter && reload(filter)}>Tentar de novo</Button>
         </div>
       ) : (
         <>

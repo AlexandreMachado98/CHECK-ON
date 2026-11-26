@@ -10,8 +10,8 @@ import api from '@/lib/api';
 import type { DashboardSummary, NC } from '@/lib/types';
 import { VEHICLE_STATUS } from '@/lib/status';
 import { canManage, SUPER_ADMIN } from '@/lib/roles';
-import { getStoredUser } from '@/lib/session';
 import { FirstSteps } from '@/components/first-steps';
+import { useStoredUser } from '@/lib/use-stored-user';
 
 export default function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
@@ -31,12 +31,9 @@ export default function DashboardPage() {
   const [loadFailed, setLoadFailed] = useState(false);
   const [activeNcTotal, setActiveNcTotal] = useState(0);
   // Lido depois de montar (o servidor não tem a sessão): quem pode cadastrar vê os primeiros passos.
-  const [manager, setManager] = useState(false);
-  useEffect(() => {
-    const role = getStoredUser()?.role;
-    // O administrador da plataforma não implanta frota: os passos são da empresa cliente.
-    setManager(canManage(role) && role !== SUPER_ADMIN);
-  }, []);
+  const role = useStoredUser()?.role;
+  // O administrador da plataforma não implanta frota: os passos são da empresa cliente.
+  const manager = canManage(role) && role !== SUPER_ADMIN;
 
   useEffect(() => {
     async function loadData() {
