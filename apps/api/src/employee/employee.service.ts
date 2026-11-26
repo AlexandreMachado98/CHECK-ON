@@ -1,14 +1,35 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
+import { Prisma } from '@prisma/client';
 import { ClsServiceManager } from 'nestjs-cls';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
+import { ImportEmployeesDto } from './dto/import-employees.dto';
 import { resolveUnitAssignment, visibleUnitsInclude } from '../unit/unit-assignment';
+import { currentUnitIds } from '../common/unit-scope';
 
 const dateValue = (value?: string | null): Date | null | undefined =>
   value === undefined ? undefined : value === null || value === '' ? null : new Date(value);
+/** Funções aceitas na planilha: a chave ou o nome da tela, sem acento e em qualquer caixa. */
+const JOB_TITLES: Record<string, string> = {
+  motorista: 'MOTORISTA',
+  tecnico: 'TECNICO', 'tecnico de manutencao': 'TECNICO',
+  operador: 'OPERADOR', 'operador de frota': 'OPERADOR',
+  supervisor: 'SUPERVISOR', 'supervisor operacional': 'SUPERVISOR',
+};
+const plain = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+
+/** Data da planilha (dd/mm/aaaa, como o Excel em português salva, ou aaaa-mm-dd); null se não for uma data real. */
+export function sheetDate(text: string): Date | null {
+  const br = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(text);
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
+  const [y, m, d] = br ? [+br[3], +br[2], +br[1]] : iso ? [+iso[1], +iso[2], +iso[3]] : [0, 0, 0];
+  if (!y) return null;
+  const date = new Date(Date.UTC(y, m - 1, d));
+  return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d ? date : null;
+}
 const trainingData = (items: CreateEmployeeDto['trainings'] = []) =>
   items.map((training) => ({
     name: training.name.trim(),
@@ -57,6 +78,100 @@ export class EmployeeService {
         units: visibleUnitsInclude(),
       },
     });
+  }
+
+  /**
+   * Importação por planilha. Confere todas as linhas antes de gravar; com qualquer problema não grava
+   * nada e devolve o motivo de cada linha. Exige o mesmo que o cadastro da tela (nome, matrícula,
+   * função e admissão). A matrícula é o login do app, então não pode repetir na empresa inteira
+   * (inclusive em frentes que quem importa não vê) nem dentro da planilha.
+   */
+  async importEmployees(dto: ImportEmployeesDto) {
+    const tenantId = ClsServiceManager.getClsService()?.get<string>('tenantId');
+    if (!tenantId) throw new UnauthorizedException('Sessão sem empresa associada.');
+    const units = await this.prisma.unit.findMany({ where: { isActive: true }, select: { id: true, name: true } });
+    const unitsByName = new Map<string, string[]>();
+    for (const u of units) unitsByName.set(plain(u.name), [...(unitsByName.get(plain(u.name)) ?? []), u.id]);
+    const defaultUnits = (await resolveUnitAssignment(this.prisma, undefined, null)) ?? [];
+
+    const matriculas = [...new Set(dto.rows.map((r) => r.matricula?.trim().toLowerCase()).filter((m): m is string => !!m))];
+    const taken = new Map<string, string>();
+    if (matriculas.length) {
+      const found = await this.prisma.$queryRaw<{ matricula: string; name: string }[]>`
+        SELECT "matricula", "name" FROM "Employee"
+        WHERE "tenantId" = ${tenantId} AND lower("matricula") IN (${Prisma.join(matriculas)})`;
+      for (const e of found) taken.set(e.matricula.toLowerCase(), e.name);
+    }
+
+    const seen = new Map<string, number>();
+    const today = new Date();
+    const results = dto.rows.map((row, i) => {
+      const line = i + 2; // linha 1 é o cabeçalho da planilha
+      const name = (row.name ?? '').trim().replace(/\s+/g, ' ');
+      const matricula = row.matricula?.trim() || null;
+      const errors: string[] = [];
+      if (!name) errors.push('nome em branco');
+      if (!matricula) errors.push('matrícula em branco');
+      else {
+        const key = matricula.toLowerCase();
+        if (taken.has(key)) errors.push(`matrícula já pertence a ${taken.get(key)}`);
+        else if (seen.has(key)) errors.push(`matrícula repetida na linha ${seen.get(key)}`);
+        else seen.set(key, line);
+      }
+      let jobTitle: string | null = null;
+      if (!row.jobTitle?.trim()) errors.push('função em branco');
+      else {
+        jobTitle = JOB_TITLES[plain(row.jobTitle)] ?? (Object.values(JOB_TITLES).includes(row.jobTitle.trim().toUpperCase()) ? row.jobTitle.trim().toUpperCase() : null);
+        if (!jobTitle) errors.push(`função "${row.jobTitle.trim()}" não reconhecida (use Motorista, Técnico, Operador ou Supervisor)`);
+      }
+      let admissionDate: Date | null = null;
+      if (!row.admissionDate?.trim()) errors.push('admissão em branco');
+      else {
+        admissionDate = sheetDate(row.admissionDate.trim());
+        if (!admissionDate) errors.push('admissão inválida (use dd/mm/aaaa)');
+        else if (admissionDate > today) errors.push('admissão no futuro');
+      }
+      let unitIds = defaultUnits;
+      const unitNames = (row.units ?? '').split(/[,|]/).map((n) => n.trim()).filter(Boolean);
+      if (unitNames.length) {
+        unitIds = [];
+        for (const n of unitNames) {
+          const ids = unitsByName.get(plain(n)) ?? [];
+          if (ids.length === 0) errors.push(`frente "${n}" não encontrada`);
+          else if (ids.length > 1) errors.push(`há mais de uma frente "${n}" (renomeie uma delas)`);
+          else if (!unitIds.includes(ids[0])) unitIds.push(ids[0]);
+        }
+      } else if (currentUnitIds() && defaultUnits.length === 0) {
+        errors.push('informe a frente de trabalho');
+      }
+      return {
+        line,
+        name,
+        ok: errors.length === 0,
+        error: errors.join('; ') || undefined,
+        unitIds,
+        data: {
+          id: randomUUID(),
+          tenantId,
+          name,
+          matricula,
+          jobTitle,
+          departmentName: row.department?.trim() || null,
+          admissionDate,
+          badgeToken: randomBytes(32).toString('hex'),
+        },
+      };
+    });
+    const invalid = results.filter((r) => !r.ok).length;
+    const summary = results.map(({ line, name, ok, error }) => ({ line, name, ok, error }));
+    if (dto.dryRun || invalid > 0 || results.length === 0) return { created: 0, invalid, results: summary };
+
+    const links = results.flatMap((r) => r.unitIds.map((unitId) => ({ employeeId: r.data.id, unitId })));
+    const [created] = await this.prisma.$transaction([
+      this.prisma.employee.createMany({ data: results.map((r) => r.data) }),
+      this.prisma.employeeUnit.createMany({ data: links }),
+    ]);
+    return { created: created.count, invalid: 0, results: summary };
   }
 
   async findAll() {
