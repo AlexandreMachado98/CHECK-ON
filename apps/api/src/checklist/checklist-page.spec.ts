@@ -40,3 +40,14 @@ describe('Lista de veículos — NCs ativas por veículo', () => {
     expect(list.map((v) => v._count.ncs)).toEqual([0, 4]);
   });
 });
+
+describe('Detalhe da inspeção — ordem das respostas', () => {
+  it('pede as respostas na ordem do modelo (seção e item), não na ordem do banco', async () => {
+    const findUnique = vi.fn().mockResolvedValue({ id: 'c1', answers: [] });
+    await new ChecklistService({ checklist: { findUnique } } as never, {} as never).findOne('c1');
+    expect(findUnique.mock.calls[0][0].include.answers.orderBy).toEqual([
+      { item: { category: { order: 'asc' } } },
+      { item: { order: 'asc' } },
+    ]);
+  });
+});

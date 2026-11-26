@@ -97,7 +97,12 @@ export class ChecklistService {
         // Frota e frente de trabalho: aparecem nos detalhes e no PDF da inspeção.
         vehicle: { include: { fleet: { select: { id: true, name: true, unit: { select: { id: true, name: true, client: true } } } } } },
         driver: true,
-        answers: { include: { item: true, nonConformity: true } }
+        // Na ordem do modelo (seção, depois item): sem isso o banco devolve em qualquer ordem e
+        // o detalhe e o PDF da inspeção saíam embaralhados (ex.: item 37 antes do item 1).
+        answers: {
+          include: { item: true, nonConformity: true },
+          orderBy: [{ item: { category: { order: 'asc' } } }, { item: { order: 'asc' } }],
+        },
       }
     });
     if (!record) throw new NotFoundException('Registro não encontrado');
