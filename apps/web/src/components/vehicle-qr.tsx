@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Printer } from 'lucide-react';
+import { Printer, Star } from 'lucide-react';
 import type { Vehicle } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -16,8 +16,21 @@ function escapeHtml(text: string): string {
   return text.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 }
 
-/** Etiqueta com o QR Code do veículo, para imprimir e colar no veículo. */
-export function VehicleQrDialog({ vehicle, onClose }: { vehicle: Vehicle | null; onClose: () => void }) {
+/**
+ * Etiqueta com o QR Code do veículo, para imprimir e colar no veículo. Com `onPrintPassenger`
+ * (quem pode cadastrar), também imprime o adesivo do QR do passageiro deste veículo.
+ */
+export function VehicleQrDialog({
+  vehicle,
+  onClose,
+  onPrintPassenger,
+  passengerLoading = false,
+}: {
+  vehicle: Vehicle | null;
+  onClose: () => void;
+  onPrintPassenger?: () => void;
+  passengerLoading?: boolean;
+}) {
   const qrRef = useRef<HTMLDivElement>(null);
   if (!vehicle) return null;
   const subtitle = [vehicle.prefix ? `Prefixo ${vehicle.prefix}` : null, [vehicle.brand, vehicle.model].filter(Boolean).join(' ') || null]
@@ -62,9 +75,19 @@ export function VehicleQrDialog({ vehicle, onClose }: { vehicle: Vehicle | null;
           {subtitle && <p className="text-xs text-slate-500">{subtitle}</p>}
           <QRCodeSVG data-testid="vehicle-qr" value={vehicleQrValue(vehicle.id)} size={200} level="M" includeMargin aria-label={`QR Code do veículo ${vehicle.plate}`} />
         </div>
+        {onPrintPassenger && (
+          <div className="flex flex-col gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm">
+            <p className="text-emerald-950">
+              <strong>QR do passageiro:</strong> outro adesivo, para colar à vista dos passageiros. Abre a página &ldquo;Como estou dirigindo?&rdquo; e de sugestões de melhoria.
+            </p>
+            <Button variant="outline" className="bg-white" onClick={onPrintPassenger} disabled={passengerLoading}>
+              <Star className="mr-2 h-4 w-4" aria-hidden="true" />{passengerLoading ? 'Gerando...' : 'Imprimir QR do passageiro'}
+            </Button>
+          </div>
+        )}
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Fechar</Button>
-          <Button onClick={print}><Printer className="mr-2 h-4 w-4" />Imprimir etiqueta</Button>
+          <Button onClick={print}><Printer className="mr-2 h-4 w-4" />Imprimir etiqueta da inspeção</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

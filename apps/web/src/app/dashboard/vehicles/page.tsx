@@ -87,6 +87,24 @@ export default function VehiclesPage() {
     return found && (statusFilter === 'ALL' || (v.status ?? 'LIBERADO') === statusFilter);
   });
 
+  /** Adesivos do QR do passageiro dos veículos (cria os códigos que faltam). A janela abre no clique. */
+  async function printPassengerQr(ids: string[]) {
+    if (!ids.length) return;
+    // A janela abre antes do await: depois dele o navegador bloquearia.
+    const win = openLabelsWindow();
+    if (!win) { notify('O navegador bloqueou a janela de impressão. Permita janelas deste site e tente de novo.'); return; }
+    setPassengerLoading(true);
+    try {
+      const res = await api.post<PassengerLabel[]>('/driving-feedback/passenger-qr', { vehicleIds: ids });
+      setPassengerBatch({ labels: res.data, win });
+    } catch (err) {
+      win.close();
+      notify(apiErrorMessage(err, 'Não foi possível gerar os QR Codes do passageiro.'));
+    } finally {
+      setPassengerLoading(false);
+    }
+  }
+
   return (
     <>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -115,22 +133,7 @@ export default function VehiclesPage() {
               variant="outline"
               disabled={loading || passengerLoading || !filtered.some((v) => v.isActive)}
               title="Adesivos com o QR do passageiro (Como estou dirigindo?) dos veículos da lista, 4 por folha A4"
-              onClick={async () => {
-                const ids = filtered.filter((v) => v.isActive).map((v) => v.id);
-                // A janela abre no clique (depois do await o navegador bloquearia).
-                const win = openLabelsWindow();
-                if (!win) { notify('O navegador bloqueou a janela de impressão. Permita janelas deste site e tente de novo.'); return; }
-                setPassengerLoading(true);
-                try {
-                  const res = await api.post<PassengerLabel[]>('/driving-feedback/passenger-qr', { vehicleIds: ids });
-                  setPassengerBatch({ labels: res.data, win });
-                } catch (err) {
-                  win.close();
-                  notify(apiErrorMessage(err, 'Não foi possível gerar os QR Codes do passageiro.'));
-                } finally {
-                  setPassengerLoading(false);
-                }
-              }}
+              onClick={() => printPassengerQr(filtered.filter((v) => v.isActive).map((v) => v.id))}
             >
               <Star className="h-4 w-4 mr-2" />QR do passageiro ({filtered.filter((v) => v.isActive).length})
             </Button>
@@ -270,7 +273,12 @@ export default function VehiclesPage() {
           )}
         </CardContent>
       </Card>
-      <VehicleQrDialog vehicle={qrVehicle} onClose={() => setQrVehicle(null)} />
+      <VehicleQrDialog
+        vehicle={qrVehicle}
+        onClose={() => setQrVehicle(null)}
+        onPrintPassenger={manager && qrVehicle?.isActive ? () => printPassengerQr([qrVehicle.id]) : undefined}
+        passengerLoading={passengerLoading}
+      />
       <VehicleImportDialog open={importOpen} onClose={() => setImportOpen(false)} onImported={fetchVehicles} exampleFleet={vehicles.find((v) => v.fleet?.name)?.fleet?.name} />
       {batch && <VehicleLabelsPrint vehicles={batch.vehicles} win={batch.win} onDone={() => setBatch(null)} />}
       {passengerBatch && <PassengerLabelsPrint labels={passengerBatch.labels} company={getStoredUser()?.tenantName || ''} win={passengerBatch.win} onDone={() => setPassengerBatch(null)} />}
