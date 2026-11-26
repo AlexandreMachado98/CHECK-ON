@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Truck, Users, ShieldCheck, FolderOpen, AlertTriangle, ArrowRight, Lock, ClipboardList, Repeat, Wrench, Star, Lightbulb } from 'lucide-react';
+import { Truck, Users, ShieldCheck, FolderOpen, AlertTriangle, ArrowRight, Lock, ClipboardList, Repeat, Wrench, Star, Lightbulb, ShieldAlert } from 'lucide-react';
 import api from '@/lib/api';
 import type { DashboardSummary, NC } from '@/lib/types';
 import { VEHICLE_STATUS } from '@/lib/status';
@@ -20,12 +20,15 @@ export default function DashboardPage() {
   const [drivingAlerts, setDrivingAlerts] = useState(0);
   // Sugestões de passageiros esperando o gestor priorizar ou arquivar.
   const [newSuggestions, setNewSuggestions] = useState(0);
+  // Inspeção eletromecânica: vencidas (veículo bloqueado) e vencendo nos próximos dias.
+  const [em, setEm] = useState<{ expired: number; dueSoon: number; released: number; warnDays: number } | null>(null);
   // Manutenção por km: veículos vencidos e perto de vencer (busca à parte; falha não afeta o painel).
   const [maintenance, setMaintenance] = useState<{ plans: number; overdue: number; upcoming: number } | null>(null);
   useEffect(() => {
     api.get<{ plans: number; overdue: number; upcoming: number }>('/maintenance/summary').then((res) => setMaintenance(res.data)).catch(() => setMaintenance(null));
     api.get<{ openAlerts: number }>('/driving-feedback/summary').then((res) => setDrivingAlerts(res.data.openAlerts)).catch(() => setDrivingAlerts(0));
     api.get<{ received: number }>('/suggestions/summary').then((res) => setNewSuggestions(res.data.received)).catch(() => setNewSuggestions(0));
+    api.get<{ expired: number; dueSoon: number; released: number; warnDays: number }>('/electromechanical/summary').then((res) => setEm(res.data)).catch(() => setEm(null));
   }, []);
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -92,6 +95,24 @@ export default function DashboardPage() {
       </div>
 
       {manager && summary && !loadFailed && <FirstSteps summary={summary} />}
+
+      {em && (em.expired > 0 || em.dueSoon > 0) && (
+        <Link
+          href={`/dashboard/vehicles?em=${em.expired > 0 ? 'VENCIDA' : 'VENCE_EM_BREVE'}`}
+          className={`mb-4 flex items-center gap-3 rounded-lg border p-4 text-sm transition-colors ${em.expired > 0 ? 'border-rose-200 bg-rose-50 text-rose-900 hover:bg-rose-100' : 'border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-100'}`}
+        >
+          <ShieldAlert className="h-5 w-5 shrink-0" aria-hidden="true" />
+          <span className="flex-1">
+            <strong>Inspeção eletromecânica:</strong>{' '}
+            {[
+              em.expired > 0 && `${em.expired} ${em.expired === 1 ? 'veículo bloqueado por inspeção vencida' : 'veículos bloqueados por inspeção vencida'}`,
+              em.dueSoon > 0 && `${em.dueSoon} ${em.dueSoon === 1 ? 'vence' : 'vencem'} em até ${em.warnDays} dias`,
+            ].filter(Boolean).join(' e ')}
+            .
+          </span>
+          <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+        </Link>
+      )}
 
       {drivingAlerts > 0 && (
         <Link href="/dashboard/driving" className="mb-4 flex items-center gap-3 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900 transition-colors hover:bg-rose-100">

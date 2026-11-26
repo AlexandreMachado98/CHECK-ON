@@ -4,7 +4,7 @@ import type { NCSeverity, NCStatus, VehicleStatus } from './types';
 export const VEHICLE_STATUS: Record<VehicleStatus, { label: string; className: string; description: string }> = {
   LIBERADO: { label: 'Liberado', className: 'bg-emerald-50 text-emerald-700 border-emerald-200', description: 'Sem pendências ativas' },
   ATENCAO: { label: 'Atenção', className: 'bg-amber-50 text-amber-800 border-amber-200', description: 'Tem NC ativa não crítica' },
-  BLOQUEADO: { label: 'Bloqueado', className: 'bg-rose-50 text-rose-700 border-rose-200', description: 'Tem NC crítica ativa' },
+  BLOQUEADO: { label: 'Bloqueado', className: 'bg-rose-50 text-rose-700 border-rose-200', description: 'NC crítica ativa, bloqueio manual ou inspeção eletromecânica vencida' },
 };
 
 export const NC_STATUS: Record<NCStatus, { label: string; className: string }> = {

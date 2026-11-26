@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { effectiveVehicleStatus, emStatus } from '../electromechanical/em-rules';
 
 /** NCs que ainda exigem atenção no veículo (as mesmas usadas na regra de reincidência). */
 export const ACTIVE_NC_STATUSES = ['OPEN', 'IN_PROGRESS'];
@@ -14,9 +15,22 @@ const VEHICLE_SELECT = {
   status: true,
   mileage: true,
   qrCode: true,
+  // Eletromecânica vencida bloqueia o veículo no app (situação efetiva, ver withEffectiveStatus).
+  emExpiresAt: true,
+  emReleasedUntil: true,
   // unitId: frente de trabalho do veículo (o app filtra os checklists por ela).
   fleet: { select: { id: true, name: true, unitId: true, unit: { select: { name: true } } } },
 } as const;
+
+/**
+ * Situação que o motorista vê: a das NCs, ou Bloqueado se a inspeção eletromecânica venceu sem
+ * liberação. As datas da eletromecânica vão juntas (o app antigo ignora os campos novos).
+ */
+function withEffectiveStatus<T extends { status: string; emExpiresAt: Date | null; emReleasedUntil: Date | null }>(vehicle: T) {
+  const { emExpiresAt, emReleasedUntil, ...rest } = vehicle;
+  const em = emStatus(emExpiresAt, emReleasedUntil);
+  return { ...rest, status: effectiveVehicleStatus(vehicle.status, em), electromechanical: em };
+}
 
 const NC_SELECT = {
   id: true,
@@ -97,7 +111,7 @@ export class MobileService {
     return {
       serverTime: new Date().toISOString(),
       templates,
-      vehicles: vehicles.map((vehicle) => ({ ...vehicle, lastInspection: last.get(vehicle.id) ?? null })),
+      vehicles: vehicles.map((vehicle) => ({ ...withEffectiveStatus(vehicle), lastInspection: last.get(vehicle.id) ?? null })),
       openNcs,
     };
   }
@@ -136,7 +150,7 @@ export class MobileService {
       select: VEHICLE_SELECT,
     });
     if (!vehicle) throw new NotFoundException('Veículo não encontrado para este QR Code.');
-    return { ...vehicle, openNcs: await this.activeNcs(vehicle.id) };
+    return { ...withEffectiveStatus(vehicle), openNcs: await this.activeNcs(vehicle.id) };
   }
 
   async findVehicleOpenNcs(vehicleId: string) {

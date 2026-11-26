@@ -76,7 +76,18 @@ export async function findPassengerVehicle(prisma: PrismaService, token: string)
   if (!PASSENGER_TOKEN_PATTERN.test(token)) throw new NotFoundException('Este QR Code não é válido ou foi trocado.');
   const vehicle = await prisma.vehicle.findFirst({
     where: { passengerToken: token, isActive: true, tenant: { isActive: true } },
-    select: { id: true, tenantId: true, plate: true, prefix: true, model: true, fleet: { select: { unitId: true } }, tenant: { select: { name: true } } },
+    select: {
+      id: true,
+      tenantId: true,
+      plate: true,
+      prefix: true,
+      model: true,
+      status: true,
+      emExpiresAt: true,
+      emReleasedUntil: true,
+      fleet: { select: { unitId: true } },
+      tenant: { select: { name: true } },
+    },
   });
   if (!vehicle) throw new NotFoundException('Este QR Code não é válido ou foi trocado.');
   return vehicle;

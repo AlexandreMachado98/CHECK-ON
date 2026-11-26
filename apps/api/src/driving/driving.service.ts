@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RateLimiter } from '../common/rate-limit';
 import { dashboardTimeZone, startOfDayInTimeZone } from '../dashboard/time-zone';
 import { PassengerQrDto, SubmitDrivingFeedbackDto, TreatDrivingFeedbackDto } from './dto/driving.dto';
+import { effectiveVehicleStatus, emStatus } from '../electromechanical/em-rules';
 import { DRIVING_TAGS, REPEAT_WINDOW_HOURS, TAG_GROUPS, contradiction, findPassengerVehicle, isAlert, shortName } from './driving-rules';
 
 /** Envios por IP na janela: sobra para um ônibus cheio no mesmo Wi-Fi, barra robô. */
@@ -34,9 +35,16 @@ export class DrivingService {
     const vehicle = await this.findByToken(token);
     const drivers = await this.driversToday(vehicle);
     const current = drivers.find((d) => d.vehicleId === vehicle.id) ?? null;
+    const em = emStatus(vehicle.emExpiresAt, vehicle.emReleasedUntil);
     return {
       companyName: vehicle.tenant.name,
       vehicle: { plate: vehicle.plate, prefix: vehicle.prefix, model: vehicle.model },
+      // Quadro de segurança para o passageiro: checklist de hoje, eletromecânica e situação.
+      safety: {
+        checklistToday: current ? { at: current.completedAt, driverName: shortName(current.driver.name) } : null,
+        electromechanical: { state: em.state, expiresAt: em.expiresAt },
+        status: effectiveVehicleStatus(vehicle.status, em),
+      },
       current: current && this.option(current),
       others: drivers.filter((d) => d !== current).map((d) => this.option(d)),
       tags: DRIVING_TAGS,

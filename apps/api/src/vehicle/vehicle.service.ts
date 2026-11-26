@@ -1,6 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ACTIVE_NC_STATUSES, escalateVehicleStatus, vehicleStatusFromActiveNcs } from '../checklist/checklist-rules';
+import { effectiveVehicleStatus, emStatus, todayIso } from '../electromechanical/em-rules';
 import { autoBlockCriticalNc } from '../company/company-settings';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { ImportVehiclesDto } from './dto/import-vehicles.dto';
@@ -98,7 +99,18 @@ export class VehicleService {
       }),
     ]);
     const byVehicle = new Map(active.map((row) => [row.vehicleId, row._count._all]));
-    return vehicles.map((vehicle) => ({ ...vehicle, _count: { ncs: byVehicle.get(vehicle.id) ?? 0 } }));
+    const today = todayIso();
+    return vehicles.map((vehicle) => {
+      // Situação mostrada já considera a eletromecânica vencida (bloqueia por cima das NCs).
+      const em = emStatus(vehicle.emExpiresAt, vehicle.emReleasedUntil, today);
+      return {
+        ...vehicle,
+        status: effectiveVehicleStatus(vehicle.status, em),
+        operationalStatus: vehicle.status,
+        electromechanical: em,
+        _count: { ncs: byVehicle.get(vehicle.id) ?? 0 },
+      };
+    });
   }
 
   async findOne(id: string) {
@@ -112,6 +124,13 @@ export class VehicleService {
     if (updateDto.fleetId) await this.assertFleet(updateDto.fleetId);
     if (updateDto.plate) await this.assertPlateAvailable(updateDto.plate, id);
 
+    if (updateDto.status && updateDto.status !== 'BLOQUEADO') {
+      const current = await this.prisma.vehicle.findFirst({ where: { id }, select: { emExpiresAt: true, emReleasedUntil: true } });
+      const em = emStatus(current?.emExpiresAt, current?.emReleasedUntil);
+      if (em.state === 'VENCIDA') {
+        throw new ConflictException('A inspeção eletromecânica deste veículo venceu. Registre a nova inspeção ou libere provisoriamente com justificativa.');
+      }
+    }
     if (updateDto.status) {
       const activeNcs = await this.prisma.nonConformity.findMany({
         where: { vehicleId: id, status: { in: ACTIVE_NC_STATUSES } },

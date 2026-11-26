@@ -4,7 +4,7 @@ import { DrivingService } from './driving.service';
 import { TAG_GROUPS, contradiction, isAlert, shortName } from './driving-rules';
 
 const TOKEN = 'a'.repeat(32);
-const vehicle = { id: 'v1', tenantId: 't1', plate: 'ABC1D23', prefix: 'P-1', model: 'Ônibus', fleet: { unitId: 'u1' }, tenant: { name: 'Transportes Sul' } };
+const vehicle = { id: 'v1', tenantId: 't1', plate: 'ABC1D23', prefix: 'P-1', model: 'Ônibus', status: 'LIBERADO', emExpiresAt: null as Date | null, emReleasedUntil: null as Date | null, fleet: { unitId: 'u1' }, tenant: { name: 'Transportes Sul' } };
 const at = (h: number) => new Date(Date.UTC(2026, 10, 26, h));
 const chk = (id: string, vehicleId: string, driverId: string, name: string, h: number, plate = 'ABC1D23') => ({
   id, vehicleId, driverId, completedAt: at(h), driver: { name }, vehicle: { plate, prefix: null, model: null },
@@ -43,6 +43,14 @@ describe('Como estou dirigindo — página do passageiro', () => {
     expect(res.companyName).toBe('Transportes Sul');
     expect(res.current).toMatchObject({ checklistId: 'c4', driverName: 'Bruno L.', plate: 'ABC1D23' });
     expect(res.others.map((o) => [o.checklistId, o.driverName])).toEqual([['c3', 'Ana S.'], ['c2', 'Carlos S.']]);
+    // Quadro de segurança: checklist do veículo hoje, sem eletromecânica registrada, liberado.
+    expect(res.safety).toEqual({ checklistToday: { at: at(12), driverName: 'Bruno L.' }, electromechanical: { state: 'SEM_REGISTRO', expiresAt: null }, status: 'LIBERADO' });
+  });
+
+  it('quadro de segurança: sem checklist hoje e eletromecânica vencida (bloqueado)', async () => {
+    const { driving } = service({ found: { ...vehicle, emExpiresAt: new Date('2020-01-01T00:00:00Z') } });
+    const res = await driving.publicVehicle(TOKEN);
+    expect(res.safety).toEqual({ checklistToday: null, electromechanical: { state: 'VENCIDA', expiresAt: '2020-01-01' }, status: 'BLOQUEADO' });
   });
 
   it('QR inválido ou trocado: 404 sem consultar nada', async () => {

@@ -42,6 +42,18 @@ export interface Vehicle {
   fleet?: Pick<Fleet, 'id' | 'name'> & Partial<Fleet>;
   /** NCs ativas (abertas ou em tratativa) do veículo. */
   _count?: { ncs: number };
+  /** Situação das NCs/manual, sem a eletromecânica (o `status` já é a situação mostrada). */
+  operationalStatus?: VehicleStatus;
+  /** Inspeção eletromecânica (API antiga não manda). */
+  electromechanical?: EmStatus;
+}
+
+export type EmState = 'SEM_REGISTRO' | 'EM_DIA' | 'VENCE_EM_BREVE' | 'VENCIDA' | 'LIBERADA';
+export interface EmStatus {
+  state: EmState;
+  expiresAt: string | null;
+  daysLeft: number | null;
+  releasedUntil: string | null;
 }
 
 export type VehicleStatus = 'LIBERADO' | 'ATENCAO' | 'BLOQUEADO';
