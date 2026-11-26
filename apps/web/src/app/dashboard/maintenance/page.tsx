@@ -299,8 +299,8 @@ function PlanDialog({ editor, vehicles, close, saved }: {
                   </select>
                 </label>
                 <label className="grid gap-1">Km inicial
-                  <Input type="number" required min={0} max={Math.min(odometerMax, selectedVehicle?.mileage ?? 0)} value={baseKm} onChange={(event) => setBaseKm(event.target.value)} />
-                  <span className="text-muted-foreground">Use o km da última revisão ou o km atual para começar a contagem.</span>
+                  <Input type="number" required min={0} max={odometerMax} value={baseKm} onChange={(event) => setBaseKm(event.target.value)} />
+                  <span className="text-muted-foreground">Km cadastrado: {formatKm(selectedVehicle?.mileage ?? 0)}. Informe o km da última revisão ou o km atual do painel. Um valor maior atualiza também o cadastro do veículo.</span>
                 </label>
               </>
             )}

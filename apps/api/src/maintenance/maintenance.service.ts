@@ -35,15 +35,19 @@ export class MaintenanceService {
 
   async create(dto: CreateMaintenancePlanDto) {
     this.validateSchedule(dto);
-    const vehicleRecord = await this.prisma.vehicle.findFirst({
-      where: { id: dto.vehicleId, isActive: true },
-      select: { tenantId: true, mileage: true },
+    return this.prisma.$transaction(async (tx) => {
+      const vehicleRecord = await tx.vehicle.findFirst({
+        where: { id: dto.vehicleId, isActive: true },
+        select: { tenantId: true },
+      });
+      if (!vehicleRecord) throw new NotFoundException('Veículo ativo não encontrado.');
+      // A leitura informada no portal pode anteceder ou superar a do último checklist.
+      await tx.vehicle.updateMany({
+        where: { id: dto.vehicleId, isActive: true, mileage: { lt: dto.baseKm } },
+        data: { mileage: dto.baseKm },
+      });
+      return tx.maintenancePlan.create({ data: { ...dto, tenantId: vehicleRecord.tenantId } });
     });
-    if (!vehicleRecord) throw new NotFoundException('Veículo ativo não encontrado.');
-    if (dto.baseKm > vehicleRecord.mileage) {
-      throw new BadRequestException('O km inicial deve ser igual ou menor que o km atual do veículo.');
-    }
-    return this.prisma.maintenancePlan.create({ data: { ...dto, tenantId: vehicleRecord.tenantId } });
   }
 
   async update(id: string, dto: MaintenanceScheduleDto) {
