@@ -60,6 +60,7 @@ model Tenant {
   ncActions          NcAction[]
   maintenancePlans   MaintenancePlan[]
   maintenanceRecords MaintenanceRecord[]
+  drivingFeedback    DrivingFeedback[]
 }
 
 // ---------------------------------------------------------
@@ -193,10 +194,11 @@ model Employee {
   createdAt                   DateTime   @default(now())
   updatedAt                   DateTime   @updatedAt
 
-  user      User?
-  Checklist Checklist[]
-  trainings EmployeeTraining[]
-  units     EmployeeUnit[]
+  user            User?
+  Checklist       Checklist[]
+  trainings       EmployeeTraining[]
+  units           EmployeeUnit[]
+  drivingFeedback DrivingFeedback[]
 
   @@index([tenantId, isActive])
   @@index([tenantId, matricula])
@@ -324,12 +326,16 @@ model Vehicle {
   // Maior km informado nas inspeções (hodômetro).
   mileage            Int                 @default(0)
   qrCode             String?             @unique
+  // Código do QR do passageiro (adesivo dentro do veículo, página pública "Como estou dirigindo").
+  // Diferente do qrCode da inspeção; pode ser trocado (o adesivo antigo para de valer).
+  passengerToken     String?             @unique
   isActive           Boolean             @default(true)
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   Checklist          Checklist[]
   ncs                NonConformity[]
   maintenanceRecords MaintenanceRecord[]
+  drivingFeedback    DrivingFeedback[]
 
   @@unique([tenantId, plate])
   @@index([tenantId, isActive, status])
@@ -438,7 +444,8 @@ model Checklist {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  answers ChecklistAnswer[]
+  answers         ChecklistAnswer[]
+  drivingFeedback DrivingFeedback[]
 
   @@unique([tenantId, clientId])
   @@index([tenantId, vehicleId])
@@ -583,4 +590,39 @@ model MaintenanceRecord {
 
   @@index([tenantId, vehicleId])
   @@index([vehicleId, planId, performedAt])
+}
+
+// Avaliação "Como estou dirigindo", enviada pelo passageiro na página pública do QR do veículo.
+// O motorista vem do checklist do dia (quem inspecionou o veículo). Só gestores veem.
+model DrivingFeedback {
+  id            String     @id @default(uuid())
+  tenantId      String
+  tenant        Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vehicleId     String
+  vehicle       Vehicle    @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  // Inspeção que identificou o motorista (vazia quando o passageiro não identificou).
+  checklistId   String?
+  checklist     Checklist? @relation(fields: [checklistId], references: [id], onDelete: SetNull)
+  driverId      String?
+  driver        Employee?  @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  rating        Int
+  // Pontos marcados: VELOCIDADE, FREADAS, CELULAR, CORTESIA, PONTUALIDADE, LIMPEZA.
+  tags          String[]
+  comment       String?
+  contact       String?
+  // Nota 1 ou 2, ou celular ao volante: precisa de tratativa.
+  alert         Boolean    @default(false)
+  // NOVA, EM_ANALISE, TRATADA
+  status        String     @default("NOVA")
+  treatment     String?
+  treatedAt     DateTime?
+  treatedByName String?
+  // Hash do aparelho (limite de uma avaliação por motorista a cada algumas horas). Nunca o IP.
+  deviceHash    String?
+  createdAt     DateTime   @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, status])
+  @@index([driverId])
+  @@index([vehicleId])
 }

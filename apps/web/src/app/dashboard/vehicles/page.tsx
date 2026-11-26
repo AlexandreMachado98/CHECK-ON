@@ -12,8 +12,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Activity, AlertOctagon, Lock, Search, ShieldCheck, TriangleAlert, Truck, LockOpen, QrCode, Printer, FileUp } from 'lucide-react';
+import { Activity, AlertOctagon, Lock, Search, ShieldCheck, TriangleAlert, Truck, LockOpen, QrCode, Printer, FileUp, Star } from 'lucide-react';
 import { VehicleLabelsPrint, VehicleQrDialog, openLabelsWindow } from '@/components/vehicle-qr';
+import { PassengerLabelsPrint, type PassengerLabel } from '@/components/passenger-qr';
 import { formatKm } from '@/lib/utils';
 import { VehicleImportDialog } from '@/components/vehicle-import';
 import { confirmAction, notify } from '@/components/feedback';
@@ -32,6 +33,9 @@ export default function VehiclesPage() {
   const [qrVehicle, setQrVehicle] = useState<Vehicle | null>(null);
   // Impressão em lote das etiquetas: veículos da lista atual e a janela aberta no clique.
   const [batch, setBatch] = useState<{ vehicles: Vehicle[]; win: Window } | null>(null);
+  // Adesivos "Como estou dirigindo?" (QR do passageiro) dos veículos da lista.
+  const [passengerBatch, setPassengerBatch] = useState<{ labels: PassengerLabel[]; win: Window } | null>(null);
+  const [passengerLoading, setPassengerLoading] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [search, setSearch] = useState('');
@@ -106,6 +110,31 @@ export default function VehiclesPage() {
           >
             <Printer className="h-4 w-4 mr-2" />Imprimir etiquetas ({filtered.filter((v) => v.isActive).length})
           </Button>
+          {manager && (
+            <Button
+              variant="outline"
+              disabled={loading || passengerLoading || !filtered.some((v) => v.isActive)}
+              title="Adesivos com o QR do passageiro (Como estou dirigindo?) dos veículos da lista, 4 por folha A4"
+              onClick={async () => {
+                const ids = filtered.filter((v) => v.isActive).map((v) => v.id);
+                // A janela abre no clique (depois do await o navegador bloquearia).
+                const win = openLabelsWindow();
+                if (!win) { notify('O navegador bloqueou a janela de impressão. Permita janelas deste site e tente de novo.'); return; }
+                setPassengerLoading(true);
+                try {
+                  const res = await api.post<PassengerLabel[]>('/driving-feedback/passenger-qr', { vehicleIds: ids });
+                  setPassengerBatch({ labels: res.data, win });
+                } catch (err) {
+                  win.close();
+                  notify(apiErrorMessage(err, 'Não foi possível gerar os QR Codes do passageiro.'));
+                } finally {
+                  setPassengerLoading(false);
+                }
+              }}
+            >
+              <Star className="h-4 w-4 mr-2" />QR do passageiro ({filtered.filter((v) => v.isActive).length})
+            </Button>
+          )}
           {manager && (
             <Button variant="outline" onClick={() => setImportOpen(true)} title="Cadastrar vários veículos de uma vez a partir de uma planilha">
               <FileUp className="h-4 w-4 mr-2" />Importar planilha
@@ -244,6 +273,7 @@ export default function VehiclesPage() {
       <VehicleQrDialog vehicle={qrVehicle} onClose={() => setQrVehicle(null)} />
       <VehicleImportDialog open={importOpen} onClose={() => setImportOpen(false)} onImported={fetchVehicles} exampleFleet={vehicles.find((v) => v.fleet?.name)?.fleet?.name} />
       {batch && <VehicleLabelsPrint vehicles={batch.vehicles} win={batch.win} onDone={() => setBatch(null)} />}
+      {passengerBatch && <PassengerLabelsPrint labels={passengerBatch.labels} company={getStoredUser()?.tenantName || ''} win={passengerBatch.win} onDone={() => setPassengerBatch(null)} />}
     </>
   );
 }
