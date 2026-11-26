@@ -240,7 +240,7 @@ function CategoryBlock({ category, categoryIndex, categoryCount, onAddItem, onUp
               return (
                 <div key={item.id} className="flex items-center p-3 hover:bg-slate-50/50 transition-colors group">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-slate-800 flex items-center">
+                    <p className="text-sm font-medium text-slate-800 flex flex-wrap items-center gap-y-1">
                       {item.isRequired && <span className="text-rose-500 mr-1" title="Obrigatório">*</span>}
                       <span className="break-words">{item.text}</span>
                       {item.isCritical && (
@@ -258,7 +258,7 @@ function CategoryBlock({ category, categoryIndex, categoryCount, onAddItem, onUp
                       <span className="text-xs text-slate-500">{typeConfig?.label}</span>
                     </div>
                   </div>
-                  <div className="flex shrink-0 items-center gap-1">
+                  <div className="flex shrink-0 items-center gap-0 sm:gap-1">
                     <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-500 hover:text-slate-900" aria-label={`Mover regra ${item.text} para cima`} title="Mover regra para cima" disabled={itemIndex === 0} onClick={() => onMoveItem(category.id, item.id, -1)}>
                       <ArrowUp className="h-3.5 w-3.5" />
                     </Button>
@@ -410,9 +410,9 @@ export default function TemplateBuilderPage() {
   const readOnly = template.canEdit === false;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-6rem)]">
+    <div className="flex flex-col lg:h-[calc(100vh-6rem)]">
       {/* Header Panel */}
-      <div className="bg-white border-b px-6 py-4 flex items-center justify-between shrink-0 mb-6 rounded-t-xl border-x border-t shadow-sm">
+      <div className="bg-white border-b px-4 py-4 sm:px-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between shrink-0 mb-4 lg:mb-6 rounded-t-xl border-x border-t shadow-sm">
         <div>
           <button className="flex items-center text-xs font-medium text-slate-500 hover:text-slate-800 mb-1 transition-colors" onClick={() => router.push('/dashboard/templates')}>
             <ArrowLeft className="h-3 w-3 mr-1" /> Voltar para modelos
@@ -432,7 +432,7 @@ export default function TemplateBuilderPage() {
             Este modelo também vale para outras frentes de trabalho. Você pode consultar, mas só o administrador da empresa pode alterá-lo.
           </div>
         ) : (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {chooseUnit && (
             <Button variant="outline" size="sm" className="shadow-sm text-xs" onClick={() => setUnitsOpen(true)}>
               Frentes de trabalho
@@ -468,18 +468,19 @@ export default function TemplateBuilderPage() {
         />
       )}
 
-      {/* Builder 2-Column Area */}
-      <div className="flex flex-1 gap-6 min-h-0">
+      {/* Duas colunas a partir de 1024 px; no celular e no tablet, uma embaixo da outra. */}
+      <div className="flex flex-1 flex-col gap-4 lg:flex-row lg:gap-6 min-h-0">
         
         {/* Left Sidebar (Structure) */}
-        <div className="w-72 shrink-0 flex flex-col bg-white border rounded-xl shadow-sm overflow-hidden">
-          <div className="p-4 border-b bg-slate-50">
+        <div className="w-full lg:w-72 shrink-0 flex flex-col bg-white border rounded-xl shadow-sm overflow-hidden">
+          {/* O índice das seções só faz sentido ao lado do editor; no celular fica só "Nova seção". */}
+          <div className="hidden lg:block p-4 border-b bg-slate-50">
             <h2 className="text-sm font-semibold text-slate-800 flex items-center">
               <LayoutList className="h-4 w-4 mr-2 text-slate-500" />
               Estrutura do Formulário
             </h2>
           </div>
-          <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+          <div className="hidden lg:block flex-1 overflow-y-auto p-4 custom-scrollbar">
             {template.categories.length === 0 ? (
               <p className="text-xs text-slate-500 text-center py-4">Nenhuma seção criada.</p>
             ) : (
@@ -495,7 +496,7 @@ export default function TemplateBuilderPage() {
               </ul>
             )}
           </div>
-          <fieldset disabled={readOnly} className="p-4 border-t bg-slate-50">
+          <fieldset disabled={readOnly} className="p-3 lg:p-4 lg:border-t bg-slate-50">
             <form onSubmit={handleAddCategory} className="flex gap-2">
               <Input value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder="Nova seção..." className="h-8 text-xs" />
               <Button type="submit" size="sm" className="h-8 px-2 shrink-0" disabled={addingCat || !newCatName.trim()}>
@@ -506,12 +507,12 @@ export default function TemplateBuilderPage() {
         </div>
 
         {/* Right Content (Editor). Modelo compartilhado com outras frentes: só leitura. */}
-        <fieldset disabled={readOnly} className="flex-1 min-w-0 overflow-y-auto custom-scrollbar pb-20 pr-2">
+        <fieldset disabled={readOnly} className="flex-1 min-w-0 lg:overflow-y-auto custom-scrollbar pb-20 lg:pr-2">
           {template.categories.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-slate-400">
               <LayoutList className="h-12 w-12 mb-4 text-slate-300" />
               <p className="text-lg font-medium text-slate-600 mb-2">Construa seu checklist</p>
-              <p className="text-sm max-w-sm text-center">Use o painel lateral esquerdo para criar sua primeira seção estrutural.</p>
+              <p className="text-sm max-w-sm text-center">Crie a primeira seção em "Nova seção".</p>
             </div>
           ) : (
             <div className="max-w-3xl space-y-6">
