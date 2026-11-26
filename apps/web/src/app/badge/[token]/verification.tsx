@@ -5,7 +5,7 @@ import api from '@/lib/api';
 import { photoAtWidth } from '@/lib/photo-url';
 import {
   AlertTriangle, BadgeCheck, BriefcaseBusiness, Building2, CalendarDays, CheckCircle2,
-  GraduationCap, Hash, LoaderCircle, ShieldCheck, User,
+  GraduationCap, LoaderCircle, ShieldCheck, User,
 } from 'lucide-react';
 
 interface PublicTraining {
@@ -17,7 +17,6 @@ interface PublicTraining {
 interface PublicBadge {
   name: string;
   photoUrl?: string | null;
-  matricula?: string | null;
   jobTitle?: string | null;
   departmentName?: string | null;
   admissionDate?: string | null;
@@ -31,10 +30,11 @@ interface PublicBadge {
   verifiedAt: string;
 }
 
-function formatDate(value?: string | null) {
-  if (!value) return 'Não informado';
+/** Data no formato brasileiro; null se não houver (quem chama escolhe o texto de "não informada"). */
+function formatDate(value?: string | null): string | null {
+  if (!value) return null;
   const [year, month, day] = value.slice(0, 10).split('-').map(Number);
-  if (!year || !month || !day) return 'Não informado';
+  if (!year || !month || !day) return null;
   return new Intl.DateTimeFormat('pt-BR').format(new Date(year, month - 1, day));
 }
 
@@ -59,13 +59,13 @@ function ValidityPill({ expiresAt }: { expiresAt?: string | null }) {
   return <span className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ring-inset ${colors[status.theme]}`}>{status.label}</span>;
 }
 
-function Detail({ icon, label, value }: { icon: React.ReactNode; label: string; value?: string | null }) {
+function Detail({ icon, label, value, emptyText = 'Não informado' }: { icon: React.ReactNode; label: string; value?: string | null; emptyText?: string }) {
   return (
     <div className="flex min-w-0 items-start gap-3">
       <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 [&>svg]:h-4 [&>svg]:w-4">{icon}</span>
       <div className="min-w-0">
         <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">{label}</p>
-        <p className="mt-1 break-words text-sm font-medium leading-5 text-slate-800">{value || 'Não informado'}</p>
+        <p className="mt-1 break-words text-sm font-medium leading-5 text-slate-800">{value || emptyText}</p>
       </div>
     </div>
   );
@@ -77,8 +77,14 @@ function IntegrationCard({ title, completedAt, expiresAt }: { title: string; com
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-slate-800">{title}</p>
-          <p className="mt-1.5 text-xs text-slate-500">Realizada em {formatDate(completedAt)}</p>
-          <p className="mt-0.5 text-xs text-slate-500">Válida até {formatDate(expiresAt)}</p>
+          {!formatDate(completedAt) && !formatDate(expiresAt) ? (
+            <p className="mt-1.5 text-xs text-slate-500">Sem registro de integração.</p>
+          ) : (
+            <>
+              <p className="mt-1.5 text-xs text-slate-500">Realizada em {formatDate(completedAt) ?? 'data não informada'}</p>
+              {formatDate(expiresAt) && <p className="mt-0.5 text-xs text-slate-500">Válida até {formatDate(expiresAt)}</p>}
+            </>
+          )}
         </div>
         <ValidityPill expiresAt={expiresAt} />
       </div>
@@ -175,10 +181,9 @@ export default function BadgeVerification({ token }: { token: string }) {
 
               <div className="min-w-0">
                 <div className="grid gap-x-5 gap-y-5 sm:grid-cols-2">
-                  <Detail icon={<CalendarDays />} label="Data de admissão" value={formatDate(badge.admissionDate)} />
+                  <Detail icon={<CalendarDays />} label="Data de admissão" value={formatDate(badge.admissionDate)} emptyText="Não informada" />
                   <Detail icon={<Building2 />} label="Setor" value={badge.departmentName} />
                   <Detail icon={<BriefcaseBusiness />} label="Supervisor responsável" value={badge.supervisor?.name} />
-                  <Detail icon={<Hash />} label="Função" value={badge.jobTitle} />
                 </div>
                 <div className="mt-6 border-t border-slate-100 pt-5">
                   <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-900">
@@ -208,8 +213,8 @@ export default function BadgeVerification({ token }: { token: string }) {
                     <div key={`${training.name}-${index}`} className="flex min-w-0 items-start justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3.5">
                       <div className="min-w-0">
                         <p className="break-words text-sm font-semibold text-slate-800">{training.name}</p>
-                        <p className="mt-1 text-xs text-slate-500">Realizado em {formatDate(training.completedAt)}</p>
-                        <p className="mt-0.5 text-xs text-slate-500">Válido até {formatDate(training.expiresAt)}</p>
+                        <p className="mt-1 text-xs text-slate-500">Realizado em {formatDate(training.completedAt) ?? 'data não informada'}</p>
+                        <p className="mt-0.5 text-xs text-slate-500">{formatDate(training.expiresAt) ? `Válido até ${formatDate(training.expiresAt)}` : 'Sem validade'}</p>
                       </div>
                       <ValidityPill expiresAt={training.expiresAt} />
                     </div>
