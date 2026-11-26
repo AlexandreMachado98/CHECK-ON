@@ -480,7 +480,7 @@ export default function TemplateBuilderPage() {
             setTemplate({ ...template, askOdometer });
             try {
               await api.patch(`/templates/${template.id}`, { askOdometer });
-              notify(askOdometer ? 'O km será obrigatório neste checklist.' : 'O km será opcional no app atualizado.', 'success');
+              notify(askOdometer ? 'O app vai pedir o km do veículo neste checklist.' : 'O app não vai mais pedir o km neste checklist.', 'success');
             } catch (error) {
               setTemplate({ ...template, askOdometer: !askOdometer });
               notify(apiErrorMessage(error, 'Não foi possível alterar o pedido de km.'));
@@ -489,10 +489,10 @@ export default function TemplateBuilderPage() {
         />
         <span className="min-w-0">
           <span className="flex items-center text-sm font-semibold text-slate-900">
-            <Gauge className="mr-1.5 h-4 w-4 text-slate-500" aria-hidden="true" /> Exigir o km atual do veículo
+            <Gauge className="mr-1.5 h-4 w-4 text-slate-500" aria-hidden="true" /> Pedir o km do veículo
           </span>
           <span className="block text-xs text-slate-600">
-            Com a opção marcada, o motorista precisa informar o km para concluir. A partir da versão 1.4.26, desmarcar permite informar o km ou deixar o campo em branco.
+            Obrigatório no app: o motorista digita o km do painel antes de assinar. Mantém o km atual de cada veículo para o controle de manutenção.
           </span>
         </span>
       </label>

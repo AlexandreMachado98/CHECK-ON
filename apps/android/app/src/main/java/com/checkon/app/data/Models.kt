@@ -48,7 +48,7 @@ data class Template(
     /** Vale em todas as frentes de trabalho. Falso: só nos veículos das frentes em [units]. */
     val allUnits: Boolean = true,
     val units: List<TemplateUnit> = emptyList(),
-    /** Pede o km do veículo (obrigatório para concluir). Sem exigência, a leitura é opcional. */
+    /** Pede o km do veículo (obrigatório para concluir). Servidor antigo não informa: não pede. */
     val askOdometer: Boolean = false,
 ) {
     val allItems: List<TemplateItem> get() = categories.flatMap { it.items }
