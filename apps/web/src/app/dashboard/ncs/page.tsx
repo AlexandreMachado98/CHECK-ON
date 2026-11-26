@@ -96,7 +96,7 @@ export default function NCsPage() {
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3 mb-6">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-6">
         <SummaryTile label="NCs ativas" value={counts.active} icon={AlertOctagon} tone="text-slate-900" />
         <SummaryTile label="Críticas ativas (veículo bloqueado)" value={counts.critical} icon={Lock} tone="text-rose-700" />
         <SummaryTile label="Com reincidência" value={counts.recurrent} icon={Repeat} tone="text-amber-700" />
@@ -170,9 +170,9 @@ export default function NCsPage() {
                   <TableRow>
                     <TableHead className="hidden md:table-cell">Abertura</TableHead>
                     <TableHead>Item apontado</TableHead>
-                    <TableHead>Veículo</TableHead>
+                    <TableHead className="hidden sm:table-cell">Veículo</TableHead>
                     <TableHead className="hidden sm:table-cell">Severidade</TableHead>
-                    <TableHead className="text-center hidden lg:table-cell">Ocorrências</TableHead>
+                    <TableHead className="text-center hidden xl:table-cell">Ocorrências</TableHead>
                     <TableHead className="hidden sm:table-cell">Status</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
@@ -195,6 +195,17 @@ export default function NCsPage() {
                             {item?.text ?? 'Item removido do modelo'}
                             {nc.answer?.photoUrl && <Camera className="inline h-3.5 w-3.5 ml-1.5 text-sky-600" aria-label="Com foto" />}
                           </p>
+                          {/* Celular: veículo, gravidade e situação embaixo do item (as colunas ficam escondidas). */}
+                          <div className="mt-1.5 flex flex-wrap items-center gap-1.5 sm:hidden">
+                            {vehicle && (
+                              <span className="flex items-center text-xs font-medium text-slate-700">
+                                <Truck className="h-3.5 w-3.5 mr-1 text-slate-400" />
+                                {vehicle.plate}
+                              </span>
+                            )}
+                            <NcSeverityBadge severity={nc.severity} />
+                            <NcStatusBadge status={nc.status} />
+                          </div>
                           {(nc.answer?.observations || nc.notes) && (
                             <p className="mt-0.5 flex items-start text-xs text-slate-500">
                               <MessageSquare className="h-3.5 w-3.5 mr-1.5 mt-0.5 shrink-0 text-slate-400" />
@@ -202,7 +213,7 @@ export default function NCsPage() {
                             </p>
                           )}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="hidden sm:table-cell">
                           {vehicle ? (
                             <div className="flex flex-col gap-1">
                               <span className="flex items-center font-medium whitespace-nowrap">
@@ -214,7 +225,7 @@ export default function NCsPage() {
                           ) : <span className="text-sm text-slate-400">—</span>}
                         </TableCell>
                         <TableCell className="hidden sm:table-cell"><NcSeverityBadge severity={nc.severity} /></TableCell>
-                        <TableCell className="text-center hidden lg:table-cell">
+                        <TableCell className="text-center hidden xl:table-cell">
                           <span className={`text-lg font-bold ${nc.occurrences > 1 ? 'text-amber-700' : 'text-slate-700'}`}>{nc.occurrences}</span>
                           {nc.lastOccurrenceAt && nc.occurrences > 1 && (
                             <span className="block text-[11px] text-slate-500">última {format(new Date(nc.lastOccurrenceAt), 'dd/MM')}</span>
@@ -253,13 +264,14 @@ export default function NCsPage() {
 
 function SummaryTile({ label, value, icon: Icon, tone }: { label: string; value: number; icon: React.ElementType; tone: string }) {
   return (
-    <Card className="border-slate-200 shadow-sm">
-      <CardContent className="p-4 flex items-center justify-between">
-        <div>
-          <p className="text-xs font-medium text-slate-500">{label}</p>
-          <p className={`text-2xl font-bold ${tone}`}>{value}</p>
+    // No celular os três cabem lado a lado (antes ocupavam a primeira tela inteira).
+    <Card className="border-slate-200 shadow-sm py-0">
+      <CardContent className="p-3 sm:p-4 flex items-start sm:items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-[11px] leading-tight sm:text-xs font-medium text-slate-500">{label}</p>
+          <p className={`mt-1 text-xl sm:text-2xl font-bold ${tone}`}>{value}</p>
         </div>
-        <Icon className={`h-5 w-5 ${tone} opacity-70`} />
+        <Icon className={`hidden sm:block h-5 w-5 shrink-0 ${tone} opacity-70`} />
       </CardContent>
     </Card>
   );

@@ -309,10 +309,10 @@ export default function UsersPage() {
       )}
 
       <Card className="border-slate-200 shadow-sm">
-        <CardHeader className="pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
+        <CardHeader className="pb-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <CardTitle className="text-base font-semibold text-slate-700">Contas do Sistema</CardTitle>
-          <div className="flex gap-2">
-            <div className="relative w-48 sm:w-64">
+          <div className="flex w-full gap-2 sm:w-auto">
+            <div className="relative w-full sm:w-64">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
               <Input 
                 type="text" 
@@ -358,7 +358,7 @@ export default function UsersPage() {
                 <TableRow>
                   <TableHead className="w-[30%]">Usuário</TableHead>
                   <TableHead className="w-[25%] hidden sm:table-cell">E-mail</TableHead>
-                  <TableHead className="w-[20%] hidden md:table-cell">Perfil</TableHead>
+                  <TableHead className="w-[20%] hidden xl:table-cell">Perfil</TableHead>
                   <TableHead className="w-[15%]">Status</TableHead>
                   <TableHead className="text-right w-[10%]">Ações</TableHead>
                 </TableRow>
@@ -366,12 +366,16 @@ export default function UsersPage() {
               <TableBody>
                 {filteredUsers.map((u) => (
                   <TableRow key={u.id} className="hover:bg-slate-50/50 transition-colors">
-                    <TableCell className="font-medium text-slate-900">{u.name}</TableCell>
-                    <TableCell className="text-slate-600 hidden sm:table-cell">
+                    <TableCell className="font-medium text-slate-900 whitespace-normal">
+                      {u.name}
+                      {/* Até tela grande: o perfil embaixo do nome (a coluna fica escondida). */}
+                      <span className="block text-xs font-normal text-slate-500 xl:hidden">{u.role?.label ?? roleLabel(u.role?.name)}</span>
+                    </TableCell>
+                    <TableCell className="text-slate-600 hidden sm:table-cell max-w-[16rem] break-words">
                       {u.email || <span className="text-slate-400">Sem e-mail</span>}
                       {u.employee && <span className="block text-xs text-slate-400">Colaborador: {u.employee.name}{u.employee.matricula ? ` · matrícula ${u.employee.matricula}` : ''}</span>}
                     </TableCell>
-                    <TableCell className="hidden md:table-cell">
+                    <TableCell className="hidden xl:table-cell">
                       <div className="inline-flex items-center text-sm font-medium text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
                         <Key className="h-3 w-3 mr-1.5 text-slate-400" />
                         {u.role?.label ?? roleLabel(u.role?.name)}

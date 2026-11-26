@@ -161,7 +161,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         {/* Mobile Close Button */}
         <button 
           onClick={() => setMobileMenuOpen(false)}
-          className="md:hidden p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-850"
+          className="lg:hidden p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-850"
           aria-label="Fechar menu"
         >
           <X className="h-5 w-5" />
@@ -236,14 +236,14 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen w-full bg-slate-50 overflow-x-hidden">
       
-      {/* Desktop Sidebar (Fixed) */}
-      <aside className="hidden md:flex w-64 flex-col border-r border-slate-900 shrink-0">
+      {/* Menu lateral fixo só a partir de 1024 px: no tablet ele tirava 256 px das tabelas. */}
+      <aside className="hidden lg:flex w-64 flex-col border-r border-slate-900 shrink-0">
         {sidebarContent}
       </aside>
 
       {/* Mobile Drawer (Backdrop + Slide-in) */}
       {mobileMenuOpen && (
-        <div className="fixed inset-0 z-50 flex md:hidden">
+        <div className="fixed inset-0 z-50 flex lg:hidden">
           {/* Backdrop */}
           <div 
             className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
@@ -266,7 +266,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             <Button 
               variant="ghost" 
               size="icon" 
-              className="md:hidden text-slate-600 hover:text-slate-900"
+              className="lg:hidden text-slate-600 hover:text-slate-900"
               onClick={() => setMobileMenuOpen(true)}
               aria-label="Abrir menu"
             >
