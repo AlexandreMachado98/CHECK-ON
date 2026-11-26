@@ -20,11 +20,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { photoAtWidth } from '@/lib/photo-url';
 import { notify, confirmAction } from '@/components/feedback';
 import { BadgesPrint, openBadgesWindow, type BadgeCard } from '@/components/badge-print';
+import { EmployeeImportDialog } from '@/components/employee-import';
 import {
   Activity, AlertTriangle, BriefcaseBusiness, Building2, CalendarDays, Camera, Check, CheckCircle2,
   Clock3, Copy, Edit2, ExternalLink, GraduationCap, Hash, KeyRound, Plus, QrCode, RotateCcw, Search,
   ShieldCheck, ShieldOff, Trash2, User, Users,
-  Printer,
+  Printer, FileUp,
 } from 'lucide-react';
 
 const EMPLOYEE_ROLES = [
@@ -585,6 +586,7 @@ export default function EmployeesPage() {
   const [editTarget, setEditTarget] = useState<Employee | null>(null);
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [badgeTarget, setBadgeTarget] = useState<Employee | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
   // Impressão dos crachás em lote: cartões da lista atual e a janela aberta no clique.
   const [badgeBatch, setBadgeBatch] = useState<{ cards: BadgeCard[]; skipped: number; win: Window } | null>(null);
   const [search, setSearch] = useState('');
@@ -744,6 +746,11 @@ export default function EmployeesPage() {
             }}
           >
             <Printer className="mr-2 h-4 w-4" aria-hidden="true" /> Imprimir crachás ({filteredEmployees.filter((e) => e.isActive).length})
+          </Button>
+        )}
+        {manager && (
+          <Button variant="outline" className="w-full shrink-0 sm:w-auto" onClick={() => setImportOpen(true)} title="Cadastrar vários colaboradores de uma vez a partir de uma planilha">
+            <FileUp className="mr-2 h-4 w-4" aria-hidden="true" /> Importar planilha
           </Button>
         )}
         {manager && <Dialog open={createOpen} onOpenChange={setCreateOpen}>
@@ -992,6 +999,7 @@ export default function EmployeesPage() {
       )}
 
       {badgeBatch && <BadgesPrint cards={badgeBatch.cards} skipped={badgeBatch.skipped} win={badgeBatch.win} onDone={() => setBadgeBatch(null)} />}
+      <EmployeeImportDialog open={importOpen} onClose={() => setImportOpen(false)} onImported={fetchEmployees} unitNames={units.map((u) => u.name)} />
 
       {badgeTarget && (
         <BadgeDialog
