@@ -147,7 +147,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const visibleGroups = MENU_GROUPS
     .map((group) => ({ ...group, items: group.items.filter((item) => canAccessPath(user.role, item.path)) }))
     .filter((group) => group.items.length > 0);
-  const currentItem = visibleGroups.flatMap(g => g.items).find(i => i.path === pathname);
+  const menuItems = visibleGroups.flatMap(g => g.items);
+  // Tela interna (ex.: construtor em /dashboard/templates/<id>) usa o nome da seção do menu.
+  const currentItem = menuItems.find(i => i.path === pathname)
+    ?? menuItems.find(i => i.path !== '/dashboard' && pathname.startsWith(`${i.path}/`));
 
   const sidebarContent = (
     <div className="flex flex-col h-full bg-slate-950 text-slate-300">
