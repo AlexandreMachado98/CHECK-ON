@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsInt, IsNotEmpty, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
+import { IsDateString, Matches, IsInt, IsNotEmpty, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
 
 export class MaintenanceScheduleDto {
   @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
@@ -12,6 +12,17 @@ export class MaintenanceScheduleDto {
   @Min(1)
   @Max(9_999_999)
   intervalKm!: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(36500)
+  intervalDays?: number | null;
+
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  @IsDateString({ strict: true })
+  baseDate?: string;
 
   @IsInt()
   @Min(0)
@@ -27,6 +38,8 @@ export class CreateMaintenancePlanDto extends MaintenanceScheduleDto {
   @Min(0)
   @Max(9_999_999)
   baseKm!: number;
+
+
 }
 
 export class UpdateMaintenancePlanDto extends MaintenanceScheduleDto {
@@ -46,6 +59,22 @@ export class RecordMaintenanceDto {
   @Min(0)
   @Max(9_999_999)
   mileageKm!: number;
+
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  @IsDateString({ strict: true })
+  serviceDate?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(160)
+  workshop?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(2147483647)
+  costCents?: number;
 
   @IsOptional()
   @IsString()
