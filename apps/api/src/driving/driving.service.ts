@@ -5,7 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RateLimiter } from '../common/rate-limit';
 import { dashboardTimeZone, startOfDayInTimeZone } from '../dashboard/time-zone';
 import { PassengerQrDto, SubmitDrivingFeedbackDto, TreatDrivingFeedbackDto } from './dto/driving.dto';
-import { DRIVING_TAGS, REPEAT_WINDOW_HOURS, findPassengerVehicle, isAlert, shortName } from './driving-rules';
+import { DRIVING_TAGS, REPEAT_WINDOW_HOURS, TAG_GROUPS, contradiction, findPassengerVehicle, isAlert, shortName } from './driving-rules';
 
 /** Envios por IP na janela: sobra para um ônibus cheio no mesmo Wi-Fi, barra robô. */
 const IP_MAX = 60;
@@ -40,6 +40,7 @@ export class DrivingService {
       current: current && this.option(current),
       others: drivers.filter((d) => d !== current).map((d) => this.option(d)),
       tags: DRIVING_TAGS,
+      tagGroups: TAG_GROUPS,
     };
   }
 
@@ -57,6 +58,8 @@ export class DrivingService {
       checklist = { id: chosen.id, driverId: chosen.driverId };
     }
     const tags = [...new Set(dto.tags ?? [])];
+    const conflict = contradiction(tags);
+    if (conflict) throw new BadRequestException(`Marque só um entre "${conflict[0]}" e "${conflict[1]}".`);
     const deviceHash = dto.deviceId ? createHash('sha256').update(`${vehicle.tenantId}:${dto.deviceId}`).digest('hex') : null;
     if (deviceHash) {
       const recent = await this.prisma.drivingFeedback.findFirst({
@@ -139,6 +142,7 @@ export class DrivingService {
       drivers,
       items: items.map(({ deviceHash: _hidden, ...item }) => item),
       tags: DRIVING_TAGS,
+      tagGroups: TAG_GROUPS,
     };
   }
 

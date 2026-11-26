@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Bus, CheckCircle2, ChevronRight, Lightbulb, LoaderCircle, ShieldCheck, Star, TriangleAlert, UserRound } from 'lucide-react';
+import { ArrowLeft, Bus, CheckCircle2, ChevronRight, Lightbulb, LoaderCircle, ShieldCheck, Star, ThumbsUp, TriangleAlert, UserRound } from 'lucide-react';
 import api from '@/lib/api';
+import { toggleTag, type TagGroups } from '@/lib/driving';
 import { apiErrorMessage } from '@/lib/types';
 
 type DriverOption = { checklistId: string; driverName: string; plate: string; prefix: string | null; model: string | null; completedAt: string | null };
@@ -13,6 +14,8 @@ type PublicVehicle = {
   current: DriverOption | null;
   others: DriverOption[];
   tags: Record<string, string>;
+  /** API antiga não manda: todos os pontos viram "de atenção". */
+  tagGroups?: TagGroups;
 };
 type Step = 'menu' | 'driver' | 'rate' | 'done' | 'suggest' | 'suggested';
 type SavedSuggestion = { protocol: string; followToken: string; at: string };
@@ -333,20 +336,48 @@ export default function PassengerPage({ token }: { token: string }) {
                 </div>
               </fieldset>
 
-              <fieldset className="mt-5">
-                <legend className="text-sm font-semibold">Algo chamou sua atenção? <span className="font-normal text-slate-500">(opcional)</span></legend>
-                <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {Object.entries(data.tags).map(([key, label]) => {
-                    const checked = tags.includes(key);
-                    return (
-                      <label key={key} className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2.5 text-sm ${checked ? 'border-rose-300 bg-rose-50 text-rose-900' : 'border-slate-200'}`}>
-                        <input type="checkbox" className="h-4 w-4 accent-rose-700" checked={checked} onChange={() => setTags(checked ? tags.filter((t) => t !== key) : [...tags, key])} />
-                        {label}
-                      </label>
-                    );
-                  })}
-                </div>
-              </fieldset>
+              {(() => {
+                const groups = data.tagGroups ?? { positive: [], attention: Object.keys(data.tags) };
+                const positive = (
+                  <fieldset key="positive" className="mt-5">
+                    <legend className="flex items-center gap-1.5 text-sm font-semibold text-emerald-900">
+                      <ThumbsUp className="h-4 w-4" aria-hidden="true" /> O que foi bom? <span className="font-normal text-slate-500">(opcional)</span>
+                    </legend>
+                    <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {groups.positive.map((key) => {
+                        const checked = tags.includes(key);
+                        return (
+                          <label key={key} className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2.5 text-sm ${checked ? 'border-emerald-500 bg-emerald-50 font-medium text-emerald-900' : 'border-slate-200'}`}>
+                            <input type="checkbox" className="h-4 w-4 accent-emerald-700" checked={checked} onChange={() => setTags(toggleTag(tags, key))} />
+                            {data.tags[key] ?? key}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </fieldset>
+                );
+                const attention = (
+                  <fieldset key="attention" className="mt-5">
+                    <legend className="flex items-center gap-1.5 text-sm font-semibold text-rose-900">
+                      <TriangleAlert className="h-4 w-4" aria-hidden="true" /> Algo errado? <span className="font-normal text-slate-500">(marque só se aconteceu)</span>
+                    </legend>
+                    <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {groups.attention.map((key) => {
+                        const checked = tags.includes(key);
+                        return (
+                          <label key={key} className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2.5 text-sm ${checked ? 'border-rose-300 bg-rose-50 font-medium text-rose-900' : 'border-slate-200'}`}>
+                            <input type="checkbox" className="h-4 w-4 accent-rose-700" checked={checked} onChange={() => setTags(toggleTag(tags, key))} />
+                            {data.tags[key] ?? key}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </fieldset>
+                );
+                // Nota boa (ou ainda sem nota): elogios primeiro. Nota 1 ou 2: o que deu errado primeiro.
+                const first = rating > 0 && rating <= 2 ? [attention, positive] : [positive, attention];
+                return groups.positive.length ? first : attention;
+              })()}
 
               <div className="mt-5">
                 <label htmlFor="comment" className="text-sm font-semibold">Comentário <span className="font-normal text-slate-500">(opcional)</span></label>

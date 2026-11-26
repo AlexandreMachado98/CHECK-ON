@@ -33,6 +33,7 @@ export interface DrivingOverview {
   drivers: DriverRanking[];
   items: DrivingFeedbackItem[];
   tags: Record<string, string>;
+  tagGroups?: TagGroups;
 }
 
 export const FEEDBACK_STATUS: Record<FeedbackStatus, { label: string; badge: string }> = {
@@ -40,3 +41,24 @@ export const FEEDBACK_STATUS: Record<FeedbackStatus, { label: string; badge: str
   EM_ANALISE: { label: 'Em análise', badge: 'bg-amber-50 text-amber-900 border-amber-200' },
   TRATADA: { label: 'Tratada', badge: 'bg-emerald-50 text-emerald-800 border-emerald-200' },
 };
+
+/** Grupos de pontos que o passageiro marca (iguais aos da API). */
+export interface TagGroups { positive: string[]; attention: string[] }
+
+/** Pontos que se contradizem (igual a OPPOSITE_TAGS da API): marcar um desmarca o outro. */
+export const OPPOSITE_TAGS: [string, string][] = [
+  ['DIRECAO_SEGURA', 'VELOCIDADE'],
+  ['DIRECAO_SEGURA', 'FREADAS'],
+  ['DIRECAO_SEGURA', 'CELULAR'],
+  ['EDUCADO', 'CORTESIA'],
+  ['PONTUAL', 'PONTUALIDADE'],
+  ['VEICULO_LIMPO', 'LIMPEZA'],
+  ['TRANQUILA', 'FREADAS'],
+];
+
+/** Marca ou desmarca um ponto; ao marcar, tira os que o contradizem. */
+export function toggleTag(tags: string[], key: string): string[] {
+  if (tags.includes(key)) return tags.filter((t) => t !== key);
+  const opposites = OPPOSITE_TAGS.flatMap(([a, b]) => (a === key ? [b] : b === key ? [a] : []));
+  return [...tags.filter((t) => !opposites.includes(t)), key];
+}

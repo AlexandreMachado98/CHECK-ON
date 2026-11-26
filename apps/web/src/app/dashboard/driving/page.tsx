@@ -135,6 +135,8 @@ export default function DrivingPage() {
 
   const summary = data?.summary;
   const tags = data?.tags ?? {};
+  // Pontos positivos em verde, de atenção em vermelho (API antiga: todos de atenção).
+  const positiveTags = new Set(data?.tagGroups?.positive ?? []);
 
   return (
     <>
@@ -262,7 +264,11 @@ export default function DrivingPage() {
                       <p className="text-xs text-slate-500">{format(new Date(item.createdAt), "dd/MM/yyyy 'às' HH:mm")}</p>
                       {item.tags.length > 0 && (
                         <div className="flex flex-wrap gap-1">
-                          {item.tags.map((t) => <span key={t} className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700">{tags[t] ?? t}</span>)}
+                          {item.tags.map((t) => (
+                            <span key={t} className={`rounded px-1.5 py-0.5 text-xs ${positiveTags.has(t) ? 'bg-emerald-50 text-emerald-900' : 'bg-rose-50 text-rose-900'}`}>
+                              {positiveTags.has(t) ? '+ ' : '! '}{tags[t] ?? t}
+                            </span>
+                          ))}
                         </div>
                       )}
                       {item.comment && <p className="flex items-start gap-1.5 whitespace-pre-line text-sm text-slate-800"><MessageSquare className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden="true" />{item.comment}</p>}

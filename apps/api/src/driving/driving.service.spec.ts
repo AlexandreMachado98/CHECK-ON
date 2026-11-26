@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BadRequestException, HttpException, NotFoundException } from '@nestjs/common';
 import { DrivingService } from './driving.service';
-import { isAlert, shortName } from './driving-rules';
+import { TAG_GROUPS, contradiction, isAlert, shortName } from './driving-rules';
 
 const TOKEN = 'a'.repeat(32);
 const vehicle = { id: 'v1', tenantId: 't1', plate: 'ABC1D23', prefix: 'P-1', model: 'Ônibus', fleet: { unitId: 'u1' }, tenant: { name: 'Transportes Sul' } };
@@ -74,6 +74,27 @@ describe('Como estou dirigindo — página do passageiro', () => {
     const { driving, prisma } = service();
     await driving.submit(TOKEN, { rating: 2 }, undefined);
     expect(prisma.drivingFeedback.create.mock.calls[0][0].data).toMatchObject({ driverId: null, checklistId: null, alert: true, deviceHash: null });
+  });
+});
+
+describe('Como estou dirigindo — pontos positivos e de atenção', () => {
+  it('a página recebe os dois grupos; elogios não viram alerta', async () => {
+    const { driving, prisma } = service({ checklists: [chk('c4', 'v1', 'd2', 'Bruno Lima', 12)] });
+    const page = await driving.publicVehicle(TOKEN);
+    expect(page.tagGroups.positive).toContain('DIRECAO_SEGURA');
+    expect(page.tagGroups.attention).toContain('CELULAR');
+    expect(page.tags.EDUCADO).toBe('Motorista educado');
+    await driving.submit(TOKEN, { checklistId: 'c4', rating: 5, tags: ['DIRECAO_SEGURA', 'EDUCADO', 'PONTUAL'] }, '1.2.3.4');
+    expect(prisma.drivingFeedback.create.mock.calls[0][0].data).toMatchObject({ alert: false, tags: ['DIRECAO_SEGURA', 'EDUCADO', 'PONTUAL'] });
+  });
+
+  it('recusa pontos que se contradizem (ex.: pontual e atraso)', async () => {
+    const { driving, prisma } = service({ checklists: [chk('c4', 'v1', 'd2', 'Bruno Lima', 12)] });
+    await expect(driving.submit(TOKEN, { checklistId: 'c4', rating: 3, tags: ['PONTUAL', 'PONTUALIDADE'] }, '1.2.3.4')).rejects.toThrow('Marque só um entre "Pontual" e "Atraso"');
+    expect(prisma.drivingFeedback.create).not.toHaveBeenCalled();
+    expect(contradiction(['DIRECAO_SEGURA', 'CELULAR'])).toEqual(['Direção segura', 'Celular ao volante']);
+    expect(contradiction(['EDUCADO', 'VELOCIDADE'])).toBeNull();
+    expect(TAG_GROUPS.positive.some((t) => TAG_GROUPS.attention.includes(t))).toBe(false);
   });
 });
 
