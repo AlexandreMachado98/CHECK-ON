@@ -9,6 +9,7 @@ import api from '@/lib/api';
 import { apiErrorMessage } from '@/lib/types';
 import { getStoredUser } from '@/lib/session';
 import { useUnits, unitLabel } from '@/components/unit-picker';
+import { notify } from '@/components/feedback';
 import {
   type Delta,
   type PeriodKey,
@@ -146,7 +147,7 @@ export default function ReportsPage() {
       if (kind === 'pdf') await downloadReportPdf(report, res.data, context);
       else downloadReportCsv(report, res.data, context);
     } catch (error) {
-      alert(apiErrorMessage(error, 'Não foi possível gerar o arquivo do relatório.'));
+      notify(apiErrorMessage(error, 'Não foi possível gerar o arquivo do relatório.'));
     } finally {
       setExporting('');
     }

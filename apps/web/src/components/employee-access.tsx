@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { UnitBadges, UnitMultiPicker, UnitScopeHint, defaultUnitIds, useUnits } from '@/components/unit-picker';
+import { notify, confirmAction } from '@/components/feedback';
 
 /** Perfis que só veem as frentes de trabalho marcadas no login. */
 const UNIT_SCOPED_ROLES = ['GESTOR', 'SUPERVISOR'];
@@ -251,12 +252,12 @@ export function CreateAccessDialog({
 
 /** Gera uma nova senha provisória para quem esqueceu a senha. Devolve as credenciais ou null se cancelado/falhou. */
 export async function resetAccessPassword(userId: string, name: string): Promise<AccessCredentials | null> {
-  if (!window.confirm(`Gerar uma nova senha provisória para ${name}? A senha atual deixa de funcionar e a pessoa sai dos aparelhos conectados.`)) return null;
+  if (!(await confirmAction({ message: `Gerar uma nova senha provisória para ${name}? A senha atual deixa de funcionar e a pessoa sai dos aparelhos conectados.`, title: 'Gerar nova senha', confirmLabel: 'Gerar nova senha' }))) return null;
   try {
     const res = await api.post<{ credentials: AccessCredentials }>(`/users/${userId}/reset-password`);
     return res.data.credentials;
   } catch (err) {
-    alert(apiErrorMessage(err, 'Não foi possível redefinir a senha.'));
+    notify(apiErrorMessage(err, 'Não foi possível redefinir a senha.'));
     return null;
   }
 }
@@ -266,12 +267,12 @@ export async function toggleAccess(access: EmployeeAccess, name: string): Promis
   const question = access.isActive
     ? `Bloquear o acesso de ${name}? A pessoa sai do aplicativo e do portal em até 30 segundos.`
     : `Liberar de novo o acesso de ${name}?`;
-  if (!window.confirm(question)) return false;
+  if (!(await confirmAction({ message: question, title: access.isActive ? 'Bloquear acesso' : 'Liberar acesso', confirmLabel: access.isActive ? 'Bloquear' : 'Liberar', danger: access.isActive }))) return false;
   try {
     await api.patch(`/users/${access.id}`, { isActive: !access.isActive });
     return true;
   } catch (err) {
-    alert(apiErrorMessage(err, 'Não foi possível alterar o acesso.'));
+    notify(apiErrorMessage(err, 'Não foi possível alterar o acesso.'));
     return false;
   }
 }

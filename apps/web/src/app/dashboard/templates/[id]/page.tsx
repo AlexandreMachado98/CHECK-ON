@@ -16,6 +16,7 @@ import { useUnits } from '@/components/unit-picker';
 import { TemplateUnitsDialog, TemplateUnitsLabel } from '@/components/template-units';
 import { getStoredUser } from '@/lib/session';
 import { seesAllUnits } from '@/lib/roles';
+import { notify, confirmAction } from '@/components/feedback';
 
 const ITEM_TYPES: { value: ItemType; label: string; description: string; icon: React.ElementType }[] = [
   { value: 'PASS_FAIL', label: 'Conformidade (OK / NC)', description: 'O inspetor avalia a condição do item.', icon: CheckCircle2 },
@@ -331,7 +332,7 @@ export default function TemplateBuilderPage() {
       setNewCatName('');
       fetchTemplate();
     } catch (error) {
-      alert(apiErrorMessage(error, 'Erro ao adicionar seção.'));
+      notify(apiErrorMessage(error, 'Erro ao adicionar seção.'));
     } finally {
       setAddingCat(false);
     }
@@ -355,7 +356,7 @@ export default function TemplateBuilderPage() {
       ]);
       await fetchTemplate();
     } catch (error) {
-      alert(apiErrorMessage(error, 'Não foi possível reordenar a seção.'));
+      notify(apiErrorMessage(error, 'Não foi possível reordenar a seção.'));
     }
   }
 
@@ -373,12 +374,12 @@ export default function TemplateBuilderPage() {
       ]);
       await fetchTemplate();
     } catch (error) {
-      alert(apiErrorMessage(error, 'Não foi possível reordenar a regra.'));
+      notify(apiErrorMessage(error, 'Não foi possível reordenar a regra.'));
     }
   }
 
   async function handleDeleteCategory(categoryId: string) {
-    if (!confirm('Remover esta seção e todas as suas regras?')) return;
+    if (!(await confirmAction({ message: 'Remover esta seção e todas as suas regras?', title: 'Remover seção', confirmLabel: 'Remover', danger: true }))) return;
     await api.delete(`/templates/categories/${categoryId}`);
     fetchTemplate();
   }
@@ -394,7 +395,7 @@ export default function TemplateBuilderPage() {
   }
 
   async function handleDeleteItem(itemId: string) {
-    if (!confirm('Remover esta regra?')) return;
+    if (!(await confirmAction({ message: 'Remover esta regra?', title: 'Remover regra', confirmLabel: 'Remover', danger: true }))) return;
     await api.delete(`/templates/items/${itemId}`);
     fetchTemplate();
   }
@@ -447,7 +448,7 @@ export default function TemplateBuilderPage() {
                 await fetchTemplate();
               } catch (error) {
                 const message = (error as { response?: { data?: { message?: string | string[] } } }).response?.data?.message;
-                alert(Array.isArray(message) ? message.join('\n') : message || 'Não foi possível alterar o status do modelo.');
+                notify(Array.isArray(message) ? message.join('\n') : message || 'Não foi possível alterar o status do modelo.');
               }
             }}
           >

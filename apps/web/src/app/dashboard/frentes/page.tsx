@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Activity, Briefcase, Edit2, Plus, Power, Trash2 } from 'lucide-react';
+import { notify, confirmAction } from '@/components/feedback';
 
 type FormState = { name: string; client: string };
 const EMPTY: FormState = { name: '', client: '' };
@@ -49,7 +50,7 @@ export default function FrentesPage() {
       setOpen(false);
       await reload();
     } catch (error) {
-      alert(apiErrorMessage(error, 'Não foi possível salvar a frente de trabalho.'));
+      notify(apiErrorMessage(error, 'Não foi possível salvar a frente de trabalho.'));
     } finally {
       setSaving(false);
     }
@@ -59,22 +60,22 @@ export default function FrentesPage() {
     const question = unit.isActive
       ? `Desativar a frente "${unit.name}"? Gestores, supervisores e motoristas vinculados deixam de ver as frotas, veículos, inspeções e NCs dela. Você (administrador) continua vendo tudo.`
       : `Reativar a frente "${unit.name}"? Quem está vinculado volta a ver os dados dela.`;
-    if (!window.confirm(question)) return;
+    if (!(await confirmAction({ message: question, title: unit.isActive ? 'Desativar frente de trabalho' : 'Reativar frente de trabalho', confirmLabel: unit.isActive ? 'Desativar' : 'Reativar', danger: unit.isActive }))) return;
     try {
       await api.patch(`/units/${unit.id}`, { isActive: !unit.isActive });
       await reload();
     } catch (error) {
-      alert(apiErrorMessage(error, 'Não foi possível alterar a frente de trabalho.'));
+      notify(apiErrorMessage(error, 'Não foi possível alterar a frente de trabalho.'));
     }
   }
 
   async function remove(unit: Unit) {
-    if (!window.confirm(`Excluir a frente "${unit.name}"? Os vínculos de colaboradores, usuários e modelos com ela serão removidos.`)) return;
+    if (!(await confirmAction({ message: `Excluir a frente "${unit.name}"? Os vínculos de colaboradores, usuários e modelos com ela serão removidos.`, title: 'Excluir frente de trabalho', confirmLabel: 'Excluir', danger: true }))) return;
     try {
       await api.delete(`/units/${unit.id}`);
       await reload();
     } catch (error) {
-      alert(apiErrorMessage(error, 'Não foi possível excluir a frente de trabalho.'));
+      notify(apiErrorMessage(error, 'Não foi possível excluir a frente de trabalho.'));
     }
   }
 

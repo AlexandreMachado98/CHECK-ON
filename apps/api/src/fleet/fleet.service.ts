@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { currentUnitIds } from '../common/unit-scope';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateFleetDto } from './dto/create-fleet.dto';
@@ -10,10 +10,25 @@ export class FleetService {
 
   async create(createDto: CreateFleetDto) {
     const unitId = await this.resolveUnitId(createDto.unitId);
+    const name = createDto.name.trim();
+    await this.assertNameFree(name, unitId);
     return this.prisma.fleet.create({
       // O tenantId é preenchido pela extensão do Prisma.
-      data: { name: createDto.name, description: createDto.description || null, unitId } as never,
+      data: { name, description: createDto.description || null, unitId } as never,
     });
+  }
+
+  /**
+   * Duas frotas com o mesmo nome na mesma frente confundem quem escolhe a frota (ao cadastrar
+   * veículo, nos filtros e relatórios). Em frentes diferentes o mesmo nome é permitido.
+   * Compara sem diferenciar maiúsculas e minúsculas.
+   */
+  private async assertNameFree(name: string, unitId: string, exceptId?: string) {
+    const clash = await this.prisma.fleet.findFirst({
+      where: { unitId, name: { equals: name, mode: 'insensitive' }, ...(exceptId ? { NOT: { id: exceptId } } : {}) },
+      select: { id: true },
+    });
+    if (clash) throw new ConflictException(`Já existe a frota "${name}" nesta frente de trabalho. Use outro nome.`);
   }
 
   /**
@@ -64,12 +79,15 @@ export class FleetService {
   }
 
   async update(id: string, updateDto: UpdateFleetDto) {
-    await this.findOne(id);
+    const current = await this.findOne(id);
     const data: { name?: string; description?: string | null; unitId?: string; isActive?: boolean } = {};
-    if (updateDto.name !== undefined) data.name = updateDto.name;
+    if (updateDto.name !== undefined) data.name = updateDto.name.trim();
     if (updateDto.description !== undefined) data.description = updateDto.description || null;
     if (updateDto.isActive !== undefined) data.isActive = updateDto.isActive;
     if (updateDto.unitId !== undefined) data.unitId = await this.resolveUnitId(updateDto.unitId);
+    if (data.name !== undefined || data.unitId !== undefined) {
+      await this.assertNameFree(data.name ?? current.name, data.unitId ?? current.unitId, id);
+    }
     return this.prisma.fleet.update({ where: { id }, data });
   }
 

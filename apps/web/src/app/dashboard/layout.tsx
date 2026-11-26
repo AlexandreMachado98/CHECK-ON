@@ -8,6 +8,7 @@ import type { AuthUser } from '@/lib/types';
 import { PANEL_ROLES, canAccessPath, homePathFor, roleLabel } from '@/lib/roles';
 import { clearSession, returnToPlatform } from '@/lib/session';
 import { SubscriptionBanner } from '@/components/subscription-banner';
+import { FeedbackHost } from '@/components/feedback';
 import { 
   LayoutDashboard, 
   ClipboardCheck,
@@ -313,6 +314,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             {!user.impersonating && user.role !== 'SUPER_ADMIN' && <SubscriptionBanner />}
             {children}
           </div>
+          {/* Avisos e confirmações do portal (no lugar de alert/confirm do navegador). */}
+          <FeedbackHost />
         </main>
 
       </div>

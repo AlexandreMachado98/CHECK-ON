@@ -20,6 +20,7 @@ import { photoAtWidth } from '@/lib/photo-url';
 
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { notify, confirmAction } from '@/components/feedback';
 
 export default function ExecutionsPage() {
   const [checklists, setChecklists] = useState<Checklist[]>([]);
@@ -41,10 +42,8 @@ export default function ExecutionsPage() {
     if (!checklist) return;
     const when = checklist.completedAt || checklist.startedAt;
     const label = `${checklist.vehicle?.plate ?? 'veículo'} · ${when ? format(new Date(when), "dd/MM/yyyy 'às' HH:mm") : ''}`;
-    const ok = window.confirm(
-      `Excluir a inspeção ${label}?\n\nSerão apagadas as respostas, as fotos, a assinatura e as NCs abertas por ela. ` +
-        'A situação do veículo é recalculada. Não tem como desfazer.',
-    );
+    const ok = (await confirmAction({ message: `Excluir a inspeção ${label}?\n\nSerão apagadas as respostas, as fotos, a assinatura e as NCs abertas por ela. ` +
+        'A situação do veículo é recalculada. Não tem como desfazer.', title: 'Excluir inspeção', confirmLabel: 'Excluir', danger: true }));
     if (!ok) return;
     setDeleting(true);
     try {
@@ -52,7 +51,7 @@ export default function ExecutionsPage() {
       setSelectedChecklist(null);
       await fetchChecklists();
     } catch (error) {
-      alert(apiErrorMessage(error, 'Não foi possível excluir a inspeção.'));
+      notify(apiErrorMessage(error, 'Não foi possível excluir a inspeção.'));
     } finally {
       setDeleting(false);
     }
@@ -68,7 +67,7 @@ export default function ExecutionsPage() {
       await downloadChecklistPdf(selectedChecklist, { companyName: user?.tenantName, generatedBy: user?.name });
     } catch (error) {
       console.error('Falha ao gerar o PDF', error);
-      alert('Não foi possível gerar o PDF desta inspeção. Tente de novo.');
+      notify('Não foi possível gerar o PDF desta inspeção. Tente de novo.');
     } finally {
       setPdfWorking(false);
     }

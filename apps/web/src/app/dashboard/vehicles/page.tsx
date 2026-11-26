@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Activity, AlertOctagon, Lock, Search, ShieldCheck, TriangleAlert, Truck, LockOpen, QrCode } from 'lucide-react';
 import { VehicleQrDialog } from '@/components/vehicle-qr';
+import { confirmAction } from '@/components/feedback';
 
 const TILES: { status: VehicleStatus; icon: React.ElementType; tone: string }[] = [
   { status: 'LIBERADO', icon: ShieldCheck, tone: 'text-emerald-700' },
@@ -52,7 +53,7 @@ export default function VehiclesPage() {
 
   async function changeStatus(vehicle: Vehicle, status: VehicleStatus) {
     const verb = status === 'BLOQUEADO' ? 'bloquear' : 'liberar';
-    if (!window.confirm(`Deseja ${verb} o veículo ${vehicle.plate}?`)) return;
+    if (!(await confirmAction({ message: `Deseja ${verb} o veículo ${vehicle.plate}?`, title: status === 'BLOQUEADO' ? 'Bloquear veículo' : 'Liberar veículo', confirmLabel: status === 'BLOQUEADO' ? 'Bloquear' : 'Liberar', danger: status === 'BLOQUEADO' }))) return;
     try {
       setSavingId(vehicle.id);
       setRowError(null);
