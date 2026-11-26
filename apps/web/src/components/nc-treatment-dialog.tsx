@@ -6,7 +6,8 @@ import { ArrowRight, Camera, ImagePlus, Loader2, X } from 'lucide-react';
 import api from '@/lib/api';
 import { shrinkImage } from '@/lib/image';
 import { apiErrorMessage, type NC, type NCStatus } from '@/lib/types';
-import { NC_STATUS, NcSeverityBadge } from '@/lib/status';
+import { NC_STATUS, NcSeverityBadge, VEHICLE_STATUS } from '@/lib/status';
+import { notify } from '@/components/feedback';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -107,11 +108,22 @@ export function NcTreatmentDialog({ nc, onClose, onSaved }: { nc: NC | null; onC
     setSaving(true);
     setError('');
     try {
-      await api.post(`/ncs/${current.id}/actions`, {
+      const changed = status !== current.status;
+      const res = await api.post<NC>(`/ncs/${current.id}/actions`, {
         text: text.trim() || undefined,
-        status: status !== current.status ? status : undefined,
+        status: changed ? status : undefined,
         photoUrls: photos.length ? photos : undefined,
       });
+      // Confirma o que foi gravado e, se mudou a situação, como ficou o veículo (é recalculado).
+      const saved = res.data;
+      const savedVehicle = saved?.vehicle ?? saved?.answer?.checklist?.vehicle;
+      const vehicleLabel = savedVehicle?.status ? VEHICLE_STATUS[savedVehicle.status as keyof typeof VEHICLE_STATUS]?.label : undefined;
+      notify(
+        changed
+          ? `NC ${NC_STATUS[status].label.toLowerCase()}.${savedVehicle?.plate && vehicleLabel ? ` Veículo ${savedVehicle.plate} agora: ${vehicleLabel}.` : ''}`
+          : 'Tratativa registrada.',
+        'success',
+      );
       onSaved();
       onClose();
     } catch (err) {
