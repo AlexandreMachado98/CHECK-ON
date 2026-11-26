@@ -17,7 +17,8 @@ export function passengerUrl(token: string): string {
 
 /**
  * Adesivos "Como estou dirigindo?" para colar dentro do veículo (4 por folha A4). O QR abre a
- * página pública do passageiro; é diferente do QR da inspeção (o motorista não confunde os dois).
+ * página pública do passageiro (avaliar a direção ou enviar sugestão de melhoria); é diferente do
+ * QR da inspeção (o motorista não confunde os dois).
  */
 export function PassengerLabelsPrint({ labels, company, win, onDone }: { labels: PassengerLabel[]; company: string; win: Window; onDone: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -29,7 +30,7 @@ export function PassengerLabelsPrint({ labels, company, win, onDone }: { labels:
     const svgs = [...(ref.current?.querySelectorAll('svg') ?? [])].map((svg) => svg.outerHTML);
     const html = labels.map((l, i) => `<div class="label">
   <div class="title">Como estou dirigindo?</div>
-  <div class="lead">Aponte a câmera do celular e avalie a direção</div>
+  <div class="lead">Aponte a câmera do celular para avaliar a direção ou enviar uma sugestão de melhoria</div>
   ${svgs[i] ?? ''}
   <div class="plate">${escapeHtml(l.prefix ? `${l.prefix} · ${l.plate}` : l.plate)}</div>
   <div class="foot">${escapeHtml(company)} · avaliação anônima · CHECK-ON</div>

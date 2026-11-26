@@ -1,3 +1,6 @@
+import { NotFoundException } from '@nestjs/common';
+import type { PrismaService } from '../prisma/prisma.service';
+
 /** Pontos que o passageiro pode marcar na avaliação, com o texto mostrado na página e no portal. */
 export const DRIVING_TAGS = {
   VELOCIDADE: 'Excesso de velocidade',
@@ -34,3 +37,17 @@ export function shortName(fullName: string): string {
 
 /** Código do QR do passageiro: 24 bytes em base64url (32 caracteres). */
 export const PASSENGER_TOKEN_PATTERN = /^[A-Za-z0-9_-]{32}$/;
+
+/**
+ * Veículo do QR do passageiro (página pública, sem login): a empresa e a frente vêm do cadastro da
+ * placa (frota do veículo). Veículo inativo, empresa desativada ou código trocado: 404.
+ */
+export async function findPassengerVehicle(prisma: PrismaService, token: string) {
+  if (!PASSENGER_TOKEN_PATTERN.test(token)) throw new NotFoundException('Este QR Code não é válido ou foi trocado.');
+  const vehicle = await prisma.vehicle.findFirst({
+    where: { passengerToken: token, isActive: true, tenant: { isActive: true } },
+    select: { id: true, tenantId: true, plate: true, prefix: true, model: true, fleet: { select: { unitId: true } }, tenant: { select: { name: true } } },
+  });
+  if (!vehicle) throw new NotFoundException('Este QR Code não é válido ou foi trocado.');
+  return vehicle;
+}

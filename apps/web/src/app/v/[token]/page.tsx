@@ -4,7 +4,7 @@ import PassengerPage from './passenger';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Como estou dirigindo? | CHECK-ON',
+  title: 'Canal do passageiro | CHECK-ON',
   robots: { index: false, follow: false, noarchive: true },
 };
 

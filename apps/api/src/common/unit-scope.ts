@@ -96,6 +96,9 @@ export function unitScopeFilter(model: string, scope: UnitScope): Record<string,
     case 'MaintenanceRecord':
     case 'DrivingFeedback':
       return { vehicle: vehicleFilter(unitIds) };
+    case 'Suggestion':
+      // Frente gravada no envio (a da placa naquele momento).
+      return { unitId: inUnits(unitIds) };
     case 'TemplateCategory':
       return { template: templateFilter(unitIds) };
     case 'TemplateItem':

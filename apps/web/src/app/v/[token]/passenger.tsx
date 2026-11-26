@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Bus, CheckCircle2, ChevronRight, LoaderCircle, ShieldCheck, Star, TriangleAlert, UserRound } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowLeft, Bus, CheckCircle2, ChevronRight, Lightbulb, LoaderCircle, ShieldCheck, Star, TriangleAlert, UserRound } from 'lucide-react';
 import api from '@/lib/api';
 import { apiErrorMessage } from '@/lib/types';
 
@@ -13,10 +14,38 @@ type PublicVehicle = {
   others: DriverOption[];
   tags: Record<string, string>;
 };
-type Step = 'menu' | 'driver' | 'rate' | 'done';
+type Step = 'menu' | 'driver' | 'rate' | 'done' | 'suggest' | 'suggested';
+type SavedSuggestion = { protocol: string; followToken: string; at: string };
 
 const RATINGS = ['Péssima', 'Ruim', 'Regular', 'Boa', 'Ótima'];
 const DEVICE_KEY = 'checkon-passageiro';
+const SUGGESTIONS_KEY = 'checkon-sugestoes';
+const CATEGORIES: [string, string][] = [
+  ['CONFORTO', 'Conforto'],
+  ['HORARIO', 'Horário'],
+  ['ROTA', 'Rota ou itinerário'],
+  ['SEGURANCA', 'Segurança'],
+  ['LIMPEZA', 'Limpeza'],
+  ['OUTRO', 'Outro assunto'],
+];
+
+/** Protocolos enviados deste aparelho, para o passageiro voltar a acompanhar (o mais novo primeiro). */
+function savedSuggestions(): SavedSuggestion[] {
+  try {
+    const list = JSON.parse(localStorage.getItem(SUGGESTIONS_KEY) ?? '[]');
+    return Array.isArray(list) ? list.filter((s) => s && typeof s.protocol === 'string' && typeof s.followToken === 'string').slice(0, 10) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveSuggestion(item: SavedSuggestion) {
+  try {
+    localStorage.setItem(SUGGESTIONS_KEY, JSON.stringify([item, ...savedSuggestions()].slice(0, 10)));
+  } catch {
+    // Sem armazenamento: o protocolo continua na tela para anotar.
+  }
+}
 
 /** Identificador aleatório do aparelho (só para não repetir a avaliação); sem armazenamento, segue sem ele. */
 function deviceId(): string | undefined {
@@ -47,6 +76,11 @@ export default function PassengerPage({ token }: { token: string }) {
   const [contact, setContact] = useState('');
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState('');
+  const [category, setCategory] = useState('');
+  const [text, setText] = useState('');
+  const [created, setCreated] = useState<SavedSuggestion | null>(null);
+  const [mine, setMine] = useState<SavedSuggestion[]>([]);
+  useEffect(() => { setMine(savedSuggestions()); }, [step]);
 
   useEffect(() => {
     api.get<PublicVehicle>(`/public/vehicles/${encodeURIComponent(token)}`)
@@ -81,8 +115,37 @@ export default function PassengerPage({ token }: { token: string }) {
     }
   }
 
+  async function sendSuggestion(e: React.FormEvent) {
+    e.preventDefault();
+    if (!category) { setSendError('Escolha o assunto da sugestão.'); return; }
+    if (text.trim().length < 10) { setSendError('Conte um pouco mais (pelo menos 10 caracteres).'); return; }
+    setSending(true);
+    setSendError('');
+    try {
+      const res = await api.post<{ protocol: string; followToken: string }>(`/public/vehicles/${encodeURIComponent(token)}/suggestions`, {
+        category,
+        text: text.trim(),
+        ...(contact.trim() ? { contact: contact.trim() } : {}),
+        deviceId: deviceId(),
+      });
+      const item = { ...res.data, at: new Date().toISOString() };
+      saveSuggestion(item);
+      setCreated(item);
+      setStep('suggested');
+    } catch (err) {
+      setSendError(apiErrorMessage(err, 'Não foi possível enviar. Confira a internet e tente de novo.'));
+    } finally {
+      setSending(false);
+    }
+  }
+
+  function openStep(next: Step) {
+    setSendError('');
+    setStep(next);
+  }
+
   const back = (to: Step) => (
-    <button type="button" onClick={() => setStep(to)} className="mb-3 inline-flex items-center text-sm font-medium text-slate-600 hover:text-slate-900">
+    <button type="button" onClick={() => openStep(to)} className="mb-3 inline-flex items-center text-sm font-medium text-slate-600 hover:text-slate-900">
       <ArrowLeft className="mr-1 h-4 w-4" aria-hidden="true" /> Voltar
     </button>
   );
@@ -126,7 +189,79 @@ export default function PassengerPage({ token }: { token: string }) {
                 </span>
                 <ChevronRight className="h-5 w-5 shrink-0 text-slate-400" aria-hidden="true" />
               </button>
+              <button
+                type="button"
+                onClick={() => openStep('suggest')}
+                className="mt-3 flex w-full items-center gap-3 rounded-lg border border-slate-200 p-4 text-left transition-colors hover:border-emerald-600 hover:bg-emerald-50"
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-800"><Lightbulb className="h-5 w-5" aria-hidden="true" /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-semibold">Sugestão de melhoria</span>
+                  <span className="block text-sm text-slate-600">Proponha uma melhoria e acompanhe a resposta da empresa.</span>
+                </span>
+                <ChevronRight className="h-5 w-5 shrink-0 text-slate-400" aria-hidden="true" />
+              </button>
+              {mine.length > 0 && (
+                <div className="mt-5">
+                  <h3 className="text-sm font-semibold text-slate-700">Suas sugestões enviadas deste celular</h3>
+                  <ul className="mt-2 divide-y rounded-lg border">
+                    {mine.map((m) => (
+                      <li key={m.followToken}>
+                        <Link href={`/s/${m.followToken}`} className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm hover:bg-slate-50">
+                          <span><span className="font-mono font-semibold">{m.protocol}</span> <span className="text-slate-600">· {new Date(m.at).toLocaleDateString('pt-BR')}</span></span>
+                          <span className="text-emerald-800">Acompanhar</span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </>
+          ) : step === 'suggest' ? (
+            <form onSubmit={sendSuggestion}>
+              {back('menu')}
+              <h2 className="text-lg font-bold">Sugestão de melhoria</h2>
+              <p className="mt-1 text-sm text-slate-600">A sugestão vai para a gestão da frente de trabalho deste veículo. Você recebe um protocolo para acompanhar.</p>
+              <fieldset className="mt-4">
+                <legend className="text-sm font-semibold">Assunto</legend>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {CATEGORIES.map(([key, label]) => (
+                    <label key={key} className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2.5 text-sm ${category === key ? 'border-emerald-600 bg-emerald-50 font-medium text-emerald-900' : 'border-slate-200'}`}>
+                      <input type="radio" name="category" value={key} className="h-4 w-4 accent-emerald-700" checked={category === key} onChange={() => setCategory(key)} />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+              <div className="mt-4">
+                <label htmlFor="suggestion" className="text-sm font-semibold">Sua sugestão</label>
+                <textarea id="suggestion" value={text} onChange={(e) => setText(e.target.value)} maxLength={1000} rows={5} placeholder="O que pode melhorar? Ex.: antecipar a saída das 6h para chegar antes da troca de turno." className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-base focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/30" />
+                <p className="mt-1 text-right text-xs text-slate-600">{text.length}/1000</p>
+              </div>
+              <div className="mt-2">
+                <label htmlFor="suggestion-contact" className="text-sm font-semibold">Seu contato <span className="font-normal text-slate-500">(opcional)</span></label>
+                <input id="suggestion-contact" value={contact} onChange={(e) => setContact(e.target.value)} maxLength={120} placeholder="Telefone ou e-mail" className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-base focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/30" />
+              </div>
+              {sendError && <p role="alert" className="mt-3 text-sm text-rose-700">{sendError}</p>}
+              <button type="submit" disabled={sending} className="mt-5 w-full rounded-lg bg-emerald-700 px-4 py-3 font-semibold text-white hover:bg-emerald-800 disabled:opacity-60">
+                {sending ? 'Enviando...' : 'Enviar sugestão'}
+              </button>
+              <p className="mt-3 flex items-start gap-1.5 text-xs text-slate-600">
+                <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                A sugestão é anônima. O contato é opcional e usado apenas para falar com você sobre ela.
+              </p>
+            </form>
+          ) : step === 'suggested' && created ? (
+            <div className="py-4 text-center">
+              <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-600" aria-hidden="true" />
+              <h2 className="mt-3 text-lg font-bold">Sugestão enviada!</h2>
+              <p className="mt-1 text-sm text-slate-600">Guarde o seu protocolo:</p>
+              <p className="mt-2 font-mono text-2xl font-bold tracking-wider">{created.protocol}</p>
+              <Link href={`/s/${created.followToken}`} className="mt-4 inline-block w-full rounded-lg bg-emerald-700 px-4 py-3 font-semibold text-white hover:bg-emerald-800">
+                Acompanhar a sugestão
+              </Link>
+              <p className="mt-3 text-xs text-slate-600">O link fica salvo neste celular: é só ler o QR Code de novo. Quando a empresa resolver, você pode dar uma nota para a solução.</p>
+            </div>
           ) : step === 'driver' ? (
             <>
               {back('menu')}
