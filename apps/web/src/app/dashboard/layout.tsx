@@ -6,7 +6,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import type { AuthUser } from '@/lib/types';
 import { PANEL_ROLES, canAccessPath, homePathFor, roleLabel } from '@/lib/roles';
-import { clearSession, returnToPlatform } from '@/lib/session';
+import { clearSession, isImpersonating, returnToPlatform, sessionExpired, setLoginNotice } from '@/lib/session';
 import { SubscriptionBanner } from '@/components/subscription-banner';
 import { FeedbackHost } from '@/components/feedback';
 import { 
@@ -89,6 +89,30 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       }
     }
   }, [router]);
+
+  // Acesso vencido (aba aberta de um dia para o outro): avisa ao voltar para a aba e a cada minuto,
+  // antes de a pessoa digitar uma tratativa ou um cadastro que se perderia ao salvar.
+  useEffect(() => {
+    function check() {
+      if (document.visibilityState !== 'visible' || !sessionExpired()) return;
+      if (isImpersonating() && returnToPlatform()) {
+        window.location.assign('/dashboard/tenants?acesso=expirado');
+        return;
+      }
+      clearSession();
+      setLoginNotice('Sua sessão expirou. Entre novamente para continuar.');
+      window.location.assign('/login');
+    }
+    check();
+    document.addEventListener('visibilitychange', check);
+    window.addEventListener('focus', check);
+    const timer = window.setInterval(check, 60_000);
+    return () => {
+      document.removeEventListener('visibilitychange', check);
+      window.removeEventListener('focus', check);
+      window.clearInterval(timer);
+    };
+  }, []);
 
   // Close mobile drawer on route change
   useEffect(() => {

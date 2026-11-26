@@ -84,3 +84,25 @@ export function clearSession() {
   const s = storage();
   [TOKEN, USER, PLATFORM_TOKEN, PLATFORM_USER].forEach((key) => s?.removeItem(key));
 }
+
+/**
+ * Quando o acesso guardado vence (campo "exp" do token), em milissegundos; null se não der para ler.
+ * Só lê o prazo: quem confere a assinatura é a API.
+ */
+export function tokenExpiresAt(token: string | null | undefined = storage()?.getItem(TOKEN)): number | null {
+  if (!token) return null;
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return null;
+    const json = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+    return typeof json.exp === 'number' ? json.exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+/** O acesso já venceu (com folga de 30 s para o relógio do aparelho). */
+export function sessionExpired(now = Date.now()): boolean {
+  const expiresAt = tokenExpiresAt();
+  return expiresAt !== null && expiresAt - 30_000 <= now;
+}
