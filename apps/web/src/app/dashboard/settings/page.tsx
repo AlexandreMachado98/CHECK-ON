@@ -10,6 +10,7 @@ import { Building2, Save, CreditCard, Shield, Settings2, CheckCircle2, AlertTria
 import api from '@/lib/api';
 import { apiErrorMessage } from '@/lib/types';
 import { clearSession, getStoredUser, setLoginNotice } from '@/lib/session';
+import { confirmAction } from '@/components/feedback';
 
 type Company = {
   id: string;
@@ -120,7 +121,7 @@ export default function SettingsPage() {
   }
 
   async function handleRevokeSessions() {
-    if (!window.confirm('Encerrar todas as sessões da empresa? Todos os usuários, inclusive você e os motoristas no aplicativo, precisarão entrar de novo.')) return;
+    if (!(await confirmAction({ message: 'Encerrar todas as sessões da empresa? Todos os usuários, inclusive você e os motoristas no aplicativo, precisarão entrar de novo.', title: 'Encerrar sessões', confirmLabel: 'Encerrar sessões', danger: true }))) return;
     try {
       setSaving(true);
       await api.post('/company/revoke-sessions');
@@ -276,9 +277,9 @@ export default function SettingsPage() {
                         aria-label="Bloquear veículo com NC crítica"
                         checked={company.autoBlockCriticalNc}
                         disabled={!canEdit || saving}
-                        onChange={() => {
+                        onChange={async () => {
                           const next = !company.autoBlockCriticalNc;
-                          if (!next && !window.confirm('Desligar o bloqueio automático? Veículos com NC crítica poderão continuar rodando.')) return;
+                          if (!next && !(await confirmAction({ message: 'Desligar o bloqueio automático? Veículos com NC crítica poderão continuar rodando.', title: 'Desligar bloqueio automático', confirmLabel: 'Desligar', danger: true }))) return;
                           save({ autoBlockCriticalNc: next }, next ? 'Bloqueio automático ligado.' : 'Bloqueio automático desligado.');
                         }}
                       />

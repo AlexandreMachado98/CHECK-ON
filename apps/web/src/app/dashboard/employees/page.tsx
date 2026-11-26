@@ -18,6 +18,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { photoAtWidth } from '@/lib/photo-url';
+import { notify, confirmAction } from '@/components/feedback';
 import {
   Activity, AlertTriangle, BriefcaseBusiness, Building2, CalendarDays, Camera, Check, CheckCircle2,
   Clock3, Copy, Edit2, ExternalLink, GraduationCap, Hash, KeyRound, Plus, QrCode, RotateCcw, Search,
@@ -377,14 +378,14 @@ function BadgeDialog({
   }, []);
 
   async function rotateToken() {
-    if (token && !window.confirm('O QR atual deixará de funcionar. Gerar um novo crachá?')) return;
+    if (token && !(await confirmAction({ message: 'O QR atual deixará de funcionar. Gerar um novo crachá?', title: 'Gerar novo crachá', confirmLabel: 'Gerar novo crachá' }))) return;
     try {
       setWorking(true);
       const response = await api.post<{ id: string; badgeToken: string }>(`/employees/${employee.id}/badge/rotate-token`);
       setToken(response.data.badgeToken);
       onEmployeeUpdate({ ...employee, badgeToken: response.data.badgeToken });
     } catch (error) {
-      alert(apiErrorMessage(error, 'Não foi possível gerar o QR do crachá.'));
+      notify(apiErrorMessage(error, 'Não foi possível gerar o QR do crachá.'));
     } finally {
       setWorking(false);
     }
@@ -397,7 +398,7 @@ function BadgeDialog({
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1800);
     } catch (error) {
-      alert(apiErrorMessage(error, 'O navegador não permitiu copiar o link. Você pode copiá-lo pela barra de endereço após abrir o crachá.'));
+      notify(apiErrorMessage(error, 'O navegador não permitiu copiar o link. Você pode copiá-lo pela barra de endereço após abrir o crachá.'));
     }
   }
 
@@ -600,20 +601,20 @@ export default function EmployeesPage() {
       const response = await api.get<Employee[]>('/employees');
       setEmployees(response.data);
     } catch (error) {
-      alert(apiErrorMessage(error, 'Não foi possível carregar a relação de colaboradores.'));
+      notify(apiErrorMessage(error, 'Não foi possível carregar a relação de colaboradores.'));
     } finally {
       setLoading(false);
     }
   }
 
   /** Com várias frentes, colaborador sem frente não vê nenhum veículo no app: confirma antes. */
-  function confirmUnits(data: EmployeeFormData): boolean {
+  async function confirmUnits(data: EmployeeFormData): Promise<boolean> {
     if (!chooseUnit || data.unitIds.length > 0) return true;
-    return window.confirm('Nenhuma frente de trabalho marcada. Sem frente, o colaborador não vê nenhum veículo no aplicativo. Salvar mesmo assim?');
+    return (await confirmAction({ message: 'Nenhuma frente de trabalho marcada. Sem frente, o colaborador não vê nenhum veículo no aplicativo. Salvar mesmo assim?', title: 'Colaborador sem frente', confirmLabel: 'Salvar mesmo assim' }));
   }
 
   async function handleCreate(data: EmployeeFormData) {
-    if (!confirmUnits(data)) return;
+    if (!(await confirmUnits(data))) return;
     let created: Employee | null = null;
     try {
       setCreateSubmitting(true);
@@ -626,9 +627,9 @@ export default function EmployeesPage() {
       if (created) {
         setCreateOpen(false);
         await fetchEmployees();
-        alert('O colaborador foi cadastrado e o crachá gerado, mas a foto não foi enviada. Edite o cadastro para tentar novamente.');
+        notify('O colaborador foi cadastrado e o crachá gerado, mas a foto não foi enviada. Edite o cadastro para tentar novamente.');
       } else {
-        alert(apiErrorMessage(error, 'Não foi possível cadastrar o colaborador. Verifique matrícula e dados obrigatórios.'));
+        notify(apiErrorMessage(error, 'Não foi possível cadastrar o colaborador. Verifique matrícula e dados obrigatórios.'));
       }
     } finally {
       setCreateSubmitting(false);
@@ -637,7 +638,7 @@ export default function EmployeesPage() {
 
   async function handleEdit(data: EmployeeFormData) {
     if (!editTarget) return;
-    if (!confirmUnits(data)) return;
+    if (!(await confirmUnits(data))) return;
     let updated: Employee | null = null;
     try {
       setEditSubmitting(true);
@@ -653,9 +654,9 @@ export default function EmployeesPage() {
       if (updated) {
         setEditTarget(null);
         await fetchEmployees();
-        alert('Os dados foram salvos, mas a foto não foi enviada. Tente atualizar a foto novamente.');
+        notify('Os dados foram salvos, mas a foto não foi enviada. Tente atualizar a foto novamente.');
       } else {
-        alert(apiErrorMessage(error, 'Não foi possível atualizar o colaborador.'));
+        notify(apiErrorMessage(error, 'Não foi possível atualizar o colaborador.'));
       }
     } finally {
       setEditSubmitting(false);
@@ -667,12 +668,12 @@ export default function EmployeesPage() {
     const consequence = employee.isActive
       ? 'A página pública do crachá ficará indisponível enquanto estiver inativo.'
       : 'A página pública do crachá volta a funcionar.';
-    if (!window.confirm(`Deseja ${action} ${employee.name}? ${consequence}`)) return;
+    if (!(await confirmAction({ message: `Deseja ${action} ${employee.name}? ${consequence}`, title: employee.isActive ? 'Inativar colaborador' : 'Reativar colaborador', confirmLabel: employee.isActive ? 'Inativar' : 'Reativar', danger: employee.isActive }))) return;
     try {
       await api.patch(`/employees/${employee.id}`, { isActive: !employee.isActive });
       await fetchEmployees();
     } catch (error) {
-      alert(apiErrorMessage(error, 'Não foi possível alterar a situação do colaborador.'));
+      notify(apiErrorMessage(error, 'Não foi possível alterar a situação do colaborador.'));
     }
   }
 

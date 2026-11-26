@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ShieldCheck, Plus, Search, Edit2, ShieldOff, CheckCircle2, Activity, Key, RotateCcw } from 'lucide-react';
+import { confirmAction } from '@/components/feedback';
 
 interface UserFormData {
   name: string;
@@ -248,7 +249,7 @@ export default function UsersPage() {
     const question = user.isActive
       ? `Bloquear o acesso de ${user.name}? A pessoa sai do painel e do aplicativo na hora.`
       : `Desbloquear o acesso de ${user.name}?`;
-    if (!window.confirm(question)) return;
+    if (!(await confirmAction({ message: question, title: user.isActive ? 'Bloquear acesso' : 'Desbloquear acesso', confirmLabel: user.isActive ? 'Bloquear' : 'Desbloquear', danger: user.isActive }))) return;
     try {
       setActionError('');
       await api.patch(`/users/${user.id}`, { isActive: !user.isActive });

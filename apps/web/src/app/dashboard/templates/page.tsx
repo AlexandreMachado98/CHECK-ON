@@ -17,6 +17,7 @@ import { UnitMultiPicker, useUnits } from '@/components/unit-picker';
 import { CopyTemplateDialog, TemplateUnitsLabel } from '@/components/template-units';
 import { getStoredUser } from '@/lib/session';
 import { seesAllUnits } from '@/lib/roles';
+import { notify, confirmAction } from '@/components/feedback';
 
 export default function TemplatesPage() {
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -64,7 +65,7 @@ export default function TemplatesPage() {
       setUnitIds([]);
       fetchTemplates();
     } catch (error) {
-      alert(apiErrorMessage(error, 'Erro ao criar template.'));
+      notify(apiErrorMessage(error, 'Erro ao criar template.'));
     } finally {
       setSaving(false);
     }
@@ -72,12 +73,12 @@ export default function TemplatesPage() {
 
   /** Exclui o modelo. Modelo já usado em inspeção não é excluído (a API explica e sugere desativar). */
   async function handleDelete(tpl: Template) {
-    if (!window.confirm(`Excluir o modelo "${tpl.name}"? Não tem como desfazer.\n\nSe ele já foi usado em inspeções, não pode ser excluído: desative-o para que não apareça mais no aplicativo.`)) return;
+    if (!(await confirmAction({ message: `Excluir o modelo "${tpl.name}"? Não tem como desfazer.\n\nSe ele já foi usado em inspeções, não pode ser excluído: desative-o para que não apareça mais no aplicativo.`, title: 'Excluir modelo', confirmLabel: 'Excluir', danger: true }))) return;
     try {
       await api.delete(`/templates/${tpl.id}`);
       fetchTemplates();
     } catch (error) {
-      alert(apiErrorMessage(error, 'Não foi possível excluir o modelo.'));
+      notify(apiErrorMessage(error, 'Não foi possível excluir o modelo.'));
     }
   }
 
@@ -86,7 +87,7 @@ export default function TemplatesPage() {
       await api.patch(`/templates/${tpl.id}`, { isActive: !tpl.isActive });
       fetchTemplates();
     } catch (error) {
-      alert(apiErrorMessage(error, 'Erro ao alterar status.'));
+      notify(apiErrorMessage(error, 'Erro ao alterar status.'));
     }
   }
 

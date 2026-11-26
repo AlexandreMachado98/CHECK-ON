@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { VehicleStatusBadge } from '@/lib/status';
 import { FolderOpen, Plus, Search, Edit2, Archive, Activity, Truck } from 'lucide-react';
 import { UnitBadges, UnitSelect, useUnits } from '@/components/unit-picker';
+import { notify, confirmAction } from '@/components/feedback';
 
 export default function FleetsPage() {
   // Supervisor consulta as frotas, mas não cadastra nem altera.
@@ -86,7 +87,7 @@ export default function FleetsPage() {
       setUnitId(units.length === 1 ? units[0].id : '');
       fetchFleets();
     } catch (error) {
-      alert(apiErrorMessage(error, 'Não foi possível cadastrar a frota.'));
+      notify(apiErrorMessage(error, 'Não foi possível cadastrar a frota.'));
     } finally {
       setSubmitting(false);
     }
@@ -105,7 +106,7 @@ export default function FleetsPage() {
       setEditTarget(null);
       fetchFleets();
     } catch (error) {
-      alert(apiErrorMessage(error, 'Erro ao atualizar dados da frota.'));
+      notify(apiErrorMessage(error, 'Erro ao atualizar dados da frota.'));
     } finally {
       setEditSubmitting(false);
     }
@@ -122,12 +123,12 @@ export default function FleetsPage() {
     const question = fleet.isActive
       ? `Inativar a frota "${fleet.name}"? Os veículos dela deixam de aparecer no aplicativo dos motoristas até a frota ser reativada.`
       : `Reativar a frota "${fleet.name}"? Os veículos ativos dela voltam a aparecer no aplicativo.`;
-    if (!window.confirm(question)) return;
+    if (!(await confirmAction({ message: question, title: fleet.isActive ? 'Inativar frota' : 'Reativar frota', confirmLabel: fleet.isActive ? 'Inativar' : 'Reativar', danger: fleet.isActive }))) return;
     try {
       await api.patch(`/fleets/${fleet.id}`, { isActive: !fleet.isActive });
       fetchFleets();
     } catch (error) {
-      alert(apiErrorMessage(error, 'Erro ao alterar situação da frota.'));
+      notify(apiErrorMessage(error, 'Erro ao alterar situação da frota.'));
     }
   }
 
@@ -145,7 +146,7 @@ export default function FleetsPage() {
         year: Number(vehicleForm.year) || undefined,
         fleetId: addVehicleFleet.id,
       });
-      alert(`Veículo ${vehicleForm.plate.toUpperCase()} cadastrado com sucesso na frota "${addVehicleFleet.name}"!`);
+      notify(`Veículo ${vehicleForm.plate.toUpperCase()} cadastrado na frota "${addVehicleFleet.name}".`, 'success');
       setAddVehicleFleet(null);
       setVehicleForm({
         plate: '',
@@ -156,7 +157,7 @@ export default function FleetsPage() {
       });
       fetchFleets();
     } catch (error) {
-      alert(apiErrorMessage(error, 'Erro ao cadastrar veículo na frota. Verifique se a placa já existe.'));
+      notify(apiErrorMessage(error, 'Erro ao cadastrar veículo na frota. Verifique se a placa já existe.'));
     } finally {
       setVehicleSubmitting(false);
     }
@@ -190,7 +191,7 @@ export default function FleetsPage() {
             className="shrink-0 shadow-sm bg-emerald-600 hover:bg-emerald-700 text-white" 
             onClick={() => {
               if (activeFleets.length === 0) {
-                alert('Cadastre (ou reative) uma frota primeiro para associar seu veículo.');
+                notify('Cadastre (ou reative) uma frota primeiro para associar seu veículo.', 'info');
                 setIsDialogOpen(true);
               } else {
                 setAddVehicleFleet(activeFleets[0]);

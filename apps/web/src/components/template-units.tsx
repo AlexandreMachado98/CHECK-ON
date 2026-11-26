@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Briefcase } from 'lucide-react';
+import { notify } from '@/components/feedback';
 
 /** Onde o modelo vale: "Todas as frentes" ou as frentes dele. */
 export function TemplateUnitsLabel({ template }: { template: Pick<Template, 'allUnits' | 'units'> }) {
@@ -51,7 +52,7 @@ export function TemplateUnitsDialog({
       onSaved();
       onClose();
     } catch (error) {
-      alert(apiErrorMessage(error, 'Não foi possível salvar as frentes do modelo.'));
+      notify(apiErrorMessage(error, 'Não foi possível salvar as frentes do modelo.'));
     } finally {
       setSaving(false);
     }
@@ -119,7 +120,7 @@ export function CopyTemplateDialog({
       const response = await api.post<Template>(`/templates/${template.id}/copy`, body);
       onCopied(response.data);
     } catch (error) {
-      alert(apiErrorMessage(error, 'Não foi possível copiar o modelo.'));
+      notify(apiErrorMessage(error, 'Não foi possível copiar o modelo.'));
       setSaving(false);
     }
   }
