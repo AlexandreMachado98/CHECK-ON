@@ -19,10 +19,12 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { photoAtWidth } from '@/lib/photo-url';
 import { notify, confirmAction } from '@/components/feedback';
+import { BadgesPrint, openBadgesWindow, type BadgeCard } from '@/components/badge-print';
 import {
   Activity, AlertTriangle, BriefcaseBusiness, Building2, CalendarDays, Camera, Check, CheckCircle2,
   Clock3, Copy, Edit2, ExternalLink, GraduationCap, Hash, KeyRound, Plus, QrCode, RotateCcw, Search,
   ShieldCheck, ShieldOff, Trash2, User, Users,
+  Printer,
 } from 'lucide-react';
 
 const EMPLOYEE_ROLES = [
@@ -583,6 +585,8 @@ export default function EmployeesPage() {
   const [editTarget, setEditTarget] = useState<Employee | null>(null);
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [badgeTarget, setBadgeTarget] = useState<Employee | null>(null);
+  // Impressão dos crachás em lote: cartões da lista atual e a janela aberta no clique.
+  const [badgeBatch, setBadgeBatch] = useState<{ cards: BadgeCard[]; skipped: number; win: Window } | null>(null);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('ALL');
   const [accessTarget, setAccessTarget] = useState<Employee | null>(null);
@@ -713,6 +717,35 @@ export default function EmployeesPage() {
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Colaboradores</h1>
           <p className="mt-1 text-sm text-slate-500">Cadastros, treinamentos e crachás digitais com validade conferível por QR.</p>
         </div>
+        <div className="flex flex-col gap-2 sm:flex-row">
+        {manager && (
+          <Button
+            variant="outline"
+            className="w-full shrink-0 sm:w-auto"
+            disabled={loading || !filteredEmployees.some((e) => e.isActive)}
+            title="Crachás dos colaboradores ativos da lista, 10 por folha A4"
+            onClick={() => {
+              const active = filteredEmployees.filter((e) => e.isActive);
+              const origin = (process.env.NEXT_PUBLIC_APP_URL || window.location.origin).replace(/\/$/, '');
+              const company = getStoredUser()?.tenantName || '';
+              const cards: BadgeCard[] = active.filter((e) => e.badgeToken).map((e) => ({
+                id: e.id,
+                name: e.name,
+                role: roleLabelMap[e.jobTitle || ''] || e.jobTitle || 'Função não informada',
+                matricula: e.matricula || 'Não informada',
+                company: e.tenant?.name || company,
+                photoUrl: e.photoUrl ? photoAtWidth(e.photoUrl, 320) : null,
+                url: `${origin}/badge/${e.badgeToken}`,
+              }));
+              if (!cards.length) { notify('Nenhum colaborador da lista tem crachá gerado ainda.', 'info'); return; }
+              const win = openBadgesWindow();
+              if (!win) { notify('O navegador bloqueou a janela de impressão. Permita janelas deste site e tente de novo.'); return; }
+              setBadgeBatch({ cards, skipped: active.length - cards.length, win });
+            }}
+          >
+            <Printer className="mr-2 h-4 w-4" aria-hidden="true" /> Imprimir crachás ({filteredEmployees.filter((e) => e.isActive).length})
+          </Button>
+        )}
         {manager && <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           {/* O próprio Trigger vira o botão (antes era um botão dentro de outro). */}
           <DialogTrigger render={<Button className="w-full shrink-0 shadow-sm sm:w-auto" />}>
@@ -733,6 +766,7 @@ export default function EmployeesPage() {
             />
           </DialogContent>
         </Dialog>}
+        </div>
       </div>
 
       <Card className="border-slate-200 shadow-sm">
@@ -956,6 +990,8 @@ export default function EmployeesPage() {
           </DialogContent>
         </Dialog>
       )}
+
+      {badgeBatch && <BadgesPrint cards={badgeBatch.cards} skipped={badgeBatch.skipped} win={badgeBatch.win} onDone={() => setBadgeBatch(null)} />}
 
       {badgeTarget && (
         <BadgeDialog
