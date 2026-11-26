@@ -80,6 +80,7 @@ export function unitScopeFilter(model: string, scope: UnitScope): Record<string,
       return fleetFilter(unitIds);
     case 'Vehicle':
       return vehicleFilter(unitIds);
+    case 'MaintenancePlan':
     case 'Checklist':
       return { vehicle: vehicleFilter(unitIds) };
     case 'ChecklistAnswer':
