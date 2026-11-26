@@ -21,6 +21,9 @@ type SummaryRow = {
   ncsRecurrent: number;
   inspectionsToday: number;
   inspectionsWeek: number;
+  hasTemplate: boolean;
+  hasAppAccess: boolean;
+  hasInspection: boolean;
 };
 
 /** Fuso usado para "hoje" e "últimos 7 dias" (o servidor da Vercel roda em UTC). */
@@ -73,7 +76,11 @@ export class DashboardService {
         (SELECT COUNT(*) FROM "NonConformity" WHERE "tenantId" = ${tenantId} AND "status" IN (${activeStatuses}) AND "severity" = 'CRITICAL'${ncScope})::int AS "ncsCritical",
         (SELECT COUNT(*) FROM "NonConformity" WHERE "tenantId" = ${tenantId} AND "status" IN (${activeStatuses}) AND "occurrences" > 1${ncScope})::int AS "ncsRecurrent",
         (SELECT COUNT(*) FROM "Checklist" WHERE "tenantId" = ${tenantId} AND "completedAt" >= ${startOfToday}${checklistScope})::int AS "inspectionsToday",
-        (SELECT COUNT(*) FROM "Checklist" WHERE "tenantId" = ${tenantId} AND "completedAt" >= ${sevenDaysAgo}${checklistScope})::int AS "inspectionsWeek"
+        (SELECT COUNT(*) FROM "Checklist" WHERE "tenantId" = ${tenantId} AND "completedAt" >= ${sevenDaysAgo}${checklistScope})::int AS "inspectionsWeek",
+        -- Primeiros passos da empresa (implantação): valem para a empresa toda, sem filtro de frente.
+        EXISTS (SELECT 1 FROM "Template" WHERE "tenantId" = ${tenantId} AND "isActive") AS "hasTemplate",
+        EXISTS (SELECT 1 FROM "User" WHERE "tenantId" = ${tenantId} AND "isActive" AND "employeeId" IS NOT NULL) AS "hasAppAccess",
+        EXISTS (SELECT 1 FROM "Checklist" WHERE "tenantId" = ${tenantId}) AS "hasInspection"
     `;
 
     return {
@@ -84,6 +91,8 @@ export class DashboardService {
       vehicleStatus: { LIBERADO: row.liberados, ATENCAO: row.atencao, BLOQUEADO: row.bloqueados },
       ncs: { active: row.ncsActive, critical: row.ncsCritical, recurrent: row.ncsRecurrent },
       inspections: { today: row.inspectionsToday, last7Days: row.inspectionsWeek },
+      // Implantação: o painel mostra "Primeiros passos" enquanto falta algum.
+      setup: { hasTemplate: row.hasTemplate, hasAppAccess: row.hasAppAccess, hasInspection: row.hasInspection },
     };
   }
 
