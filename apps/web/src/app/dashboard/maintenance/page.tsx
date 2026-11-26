@@ -27,6 +27,12 @@ const statuses = {
   INACTIVE: { label: 'Veículo inativo', color: 'bg-slate-100 text-slate-700' },
 };
 
+type Named = { id: string; name: string };
+
+function distinctOptions(items: Named[]) {
+  return Array.from(new Map(items.map(item => [item.id, item])).values()).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+}
+
 type Status = keyof typeof statuses;
 type Plan = {
   id: string;
@@ -43,7 +49,7 @@ type Plan = {
   remainingKm: number;
   status: Exclude<Status, 'ARCHIVED' | 'INACTIVE'>;
   archivedAt: string | null;
-  vehicle: Pick<Vehicle, 'id' | 'plate' | 'prefix' | 'isActive'> & { mileage: number };
+  vehicle: Pick<Vehicle, 'id' | 'plate' | 'prefix' | 'isActive'> & { mileage: number; fleet: Named & { unit: Named } };
 };
 type Service = { serviceDate: string | null; workshop: string | null; costCents: number | null; id: string; mileageKm: number; notes: string | null; recordedAt: string };
 type Editor = { kind: 'create' } | { kind: 'edit' | 'record' | 'history'; plan: Plan };
@@ -64,6 +70,8 @@ export default function MaintenancePage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+  const [unitFilter, setUnitFilter] = useState('');
+  const [fleetFilter, setFleetFilter] = useState('');
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<Status | ''>('');
   const [editor, setEditor] = useState<Editor | null>(null);
@@ -125,9 +133,13 @@ export default function MaintenancePage() {
     }
   }
 
+  const units = distinctOptions(plans.map(p => p.vehicle.fleet.unit));
+  const fleets = distinctOptions(plans.filter(p => !unitFilter || p.vehicle.fleet.unit.id === unitFilter).map(p => p.vehicle.fleet));
   const visiblePlans = plans.filter((plan) => {
     const status = statusOf(plan);
     return (filter ? status === filter : status !== 'ARCHIVED' && status !== 'INACTIVE')
+      && (!unitFilter || plan.vehicle.fleet.unit.id === unitFilter)
+      && (!fleetFilter || plan.vehicle.fleet.id === fleetFilter)
       && matchesSearch(search, plan.name, plan.vehicle.plate, plan.vehicle.prefix);
   }).sort((a, b) => a.remainingKm - b.remainingKm);
 
@@ -146,6 +158,14 @@ export default function MaintenancePage() {
 
       <div className="flex flex-wrap gap-3">
         <Input className="max-w-xs" aria-label="Buscar planos" placeholder="Buscar por serviço, placa ou prefixo" value={search} onChange={(event) => setSearch(event.target.value)} />
+        <select className={selectClass} aria-label="Filtrar por frente" value={unitFilter} onChange={e => { setUnitFilter(e.target.value); setFleetFilter(''); }}>
+          <option value="">Todas as frentes</option>
+          {units.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+        </select>
+        <select className={selectClass} aria-label="Filtrar por frota" value={fleetFilter} onChange={e => setFleetFilter(e.target.value)}>
+          <option value="">Todas as frotas</option>
+          {fleets.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+        </select>
         <select className={selectClass} aria-label="Filtrar por situação" value={filter} onChange={(event) => setFilter(event.target.value as Status | '')}>
           <option value="">Planos ativos</option>
           {Object.entries(statuses).map(([key, status]) => <option key={key} value={key}>{status.label}</option>)}
@@ -223,6 +243,9 @@ function PlanDialog({ editor, vehicles, close, saved }: {
   const history = editor.kind === 'history';
   const recording = editor.kind === 'record';
   const creating = editor.kind === 'create';
+  const [fleetMode, setFleetMode] = useState(false);
+  const fleetOptions = distinctOptions(vehicles.flatMap(v => v.fleet ? [v.fleet] : []));
+  const [fleetId, setFleetId] = useState(fleetOptions[0]?.id ?? '');
   const [vehicleId, setVehicleId] = useState(plan?.vehicle.id ?? vehicles[0]?.id ?? '');
   const [baseKm, setBaseKm] = useState(plan ? String(plan.initialKm ?? '') : String(vehicles[0]?.mileage ?? 0));
   const [intervalDays, setIntervalDays] = useState(String(plan?.intervalDays ?? ''));
@@ -248,6 +271,7 @@ function PlanDialog({ editor, vehicles, close, saved }: {
     const data = new FormData(event.currentTarget);
     setSubmitting(true);
     setErrorMessage('');
+    let message = recording ? 'Serviço registrado.' : 'Plano salvo.';
     try {
       if (recording && plan) {
         await api.post(`${endpoint}/${plan.id}/services`, {
@@ -265,10 +289,13 @@ function PlanDialog({ editor, vehicles, close, saved }: {
           intervalKm: Number(data.get('intervalKm')),
           warningKm: Number(data.get('warningKm')),
         };
-        if (creating) await api.post(endpoint, { ...schedule, vehicleId, baseKm: Number(baseKm) });
+        if (creating && fleetMode) {
+          const { data: result } = await api.post<{ created: number; existing: number }>(`${endpoint}/fleet/${fleetId}`, schedule);
+          message = `Planos criados: ${result.created}. Veículos que já tinham esse serviço: ${result.existing}.`;
+        } else if (creating) await api.post(endpoint, { ...schedule, vehicleId, baseKm: Number(baseKm) });
         else if (plan) await api.patch(`${endpoint}/${plan.id}`, { ...schedule, vehicleId, baseKm: baseKm ? Number(baseKm) : undefined });
       }
-      notify(recording ? 'Serviço registrado.' : 'Plano salvo.');
+      notify(message);
       close();
       await saved();
     } catch (error) {
@@ -309,7 +336,17 @@ function PlanDialog({ editor, vehicles, close, saved }: {
           </div>
         ) : (
           <form className="space-y-4" onSubmit={submit}>
-            {(creating || editor.kind === 'edit') && (
+            {creating && <label className="flex items-center gap-2">
+              <input type="checkbox" checked={fleetMode} onChange={e => setFleetMode(e.target.checked)} />
+              Aplicar aos veículos de uma frota
+            </label>}
+            {fleetMode && <label className="grid gap-1">Frota
+              <select required value={fleetId} className={selectClass} onChange={e => setFleetId(e.target.value)}>
+                {fleetOptions.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+              </select>
+              <span className="text-muted-foreground">Cada veículo ativo começa pelo seu km atual. Veículos que já têm um plano ativo com esse nome mantêm seu ciclo. Para incluir veículos novos, aplique novamente.</span>
+            </label>}
+            {!fleetMode && (creating || editor.kind === 'edit') && (
               <>
                 <label className="grid gap-1">Veículo
                   <select className={selectClass} required value={vehicleId} onChange={(event) => {
@@ -372,7 +409,7 @@ function PlanDialog({ editor, vehicles, close, saved }: {
             )}
             <DialogFooter>
               <Button type="button" variant="outline" disabled={submitting} onClick={close}>Cancelar</Button>
-              <Button type="submit" disabled={submitting || (creating && !vehicleId)}>{submitting ? 'Salvando…' : 'Salvar'}</Button>
+              <Button type="submit" disabled={submitting || (creating && !(fleetMode ? fleetId : vehicleId))}>{submitting ? 'Salvando…' : 'Salvar'}</Button>
             </DialogFooter>
           </form>
         )}
