@@ -3,7 +3,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { OPERATION_ROLES, PANEL_ROLES } from '../role/role-definitions';
-import { CreateMaintenancePlanDto, UpdateMaintenancePlanDto, RecordMaintenanceDto } from './maintenance.dto';
+import { CreateMaintenancePlanDto, MaintenanceScheduleDto, UpdateMaintenancePlanDto, RecordMaintenanceDto } from './maintenance.dto';
 import { MaintenanceService } from './maintenance.service';
 
 @Controller('maintenance/plans')
@@ -21,6 +21,11 @@ export class MaintenanceController {
   @Post()
   create(@Body() dto: CreateMaintenancePlanDto) {
     return this.service.create(dto);
+  }
+
+  @Post('fleet/:fleetId')
+  applyToFleet(@Param('fleetId') fleetId: string, @Body() dto: MaintenanceScheduleDto) {
+    return this.service.applyToFleet(fleetId, dto);
   }
 
   @Patch(':id')

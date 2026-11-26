@@ -4,7 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateMaintenancePlanDto, MaintenanceScheduleDto, UpdateMaintenancePlanDto, RecordMaintenanceDto } from './maintenance.dto';
 
 const vehicle = {
-  select: { id: true, plate: true, prefix: true, mileage: true, isActive: true },
+  select: { id: true, plate: true, prefix: true, mileage: true, isActive: true, fleet: { select: { id: true, name: true, unit: { select: { id: true, name: true } } } } },
 } satisfies Prisma.VehicleDefaultArgs;
 
 function today() {
@@ -59,6 +59,40 @@ export class MaintenanceService {
       });
       return tx.maintenancePlan.create({ data: { ...dto, baseDate: dto.baseDate || dto.intervalDays ? day(dto.baseDate || today()) : null, initialKm: dto.baseKm, tenantId: vehicleRecord.tenantId } });
     });
+  }
+
+  async applyToFleet(fleetId: string, dto: MaintenanceScheduleDto) {
+    this.validateSchedule(dto);
+    const baseDate = dto.baseDate || dto.intervalDays ? day(dto.baseDate || today()) : null;
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const fleet = await tx.fleet.findFirst({
+          where: { id: fleetId, isActive: true }, select: { tenantId: true },
+        });
+        if (!fleet) throw new NotFoundException('Frota ativa não encontrada.');
+        const vehicles = await tx.vehicle.findMany({
+          where: { fleetId, isActive: true },
+          select: {
+            id: true, mileage: true,
+            maintenancePlans: {
+              where: { archivedAt: null, name: { equals: dto.name, mode: 'insensitive' } },
+              select: { id: true }, take: 1,
+            },
+          },
+        });
+        if (!vehicles.length) throw new BadRequestException('A frota não possui veículos ativos.');
+        const data = vehicles.filter((v) => !v.maintenancePlans.length).map((v) => ({
+          ...dto, baseDate, tenantId: fleet.tenantId, vehicleId: v.id, baseKm: v.mileage, initialKm: v.mileage,
+        }));
+        if (data.length) await tx.maintenancePlan.createMany({ data });
+        return { created: data.length, existing: vehicles.length - data.length };
+      }, { isolationLevel: 'Serializable' });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034') {
+        throw new ConflictException('A frota mudou durante o cadastro. Tente novamente.');
+      }
+      throw error;
+    }
   }
 
   async update(id: string, dto: UpdateMaintenancePlanDto) {
