@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { matchesSearch } from '@/lib/search';
 import { canManage } from '@/lib/roles';
 import { getStoredUser } from '@/lib/session';
 import api from '@/lib/api';
-import { apiErrorMessage, type Vehicle, type VehicleStatus } from '@/lib/types';
+import { apiErrorMessage, type EmState, type Vehicle, type VehicleStatus } from '@/lib/types';
 import { VEHICLE_STATUS, VehicleStatusBadge } from '@/lib/status';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,6 +20,9 @@ import { formatKm } from '@/lib/utils';
 import { VehicleImportDialog } from '@/components/vehicle-import';
 import { confirmAction, notify } from '@/components/feedback';
 import { useStoredUser } from '@/lib/use-stored-user';
+import { EM_STATE, emShortText } from '@/lib/electromechanical';
+import { ElectromechanicalDialog } from '@/components/electromechanical-dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const TILES: { status: VehicleStatus; icon: React.ElementType; tone: string }[] = [
   { status: 'LIBERADO', icon: ShieldCheck, tone: 'text-emerald-700' },
@@ -26,7 +30,16 @@ const TILES: { status: VehicleStatus; icon: React.ElementType; tone: string }[] 
   { status: 'BLOQUEADO', icon: Lock, tone: 'text-rose-700' },
 ];
 
+// useSearchParams (filtro ?em= vindo do painel) precisa de Suspense na página pré-renderizada.
 export default function VehiclesPage() {
+  return (
+    <Suspense fallback={null}>
+      <VehiclesContent />
+    </Suspense>
+  );
+}
+
+function VehiclesContent() {
   const manager = canManage(useStoredUser()?.role);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,6 +53,11 @@ export default function VehiclesPage() {
   const [loadError, setLoadError] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<VehicleStatus | 'ALL'>('ALL');
+  // Filtro da eletromecânica; o aviso do painel abre com ?em=VENCIDA (ou VENCE_EM_BREVE).
+  const emFromUrl = useSearchParams().get('em');
+  const [emChoice, setEmFilter] = useState<EmState | 'ALL' | null>(null);
+  const emFilter: EmState | 'ALL' = emChoice ?? (emFromUrl && emFromUrl in EM_STATE ? (emFromUrl as EmState) : 'ALL');
+  const [emVehicleId, setEmVehicleId] = useState<string | null>(null);
   const [rowError, setRowError] = useState<{ id: string; message: string } | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
 
@@ -84,7 +102,8 @@ export default function VehiclesPage() {
   const filtered = vehicles.filter(v => {
     // Placa sem hífen no cadastro: "abc-1234" também encontra "ABC1234".
     const found = matchesSearch(search, v.plate, v.prefix, v.brand, v.model, v.fleet?.name) || matchesSearch(search.replace(/[^a-zA-Z0-9]/g, ''), v.plate);
-    return found && (statusFilter === 'ALL' || (v.status ?? 'LIBERADO') === statusFilter);
+    const emOk = emFilter === 'ALL' || (v.electromechanical?.state ?? 'SEM_REGISTRO') === emFilter;
+    return found && emOk && (statusFilter === 'ALL' || (v.status ?? 'LIBERADO') === statusFilter);
   });
 
   /** Adesivos do QR do passageiro dos veículos (cria os códigos que faltam). A janela abre no clique. */
@@ -178,6 +197,18 @@ export default function VehiclesPage() {
           <CardTitle className="text-base font-semibold text-slate-700">
             {statusFilter === 'ALL' ? 'Todos os veículos' : `Veículos com status ${VEHICLE_STATUS[statusFilter].label.toLowerCase()}`}
           </CardTitle>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          <Select value={emFilter} onValueChange={(val) => setEmFilter((val as EmState | 'ALL') || 'ALL')}>
+            <SelectTrigger aria-label="Filtrar pela inspeção eletromecânica" className="h-9 text-sm bg-slate-50 sm:w-56"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Eletromecânica: todas</SelectItem>
+              <SelectItem value="VENCIDA">Eletromecânica vencida</SelectItem>
+              <SelectItem value="VENCE_EM_BREVE">Vence em até 15 dias</SelectItem>
+              <SelectItem value="LIBERADA">Liberados provisoriamente</SelectItem>
+              <SelectItem value="EM_DIA">Eletromecânica em dia</SelectItem>
+              <SelectItem value="SEM_REGISTRO">Sem eletromecânica registrada</SelectItem>
+            </SelectContent>
+          </Select>
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
             <Input
@@ -186,6 +217,7 @@ export default function VehiclesPage() {
               onChange={e => setSearch(e.target.value)}
               className="pl-9 h-9 text-sm bg-slate-50"
             />
+          </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -235,7 +267,19 @@ export default function VehiclesPage() {
                           {!v.isActive && <span className="block text-xs text-slate-500">Inativo</span>}
                         </TableCell>
                         <TableCell className="text-sm text-slate-700 hidden lg:table-cell">{v.fleet?.name ?? '—'}</TableCell>
-                        <TableCell><VehicleStatusBadge status={status} /></TableCell>
+                        <TableCell className="whitespace-normal">
+                          <VehicleStatusBadge status={status} />
+                          {v.electromechanical && (
+                            <button
+                              type="button"
+                              onClick={() => setEmVehicleId(v.id)}
+                              className={`mt-1 block max-w-[14rem] rounded border px-1.5 py-0.5 text-left text-[11px] font-medium leading-tight hover:underline ${EM_STATE[v.electromechanical.state].badge}`}
+                              aria-label={`Inspeção eletromecânica de ${v.plate}: ${emShortText(v.electromechanical)}`}
+                            >
+                              {emShortText(v.electromechanical)}
+                            </button>
+                          )}
+                        </TableCell>
                         <TableCell className="text-center hidden sm:table-cell">
                           {activeNcs > 0 ? (
                             <Link href="/dashboard/ncs" className="inline-flex items-center gap-1 font-semibold text-rose-700 hover:underline">
@@ -251,7 +295,14 @@ export default function VehiclesPage() {
                             </Button>
                           )}
                           {status === 'BLOQUEADO' ? (
-                            <Button size="sm" variant="outline" className="h-8 text-xs" disabled={savingId === v.id} onClick={() => changeStatus(v, activeNcs > 0 ? 'ATENCAO' : 'LIBERADO')}>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 text-xs"
+                              disabled={savingId === v.id}
+                              // Bloqueado pela eletromecânica: liberar é a liberação provisória (com justificativa).
+                              onClick={() => (v.electromechanical?.state === 'VENCIDA' ? setEmVehicleId(v.id) : changeStatus(v, activeNcs > 0 ? 'ATENCAO' : 'LIBERADO'))}
+                            >
                               <LockOpen className="h-3.5 w-3.5 mr-1.5" />Liberar
                             </Button>
                           ) : (
@@ -282,6 +333,7 @@ export default function VehiclesPage() {
       <VehicleImportDialog open={importOpen} onClose={() => setImportOpen(false)} onImported={fetchVehicles} exampleFleet={vehicles.find((v) => v.fleet?.name)?.fleet?.name} />
       {batch && <VehicleLabelsPrint vehicles={batch.vehicles} win={batch.win} onDone={() => setBatch(null)} />}
       {passengerBatch && <PassengerLabelsPrint labels={passengerBatch.labels} company={getStoredUser()?.tenantName || ''} win={passengerBatch.win} onDone={() => setPassengerBatch(null)} />}
+      {emVehicleId && <ElectromechanicalDialog vehicleId={emVehicleId} manager={manager} onClose={() => setEmVehicleId(null)} onChanged={fetchVehicles} />}
     </>
   );
 }

@@ -52,9 +52,9 @@ model Tenant {
   units              Unit[]
   fleets             Fleet[]
   vehicles           Vehicle[]
-  checklists         Checklist[]         @relation("TenantToChecklist")
+  checklists         Checklist[]                   @relation("TenantToChecklist")
   templates          Template[]
-  ncs                NonConformity[]     @relation("TenantToNC")
+  ncs                NonConformity[]               @relation("TenantToNC")
   accessLogs         AdminAccessLog[]
   masterLogs         MasterAuditLog[]
   ncActions          NcAction[]
@@ -62,6 +62,8 @@ model Tenant {
   maintenanceRecords MaintenanceRecord[]
   drivingFeedback    DrivingFeedback[]
   suggestions        Suggestion[]
+  electromechanical  ElectromechanicalInspection[]
+  emReleases         ElectromechanicalRelease[]
 }
 
 // ---------------------------------------------------------
@@ -314,31 +316,37 @@ model Fleet {
 }
 
 model Vehicle {
-  id                 String              @id @default(uuid())
+  id                 String                        @id @default(uuid())
   tenantId           String
-  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant             Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   fleetId            String
-  fleet              Fleet               @relation(fields: [fleetId], references: [id])
+  fleet              Fleet                         @relation(fields: [fleetId], references: [id])
   plate              String
   prefix             String?
   brand              String?
   model              String?
   year               Int?
-  status             String              @default("LIBERADO") // LIBERADO, ATENCAO, BLOQUEADO
+  status             String                        @default("LIBERADO") // LIBERADO, ATENCAO, BLOQUEADO
   // Maior km informado nas inspeções (hodômetro).
-  mileage            Int                 @default(0)
-  qrCode             String?             @unique
+  mileage            Int                           @default(0)
+  qrCode             String?                       @unique
   // Código do QR do passageiro (adesivo dentro do veículo, página pública "Como estou dirigindo").
   // Diferente do qrCode da inspeção; pode ser trocado (o adesivo antigo para de valer).
-  passengerToken     String?             @unique
-  isActive           Boolean             @default(true)
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
+  passengerToken     String?                       @unique
+  // Inspeção eletromecânica: validade vigente (a maior entre as inspeções registradas). Vencida, o
+  // veículo fica bloqueado; o gestor pode liberar provisoriamente até emReleasedUntil.
+  emExpiresAt        DateTime?                     @db.Date
+  emReleasedUntil    DateTime?                     @db.Date
+  isActive           Boolean                       @default(true)
+  createdAt          DateTime                      @default(now())
+  updatedAt          DateTime                      @updatedAt
   Checklist          Checklist[]
   ncs                NonConformity[]
   maintenanceRecords MaintenanceRecord[]
   drivingFeedback    DrivingFeedback[]
   suggestions        Suggestion[]
+  electromechanical  ElectromechanicalInspection[]
+  emReleases         ElectromechanicalRelease[]
 
   @@unique([tenantId, plate])
   @@index([tenantId, isActive, status])
@@ -672,4 +680,45 @@ model Suggestion {
   @@index([tenantId, status])
   @@index([tenantId, createdAt])
   @@index([unitId])
+}
+
+// Inspeção eletromecânica do veículo (laudo), com a validade escrita no laudo.
+model ElectromechanicalInspection {
+  id            String   @id @default(uuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vehicleId     String
+  vehicle       Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  performedAt   DateTime @db.Date
+  expiresAt     DateTime @db.Date
+  // Empresa ou inspetor que fez a inspeção.
+  provider      String?
+  reportNumber  String?
+  notes         String?
+  // Foto do laudo (mesmo armazenamento das fotos de inspeção da empresa).
+  photoUrl      String?
+  createdById   String?
+  createdByName String?
+  createdAt     DateTime @default(now())
+
+  @@index([tenantId, vehicleId])
+  @@index([vehicleId, expiresAt])
+}
+
+// Liberação provisória de veículo com a eletromecânica vencida: até quando, por quê e por quem.
+model ElectromechanicalRelease {
+  id        String    @id @default(uuid())
+  tenantId  String
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vehicleId String
+  vehicle   Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  until     DateTime  @db.Date
+  reason    String
+  byId      String?
+  byName    String?
+  // Encerrada antes do prazo (o gestor desfez a liberação).
+  endedAt   DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([tenantId, vehicleId])
 }

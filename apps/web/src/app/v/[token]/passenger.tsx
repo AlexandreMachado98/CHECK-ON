@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Bus, CheckCircle2, ChevronRight, Lightbulb, LoaderCircle, ShieldCheck, Star, ThumbsUp, TriangleAlert, UserRound } from 'lucide-react';
+import { ArrowLeft, Bus, CheckCircle2, ChevronRight, Lightbulb, LoaderCircle, ShieldCheck, Star, ThumbsUp, TriangleAlert, UserRound, XCircle } from 'lucide-react';
 import api from '@/lib/api';
 import { toggleTag, type TagGroups } from '@/lib/driving';
 import { useHydrated } from '@/lib/use-stored-user';
@@ -17,6 +17,12 @@ type PublicVehicle = {
   tags: Record<string, string>;
   /** API antiga não manda: todos os pontos viram "de atenção". */
   tagGroups?: TagGroups;
+  /** Quadro de segurança: checklist de hoje, eletromecânica e situação (API antiga não manda). */
+  safety?: {
+    checklistToday: { at: string | null; driverName: string } | null;
+    electromechanical: { state: 'SEM_REGISTRO' | 'EM_DIA' | 'VENCE_EM_BREVE' | 'VENCIDA' | 'LIBERADA'; expiresAt: string | null };
+    status: 'LIBERADO' | 'ATENCAO' | 'BLOQUEADO';
+  };
 };
 type Step = 'menu' | 'driver' | 'rate' | 'done' | 'suggest' | 'suggested';
 type SavedSuggestion = { protocol: string; followToken: string; at: string };
@@ -67,6 +73,80 @@ function deviceId(): string | undefined {
 
 const time = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '');
 const vehicleLine = (o: { plate: string; prefix: string | null; model: string | null }) => [o.prefix && `Prefixo ${o.prefix}`, o.plate, o.model].filter(Boolean).join(' · ');
+
+const brDay = (iso: string | null) => (iso ? iso.slice(0, 10).split('-').reverse().join('/') : '');
+
+type Safety = NonNullable<PublicVehicle['safety']>;
+
+/** Uma linha do quadro: ícone de ok/alerta, título e detalhe. */
+function SafetyLine({ ok, warn, title, detail }: { ok: boolean; warn?: boolean; title: string; detail: string }) {
+  const Icon = ok ? CheckCircle2 : warn ? TriangleAlert : XCircle;
+  const color = ok ? 'text-emerald-700' : warn ? 'text-amber-700' : 'text-rose-700';
+  return (
+    <li className="flex items-start gap-2.5">
+      <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${color}`} aria-hidden="true" />
+      <span>
+        <span className="block text-sm font-semibold text-slate-900">{title}</span>
+        <span className={`block text-sm ${ok ? 'text-slate-700' : warn ? 'text-amber-900' : 'text-rose-800'}`}>{detail}</span>
+      </span>
+    </li>
+  );
+}
+
+/**
+ * Segurança deste veículo para o passageiro: se o checklist de hoje foi feito, a validade da
+ * inspeção eletromecânica e a situação (liberado ou bloqueado). Algo errado: botão para avisar a
+ * empresa (abre a sugestão já como Segurança).
+ */
+function SafetyPanel({ safety, onReport }: { safety: Safety; onReport: (message: string) => void }) {
+  const em = safety.electromechanical;
+  const checklist = safety.checklistToday;
+  const blocked = safety.status === 'BLOQUEADO';
+  const emLine = {
+    EM_DIA: { ok: true, title: 'Inspeção eletromecânica em dia', detail: `Válida até ${brDay(em.expiresAt)}.` },
+    VENCE_EM_BREVE: { ok: true, title: 'Inspeção eletromecânica em dia', detail: `Válida até ${brDay(em.expiresAt)}.` },
+    LIBERADA: { ok: false, warn: true, title: 'Inspeção eletromecânica vencida', detail: `Venceu em ${brDay(em.expiresAt)}; a empresa liberou o veículo provisoriamente.` },
+    VENCIDA: { ok: false, title: 'Inspeção eletromecânica vencida', detail: `Venceu em ${brDay(em.expiresAt)}.` },
+    SEM_REGISTRO: { ok: false, warn: true, title: 'Inspeção eletromecânica', detail: 'Não registrada no sistema.' },
+  }[em.state];
+  const problem = blocked
+    ? 'Veículo circulando bloqueado para uso.'
+    : !checklist
+      ? 'Veículo circulando sem o checklist de hoje.'
+      : em.state === 'VENCIDA'
+        ? 'Veículo circulando com a inspeção eletromecânica vencida.'
+        : null;
+  return (
+    <section aria-labelledby="safety-title" className={`mb-5 rounded-lg border p-4 ${blocked || !checklist ? 'border-rose-200 bg-rose-50/60' : 'border-emerald-200 bg-emerald-50/50'}`}>
+      <h2 id="safety-title" className="flex items-center gap-2 text-base font-bold text-slate-900">
+        <ShieldCheck className="h-5 w-5 text-emerald-700" aria-hidden="true" /> Segurança deste veículo
+      </h2>
+      <ul className="mt-3 space-y-3">
+        <SafetyLine
+          ok={!!checklist}
+          title={checklist ? 'Checklist de hoje feito' : 'Checklist de hoje não feito'}
+          detail={checklist ? `Às ${time(checklist.at)}, por ${checklist.driverName}.` : 'O motorista ainda não registrou a inspeção do veículo hoje.'}
+        />
+        <SafetyLine {...emLine} />
+        <SafetyLine
+          ok={!blocked}
+          warn={safety.status === 'ATENCAO'}
+          title={blocked ? 'Bloqueado para circular' : 'Liberado para circular'}
+          detail={blocked ? 'Este veículo não deveria estar em uso agora.' : safety.status === 'ATENCAO' ? 'Com um item em acompanhamento pela manutenção.' : 'Sem pendências de segurança.'}
+        />
+      </ul>
+      {problem && (
+        <button
+          type="button"
+          onClick={() => onReport(`${problem} Avisei pelo QR Code do veículo.`)}
+          className="mt-4 w-full rounded-lg bg-rose-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-800"
+        >
+          Avisar a empresa
+        </button>
+      )}
+    </section>
+  );
+}
 
 /** Página do passageiro: "Como estou dirigindo?" (identifica o motorista pelo checklist do dia). */
 export default function PassengerPage({ token }: { token: string }) {
@@ -180,6 +260,16 @@ export default function PassengerPage({ token }: { token: string }) {
             <div className="flex justify-center py-8"><LoaderCircle className="h-6 w-6 animate-spin text-slate-400" aria-label="Carregando" /></div>
           ) : step === 'menu' ? (
             <>
+              {data.safety && (
+                <SafetyPanel
+                  safety={data.safety}
+                  onReport={(message) => {
+                    setCategory('SEGURANCA');
+                    setText(message);
+                    openStep('suggest');
+                  }}
+                />
+              )}
               <h2 className="text-lg font-bold">Como podemos ajudar?</h2>
               <p className="mt-1 text-sm text-slate-600">Sua opinião vai direto para a gestão da frota.</p>
               <button

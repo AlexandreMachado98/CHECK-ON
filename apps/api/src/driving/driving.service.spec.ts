@@ -4,7 +4,7 @@ import { DrivingService } from './driving.service';
 import { TAG_GROUPS, contradiction, isAlert, shortName } from './driving-rules';
 
 const TOKEN = 'a'.repeat(32);
-const vehicle = { id: 'v1', tenantId: 't1', plate: 'ABC1D23', prefix: 'P-1', model: 'Ônibus', fleet: { unitId: 'u1' }, tenant: { name: 'Transportes Sul' } };
+const vehicle = { id: 'v1', tenantId: 't1', plate: 'ABC1D23', prefix: 'P-1', model: 'Ônibus', status: 'LIBERADO', emExpiresAt: null as Date | null, emReleasedUntil: null as Date | null, fleet: { unitId: 'u1' }, tenant: { name: 'Transportes Sul' } };
 const at = (h: number) => new Date(Date.UTC(2026, 10, 26, h));
 const chk = (id: string, vehicleId: string, driverId: string, name: string, h: number, plate = 'ABC1D23') => ({
   id, vehicleId, driverId, completedAt: at(h), driver: { name }, vehicle: { plate, prefix: null, model: null },
@@ -29,20 +29,32 @@ function service({ checklists = [] as unknown[], recent = null as unknown, found
 afterEach(() => vi.restoreAllMocks());
 
 describe('Como estou dirigindo — página do passageiro', () => {
-  it('motorista atual é o do checklist mais recente do veículo; os outros do dia vêm em ordem alfabética, sem repetir', async () => {
-    const { driving } = service({
+  it('só motoristas DESTE veículo: o atual é o do checklist mais recente, depois a troca de turno (sem repetir)', async () => {
+    const { driving, prisma } = service({
       checklists: [
-        chk('c5', 'v2', 'd2', 'Bruno Lima', 14, 'XYZ9A88'), // Bruno inspecionou outro veículo depois
-        chk('c4', 'v1', 'd2', 'Bruno Lima', 12), // ... mas é o último a inspecionar este
-        chk('c3', 'v3', 'd3', 'Ana Paula Souza', 11, 'QWE1R22'),
-        chk('c2', 'v1', 'd1', 'Carlos Eduardo de Souza', 7), // motorista da manhã neste veículo
-        chk('c1', 'v3', 'd3', 'Ana Paula Souza', 6, 'QWE1R22'),
+        // A consulta já traz só os checklists deste veículo (v1), das últimas horas, do mais recente ao mais antigo.
+        chk('c4', 'v1', 'd2', 'Bruno Lima', 12),
+        chk('c2', 'v1', 'd1', 'Carlos Eduardo de Souza', 7), // motorista da manhã, mesmo veículo
+        chk('c0', 'v1', 'd1', 'Carlos Eduardo de Souza', 5), // inspeção anterior do Carlos (não repete)
       ],
     });
     const res = await driving.publicVehicle(TOKEN);
     expect(res.companyName).toBe('Transportes Sul');
     expect(res.current).toMatchObject({ checklistId: 'c4', driverName: 'Bruno L.', plate: 'ABC1D23' });
-    expect(res.others.map((o) => [o.checklistId, o.driverName])).toEqual([['c3', 'Ana S.'], ['c2', 'Carlos S.']]);
+    expect(res.others.map((o) => [o.checklistId, o.driverName])).toEqual([['c2', 'Carlos S.']]);
+    // Consulta restrita ao veículo da placa e à janela de horas (não à frente inteira).
+    const where = prisma.checklist.findMany.mock.calls[0][0].where;
+    expect(where.vehicleId).toBe('v1');
+    expect(where.vehicle?.fleet).toBeUndefined();
+    expect(where.completedAt.gte).toBeInstanceOf(Date);
+    // Quadro de segurança: checklist do veículo, sem eletromecânica registrada, liberado.
+    expect(res.safety).toEqual({ checklistToday: { at: at(12), driverName: 'Bruno L.' }, electromechanical: { state: 'SEM_REGISTRO', expiresAt: null }, status: 'LIBERADO' });
+  });
+
+  it('quadro de segurança: sem checklist hoje e eletromecânica vencida (bloqueado)', async () => {
+    const { driving } = service({ found: { ...vehicle, emExpiresAt: new Date('2020-01-01T00:00:00Z') } });
+    const res = await driving.publicVehicle(TOKEN);
+    expect(res.safety).toEqual({ checklistToday: null, electromechanical: { state: 'VENCIDA', expiresAt: '2020-01-01' }, status: 'BLOQUEADO' });
   });
 
   it('QR inválido ou trocado: 404 sem consultar nada', async () => {

@@ -12,6 +12,7 @@ import { randomUUID } from 'node:crypto';
 import { ClsService } from 'nestjs-cls';
 import { autoBlockCriticalNc } from '../company/company-settings';
 import { PrismaService } from '../prisma/prisma.service';
+import { effectiveVehicleStatus, emStatus } from '../electromechanical/em-rules';
 import { StorageService } from '../storage/storage.service';
 import { SubmitChecklistDto } from './dto/submit-checklist.dto';
 import {
@@ -253,7 +254,8 @@ export class ChecklistExecutionService {
           checklistId: checklist.id,
           ncsOpened,
           ncsRecurrent,
-          vehicleStatus,
+          // O app mostra "Veículo bloqueado" também quando a eletromecânica venceu.
+          vehicleStatus: effectiveVehicleStatus(vehicleStatus, emStatus(vehicle.emExpiresAt, vehicle.emReleasedUntil)),
         };
       }, SUBMIT_TRANSACTION);
     } catch (error) {

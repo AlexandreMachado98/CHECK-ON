@@ -8,6 +8,7 @@ import { dashboardTimeZone, startOfDayInTimeZone } from './time-zone';
 import { PANEL_ROLES } from '../role/role-definitions';
 import { ReportQueryDto, resolveReportRange } from './report-period';
 import { suggestionScore } from '../suggestion/suggestion-rules';
+import { sqlEmBlocked } from '../electromechanical/em-rules';
 
 type SummaryRow = {
   activeVehicles: number;
@@ -61,6 +62,8 @@ export class DashboardService {
     const ncScope = sqlVehicleInScope('"vehicleId"');
     const checklistScope = sqlVehicleInScope('"vehicleId"');
 
+    // Eletromecânica vencida sem liberação conta como bloqueado, qualquer que seja a situação das NCs.
+    const emBlocked = sqlEmBlocked('"Vehicle"');
     const [row] = await this.prisma.$queryRaw<SummaryRow[]>`
       SELECT
         (SELECT COUNT(*) FROM "Vehicle"  WHERE "tenantId" = ${tenantId} AND "isActive"${vehicleScope})::int AS "activeVehicles",
@@ -68,9 +71,9 @@ export class DashboardService {
         (SELECT COUNT(*) FROM "Employee" WHERE "tenantId" = ${tenantId} AND "isActive"${employeeScope})::int AS "activeEmployees",
         (SELECT COUNT(*) FROM "User" u JOIN "Role" r ON r.id = u."roleId"
            WHERE u."tenantId" = ${tenantId} AND u."isActive" AND r.name IN (${panelRoles})${userScope})::int AS "activeUsers",
-        (SELECT COUNT(*) FROM "Vehicle"  WHERE "tenantId" = ${tenantId} AND "isActive" AND "status" = 'LIBERADO'${vehicleScope})::int  AS "liberados",
-        (SELECT COUNT(*) FROM "Vehicle"  WHERE "tenantId" = ${tenantId} AND "isActive" AND "status" = 'ATENCAO'${vehicleScope})::int   AS "atencao",
-        (SELECT COUNT(*) FROM "Vehicle"  WHERE "tenantId" = ${tenantId} AND "isActive" AND "status" = 'BLOQUEADO'${vehicleScope})::int AS "bloqueados",
+        (SELECT COUNT(*) FROM "Vehicle"  WHERE "tenantId" = ${tenantId} AND "isActive" AND "status" = 'LIBERADO' AND NOT ${emBlocked}${vehicleScope})::int  AS "liberados",
+        (SELECT COUNT(*) FROM "Vehicle"  WHERE "tenantId" = ${tenantId} AND "isActive" AND "status" = 'ATENCAO' AND NOT ${emBlocked}${vehicleScope})::int   AS "atencao",
+        (SELECT COUNT(*) FROM "Vehicle"  WHERE "tenantId" = ${tenantId} AND "isActive" AND ("status" = 'BLOQUEADO' OR ${emBlocked})${vehicleScope})::int AS "bloqueados",
         (SELECT COUNT(*) FROM "NonConformity" WHERE "tenantId" = ${tenantId} AND "status" IN (${activeStatuses})${ncScope})::int AS "ncsActive",
         (SELECT COUNT(*) FROM "NonConformity" WHERE "tenantId" = ${tenantId} AND "status" IN (${activeStatuses}) AND "severity" = 'CRITICAL'${ncScope})::int AS "ncsCritical",
         (SELECT COUNT(*) FROM "NonConformity" WHERE "tenantId" = ${tenantId} AND "status" IN (${activeStatuses}) AND "occurrences" > 1${ncScope})::int AS "ncsRecurrent",
@@ -168,7 +171,8 @@ export class DashboardService {
         inspections: number; completed: number; withNc: number; ncsOpened: number; activeNcs: number; lastInspection: Date | null;
       }[]
     >`
-      SELECT v."plate", v."prefix", v."model", f."name" AS "fleet", u."name" AS "unit", v."status",
+      SELECT v."plate", v."prefix", v."model", f."name" AS "fleet", u."name" AS "unit",
+        CASE WHEN ${sqlEmBlocked('v')} THEN 'BLOQUEADO' ELSE v."status" END AS "status",
         COALESCE(ck."inspections", 0)::int AS "inspections",
         COALESCE(ck."completed", 0)::int AS "completed",
         COALESCE(ck."withNc", 0)::int AS "withNc",

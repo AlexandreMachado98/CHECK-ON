@@ -3,14 +3,16 @@ import { createHash, randomBytes } from 'node:crypto';
 import { ClsServiceManager } from 'nestjs-cls';
 import { PrismaService } from '../prisma/prisma.service';
 import { RateLimiter } from '../common/rate-limit';
-import { dashboardTimeZone, startOfDayInTimeZone } from '../dashboard/time-zone';
 import { PassengerQrDto, SubmitDrivingFeedbackDto, TreatDrivingFeedbackDto } from './dto/driving.dto';
+import { effectiveVehicleStatus, emStatus } from '../electromechanical/em-rules';
 import { DRIVING_TAGS, REPEAT_WINDOW_HOURS, TAG_GROUPS, contradiction, findPassengerVehicle, isAlert, shortName } from './driving-rules';
 
 /** Envios por IP na janela: sobra para um ônibus cheio no mesmo Wi-Fi, barra robô. */
 const IP_MAX = 60;
 const IP_WINDOW_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
+/** Só motoristas que inspecionaram ESTE veículo nas últimas horas aparecem para o passageiro. */
+const DRIVER_WINDOW_HOURS = 12;
 
 type DriverOption = { checklistId: string; driverName: string; plate: string; prefix: string | null; model: string | null; completedAt: Date | null };
 type Actor = { id: string };
@@ -33,10 +35,17 @@ export class DrivingService {
   async publicVehicle(token: string) {
     const vehicle = await this.findByToken(token);
     const drivers = await this.driversToday(vehicle);
-    const current = drivers.find((d) => d.vehicleId === vehicle.id) ?? null;
+    const current = drivers[0] ?? null;
+    const em = emStatus(vehicle.emExpiresAt, vehicle.emReleasedUntil);
     return {
       companyName: vehicle.tenant.name,
       vehicle: { plate: vehicle.plate, prefix: vehicle.prefix, model: vehicle.model },
+      // Quadro de segurança para o passageiro: checklist de hoje, eletromecânica e situação.
+      safety: {
+        checklistToday: current ? { at: current.completedAt, driverName: shortName(current.driver.name) } : null,
+        electromechanical: { state: em.state, expiresAt: em.expiresAt },
+        status: effectiveVehicleStatus(vehicle.status, em),
+      },
       current: current && this.option(current),
       others: drivers.filter((d) => d !== current).map((d) => this.option(d)),
       tags: DRIVING_TAGS,
@@ -54,7 +63,7 @@ export class DrivingService {
     if (dto.checklistId) {
       const drivers = await this.driversToday(vehicle);
       const chosen = drivers.find((d) => d.id === dto.checklistId);
-      if (!chosen) throw new BadRequestException('Este motorista não aparece mais na lista de hoje. Atualize a página e escolha de novo.');
+      if (!chosen) throw new BadRequestException('Este motorista não aparece mais na lista deste veículo. Atualize a página e escolha de novo.');
       checklist = { id: chosen.id, driverId: chosen.driverId };
     }
     const tags = [...new Set(dto.tags ?? [])];
@@ -200,20 +209,21 @@ export class DrivingService {
   }
 
   /**
-   * Motoristas com inspeção concluída hoje (fuso do painel) em veículos da mesma frente: a mais
-   * recente de cada motorista. O motorista atual do veículo é o da inspeção mais recente dele.
+   * Motoristas que fizeram a inspeção DESTE veículo (desta placa) nas últimas horas: a mais recente
+   * de cada motorista, o atual primeiro. Só deste veículo, para o passageiro não avaliar, por engano,
+   * o motorista de outro veículo da frente (ex.: a van do prefixo 45 puxando o motorista do 61).
    */
-  private async driversToday(vehicle: { id: string; tenantId: string; fleet: { unitId: string } }) {
-    const since = startOfDayInTimeZone(new Date(), dashboardTimeZone());
+  private async driversToday(vehicle: { id: string; tenantId: string }) {
+    const since = new Date(Date.now() - DRIVER_WINDOW_HOURS * 60 * 60 * 1000);
     const checklists = await this.prisma.checklist.findMany({
       where: {
         tenantId: vehicle.tenantId,
+        vehicleId: vehicle.id,
         completedAt: { gte: since },
-        vehicle: { isActive: true, fleet: { unitId: vehicle.fleet.unitId } },
         driver: { isActive: true },
       },
       orderBy: { completedAt: 'desc' },
-      take: 500,
+      take: 200,
       select: {
         id: true,
         vehicleId: true,
@@ -223,18 +233,16 @@ export class DrivingService {
         vehicle: { select: { plate: true, prefix: true, model: true } },
       },
     });
-    // O veículo do QR: vale a inspeção mais recente dele, mesmo que o motorista tenha inspecionado
-    // outro depois. Dos demais motoristas, a inspeção mais recente de cada um.
-    const ownLatest = checklists.find((c) => c.vehicleId === vehicle.id);
-    const seen = new Set<string>(ownLatest ? [ownLatest.driverId] : []);
-    const others: typeof checklists = [];
+    // A inspeção mais recente do veículo define o motorista atual; os demais que inspecionaram o
+    // mesmo veículo nas últimas horas (troca de turno) vêm depois, a mais recente de cada um.
+    const seen = new Set<string>();
+    const unique: typeof checklists = [];
     for (const c of checklists) {
       if (seen.has(c.driverId)) continue;
       seen.add(c.driverId);
-      others.push(c);
+      unique.push(c);
     }
-    others.sort((a, b) => a.driver.name.localeCompare(b.driver.name, 'pt-BR'));
-    return ownLatest ? [ownLatest, ...others] : others;
+    return unique;
   }
 
   private option(c: { id: string; completedAt: Date | null; driver: { name: string }; vehicle: { plate: string; prefix: string | null; model: string | null } }): DriverOption {

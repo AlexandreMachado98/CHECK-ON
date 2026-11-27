@@ -95,6 +95,8 @@ export function unitScopeFilter(model: string, scope: UnitScope): Record<string,
       return { OR: [{ fleetId: null }, { fleet: fleetFilter(unitIds) }] };
     case 'MaintenanceRecord':
     case 'DrivingFeedback':
+    case 'ElectromechanicalInspection':
+    case 'ElectromechanicalRelease':
       return { vehicle: vehicleFilter(unitIds) };
     case 'Suggestion':
       // Frente gravada no envio (a da placa naquele momento).
